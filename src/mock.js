@@ -151,21 +151,26 @@ module.exports = {
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),
   lenhSX: ({ q }) => lenhSX.filter((l) => !q || l.lenhSX.includes(q) || l.maHang.includes(q))
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
-  btpCatNXT: ({ lenhSX: lenh, tuNgay, denNgay }) => {
-    const groups = new Map();
-    tem.filter((t) => (!lenh || t.lenhSX === lenh) && inRange(t.ngayTao, tuNgay, denNgay)).forEach((t) => {
-      const key = [t.lenhSX, t.loaiNL, t.chiTiet, t.mau, t.size].join('|');
-      const g = groups.get(key) || {
-        lenhSX: t.lenhSX, loaiNL: t.loaiNL, chiTiet: t.chiTiet, mau: t.mau, size: t.size, maHang: t.maHang,
-        soTem: 0, slCat: 0, slXuat: 0, tuNgay: t.ngayTao, denNgay: t.ngayTao,
+  btpCatNXT: ({ lenhSX: lenh, tuNgay, denNgay }) => tem
+    .filter((t) => (!lenh || t.lenhSX === lenh) && inRange(t.ngayTao, tuNgay, denNgay))
+    .flatMap((t) => {
+      const goc = {
+        barcode: t.barcode, ngayTao: t.ngayTao, lenhSX: t.lenhSX, maHang: t.maHang, mua: 'SS27', loaiNL: t.loaiNL, chiTiet: t.chiTiet,
+        mau: t.mau, mauVai: t.mau, size: t.size, banCat: 1 + (t.idBanMay % 9), idBanMay: t.idBanMay, phieuHoachToan: String(130000 + (t.idBanMay % 5000)),
       };
-      g.soTem++; g.slCat += t.soLuong; g.slXuat += t.slXuat;
-      if (t.ngayTao < g.tuNgay) g.tuNgay = t.ngayTao;
-      if (t.ngayTao > g.denNgay) g.denNgay = t.ngayTao;
-      groups.set(key, g);
-    });
-    return [...groups.values()].map((g) => ({ ...g, slTon: g.slCat - g.slXuat }));
-  },
+      const xs = quetXuat.filter((x) => x.barcode === t.barcode);
+      if (!xs.length) return [{ ...goc, slCat: t.soLuong, slTon: t.soLuong - t.slXuat }];
+      return xs.map((x, i) => {
+        const pc = phieuCap.find((p) => p.soPhieu === x.soPhieu);
+        return {
+          ...goc, slCat: i ? null : t.soLuong, slTon: i ? null : t.soLuong - t.slXuat,
+          soPhieuCap: x.soPhieu, temXuat: x.barcode, lenhXuat: pc.lenhSX, po: x.po, sizeDat: x.size, xn: pc.xnCode, maTo: pc.to,
+          ngayNhan: pc.ngayNhan, slXuat: x.soLuong, thoiGianXuat: x.thoiGianXuat, nguoiXuat: x.nguoiXuat,
+          slNhan: x.thoiGianNhan ? x.soLuong : null, thoiGianNhan: x.thoiGianNhan,
+        };
+      });
+    })
+    .sort((a, b) => a.ngayTao.localeCompare(b.ngayTao) || a.barcode.localeCompare(b.barcode)),
   btpCatXuat: ({ lenhSX: lenh, loaiNL, chiTiet, mau, size, tuNgay, denNgay }) => {
     const codes = new Set(tem.filter((t) => t.lenhSX === lenh && t.loaiNL === loaiNL && t.chiTiet === chiTiet && t.mau === mau && t.size === size
       && (!tuNgay || inRange(t.ngayTao, tuNgay, denNgay))).map((t) => t.barcode));

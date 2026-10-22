@@ -137,25 +137,30 @@ module.exports = {
       ORDER BY m.DocDate DESC, m.Id DESC`,
   },
 
-  // Nhập - xuất - tồn BTP cắt theo tem, gom theo lệnh x loại NL x chi tiết x màu x size.
-  // Lọc theo ngày tạo tem; @lenhSX = '' là mọi lệnh. Tham số: @lenhSX, @tuNgay, @denNgay
+  // Nhập - xuất - tồn BTP cắt chi tiết từng tem: mỗi dòng = 1 tem x 1 lần quét xuất cho phiếu cấp (tem chưa xuất: 1 dòng trống phần xuất).
+  // SL cắt / tồn chỉ ghi ở dòng đầu của tem để cộng không bị trùng. Lọc theo ngày tạo tem; @lenhSX = '' là mọi lệnh.
+  // Tham số: @lenhSX, @tuNgay, @denNgay
   btpCatNXT: {
     db: 'egmf',
     text: `
-      SELECT x.lenhSX, x.loaiNL, x.chiTiet, x.mau, x.size,
-             MAX(x.maHang) AS maHang, COUNT(*) AS soTem, MIN(x.NgayTao) AS tuNgay, MAX(x.NgayTao) AS denNgay,
-             SUM(x.sl) AS slCat, SUM(x.xuat) AS slXuat, SUM(x.sl) - SUM(x.xuat) AS slTon
-      FROM (
-        SELECT LEFT(REPLACE(ISNULL(t.LenhSanXuat, ''), ' ', ''), CHARINDEX(';', REPLACE(ISNULL(t.LenhSanXuat, ''), ' ', '') + ';') - 1) AS lenhSX,
-               ISNULL(t.LoaiNguyenLieu, '') AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
-               ISNULL(t.MauSP, '') AS mau, ISNULL(t.TenSize, '') AS size, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang,
-               t.NgayTao, ISNULL(t.SoLuong, 0) AS sl, ISNULL(t.SoLuongThucXuat, 0) AS xuat
-        FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
-        WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
-          AND (@lenhSX = '' OR ${matchLenh('t.LenhSanXuat')})
-      ) x
-      GROUP BY x.lenhSX, x.loaiNL, x.chiTiet, x.mau, x.size
-      ORDER BY x.lenhSX, x.loaiNL, x.chiTiet, x.mau, x.size`,
+      SELECT TOP 30000 t.Barcode AS barcode, t.NgayTao AS ngayTao,
+             REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang, t.Mua AS mua,
+             t.LoaiNguyenLieu AS loaiNL, t.TenChiTiet AS chiTiet, t.MauSP AS mau, t.MauVai AS mauVai, t.TenSize AS size,
+             t.BanMay AS banCat, t.IdBanMay AS idBanMay, ht.SoPhieu AS phieuHoachToan, t.ViTriBTP AS viTri,
+             CASE WHEN ROW_NUMBER() OVER (PARTITION BY t.Id ORDER BY bc.ThoiGianQuetXuat) = 1 THEN ISNULL(t.SoLuong, 0) END AS slCat,
+             CASE WHEN ROW_NUMBER() OVER (PARTITION BY t.Id ORDER BY bc.ThoiGianQuetXuat) = 1
+                  THEN ISNULL(t.SoLuong, 0) - ISNULL(t.SoLuongThucXuat, 0) END AS slTon,
+             bc.SoPhieuCapBTP AS soPhieuCap, bc.BarcodeCapBTPMoi AS temXuat, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', '') AS lenhXuat,
+             bc.PO AS po, bc.Size AS sizeDat, pc.TenPhanXuong AS xn, LTRIM(RTRIM(pc.TenCum)) AS maTo, pc.NgayNhanBTP AS ngayNhan,
+             bc.SoLuongDaXuat AS slXuat, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
+             bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan
+      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+      LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
+      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
+        AND (@lenhSX = '' OR ${matchLenh('t.LenhSanXuat')})
+      ORDER BY t.NgayTao, t.Barcode, bc.ThoiGianQuetXuat`,
   },
 
   // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng

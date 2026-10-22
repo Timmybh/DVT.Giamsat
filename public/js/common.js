@@ -71,7 +71,7 @@ const App = {
   },
 
   _veBang(el) {
-    const { cols, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter } } = el._tbl;
+    const { cols, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter, maxRows } } = el._tbl;
     if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
     const loc = el._loc;
     let data = rows.filter((r) => cols.every((c, i) => !loc.an[i] || !loc.an[i].has(App._chu(c, r))));
@@ -105,8 +105,9 @@ const App = {
     }).join('');
     el.innerHTML = `<div class="table-wrap"><table>
       <thead><tr>${head}</tr>${totalRow}</thead>
-      <tbody>${data.length ? data.map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')
-        : `<tr><td colspan="${cols.length}" class="empty">Không có dòng nào khớp bộ lọc</td></tr>`}</tbody>
+      <tbody>${data.length ? (maxRows ? data.slice(0, maxRows) : data).map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')
+        : `<tr><td colspan="${cols.length}" class="empty">Không có dòng nào khớp bộ lọc</td></tr>`}
+      ${maxRows && data.length > maxRows ? `<tr><td colspan="${cols.length}" class="empty">Đang hiện ${App.num(maxRows)} / ${App.num(data.length)} dòng. Lọc cột để thu hẹp; dòng Tổng vẫn tính đủ ${App.num(data.length)} dòng.</td></tr>` : ''}</tbody>
       ${totalRow ? `<tfoot>${totalRow}</tfoot>` : ''}</table></div>`;
     if (onClick) {
       el.querySelectorAll('tbody tr[data-i]').forEach((tr) => tr.addEventListener('click', () => {
@@ -120,45 +121,48 @@ const App = {
     el.querySelectorAll('.loc-nut').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); App._moLoc(el, Number(b.dataset.c), b); }));
   },
 
-  // Hộp lọc kiểu Excel cho cột i
+  // Hộp lọc kiểu Excel cho cột i. Danh sách giá trị chỉ vẽ tối đa 500 dòng khớp ô tìm.
   _moLoc(el, i, nut) {
     document.querySelectorAll('.loc-hop').forEach((x) => x.remove());
     const { cols, rows } = el._tbl;
     const c = cols[i];
     const loc = el._loc;
     const giaTri = [...new Set(rows.map((r) => App._chu(c, r)))];
-    giaTri.sort(c.type === 'num' ? (a, b) => Number(a.replace(/\./g, '').replace(',', '.') || 0) - Number(b.replace(/\./g, '').replace(',', '.') || 0)
-      : (a, b) => a.localeCompare(b, 'vi', { numeric: true }));
-    const an = new Set(loc.an[i] || []);
+    const so = (x) => Number(x.replace(/\./g, '').replace(',', '.') || 0);
+    giaTri.sort(c.type === 'num' ? (a, b) => so(a) - so(b) : (a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+    const bo = new Set(loc.an[i] || []); // giá trị bị bỏ tick
     const hop = document.createElement('div');
     hop.className = 'loc-hop';
     hop.innerHTML = `
       <button data-s="1">Sắp xếp tăng dần</button><button data-s="-1">Sắp xếp giảm dần</button>
       <input class="loc-tim" placeholder="Tìm…">
       <label class="loc-all"><input type="checkbox"> (Chọn tất cả)</label>
-      <div class="loc-ds">${giaTri.map((v, k) => `<label><input type="checkbox" data-k="${k}"${an.has(v) ? '' : ' checked'}> ${App.esc(v === '' ? '(Trống)' : v)}</label>`).join('')}</div>
+      <div class="loc-ds"></div>
       <div class="loc-cuoi"><button class="phu" data-x>Xóa lọc</button><button data-ok>OK</button></div>`;
     document.body.appendChild(hop);
     const r = nut.getBoundingClientRect();
     hop.style.top = `${r.bottom + window.scrollY + 4}px`;
     hop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - hop.offsetWidth - 8))}px`;
-    const boxes = [...hop.querySelectorAll('.loc-ds input')];
+    const ds = hop.querySelector('.loc-ds');
     const all = hop.querySelector('.loc-all input');
-    const hien = () => boxes.filter((b) => b.parentElement.style.display !== 'none');
-    const capNhatAll = () => { const h = hien(); all.checked = h.every((b) => b.checked); all.indeterminate = !all.checked && h.some((b) => b.checked); };
-    capNhatAll();
-    all.onchange = () => hien().forEach((b) => (b.checked = all.checked));
-    boxes.forEach((b) => (b.onchange = capNhatAll));
     const tim = hop.querySelector('.loc-tim');
-    tim.oninput = () => {
+    let khop = giaTri;
+    const capNhatAll = () => {
+      const chon = khop.filter((v) => !bo.has(v)).length;
+      all.checked = chon === khop.length; all.indeterminate = chon > 0 && chon < khop.length;
+    };
+    const ve = () => {
       const q = tim.value.trim().toLowerCase();
-      boxes.forEach((b) => {
-        const khop = !q || giaTri[b.dataset.k].toLowerCase().includes(q);
-        b.parentElement.style.display = khop ? '' : 'none';
-        if (q) b.checked = khop;
-      });
+      khop = q ? giaTri.filter((v) => v.toLowerCase().includes(q)) : giaTri;
+      ds.innerHTML = khop.slice(0, 500).map((v, k) => `<label><input type="checkbox" data-k="${k}"${bo.has(v) ? '' : ' checked'}> ${App.esc(v === '' ? '(Trống)' : v)}</label>`).join('')
+        + (khop.length > 500 ? `<div class="loc-them">… còn ${App.num(khop.length - 500)} giá trị, gõ thêm để tìm</div>` : '');
+      ds.querySelectorAll('input').forEach((b) => (b.onchange = () => { const v = khop[b.dataset.k]; if (b.checked) bo.delete(v); else bo.add(v); capNhatAll(); }));
       capNhatAll();
     };
+    all.onchange = () => { khop.forEach((v) => (all.checked ? bo.delete(v) : bo.add(v))); ve(); };
+    // Gõ tìm rồi OK: chỉ giữ các giá trị khớp (như Excel)
+    tim.oninput = ve;
+    ve();
     tim.focus();
     const dong = () => { hop.remove(); document.removeEventListener('mousedown', ngoai); };
     const ngoai = (e) => { if (!hop.contains(e.target)) dong(); };
@@ -166,7 +170,7 @@ const App = {
     hop.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { loc.sort = { i, dir: Number(b.dataset.s) }; dong(); App._veBang(el); }));
     hop.querySelector('[data-x]').onclick = () => { delete loc.an[i]; if (loc.sort && loc.sort.i === i) loc.sort = null; dong(); App._veBang(el); };
     hop.querySelector('[data-ok]').onclick = () => {
-      const bo = new Set(boxes.filter((b) => !b.checked).map((b) => giaTri[b.dataset.k]));
+      if (tim.value.trim()) { const k = new Set(khop); giaTri.forEach((v) => { if (!k.has(v)) bo.add(v); }); }
       if (bo.size) loc.an[i] = bo; else delete loc.an[i];
       dong(); App._veBang(el);
     };
