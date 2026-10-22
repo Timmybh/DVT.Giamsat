@@ -86,10 +86,12 @@ router.get('/chi-tiet-dat-btp', handle('chiTietDatBTP', async (req) => ({
 router.get('/phieu-cap-btp/:soPhieu/chi-tiet', handle('phieuCapChiTiet', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/phieu-cap-btp/:soPhieu/phieu-xuat', handle('phieuXuatTheoPhieuCap', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/lenh-sx', handle('lenhSX', (req) => ({ q: (req.query.q || '').trim() })));
-router.get('/btp-cat', handle('btpCatNXT', (req) => ({ lenhSX: (req.query.lenhSX || '').trim() })));
+router.get('/btp-cat', handle('btpCatNXT', (req) => ({
+  lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay,
+})));
 router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
   lenhSX: (req.query.lenhSX || '').trim(), loaiNL: req.query.loaiNL || '', chiTiet: req.query.chiTiet || '',
-  mau: req.query.mau || '', size: req.query.size || '',
+  mau: req.query.mau || '', size: req.query.size || '', tuNgay: req.query.tuNgay || '', denNgay: req.query.denNgay || '',
 })));
 
 // ---- Nhập xuất tồn BTP cắt theo điều tiết ----

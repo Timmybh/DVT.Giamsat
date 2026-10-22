@@ -46,11 +46,12 @@ xiNghiep.forEach((xn) => {
     const toObj = pick(to[xn.ma]);
     const bd = int(-20, 5);
     const po = String(int(4524000000, 4525999999));
+    const kh = pick(khach);
     let tong = 0;
 
     // Điều tiết -> bó cắt -> tem: mỗi bó in 1 tem cho mỗi chi tiết của loại NL
     const phieuDT = Object.fromEntries(loaiNLList.map((loaiNL) => {
-      const p = { id: idDT++, lenhSX: lenh, loaiNL };
+      const p = { id: idDT++, lenhSX: lenh, loaiNL, maHang, khachHang: kh };
       dieuTiet.push(p);
       return [loaiNL, p];
     }));
@@ -67,12 +68,12 @@ xiNghiep.forEach((xn) => {
           const bm = { idBanMay: idBM++, idPhieu: p.id, mau, size, soLuong: sl };
           banMay.push(bm);
           chiTietList.filter((c) => c[0] === loaiNL).forEach(([, chiTiet]) => {
-            tem.push({ barcode: `BTP26100${String(soTem++).padStart(5, '0')}`, lenhSX: lenh, maHang, loaiNL, chiTiet, mau, size, soLuong: sl, slXuat: 0, idBanMay: bm.idBanMay });
+            tem.push({ barcode: `BTP26100${String(soTem++).padStart(5, '0')}`, lenhSX: lenh, maHang, loaiNL, chiTiet, mau, size, soLuong: sl, slXuat: 0, idBanMay: bm.idBanMay, ngayTao: day(bd - int(1, 4), 10) });
           });
         }
       });
     }));
-    lenhSX.push({ lenhSX: lenh, maHang, mua: 'SS27', khachHang: pick(khach), ngay: day(bd - 15), soLuong: tong });
+    lenhSX.push({ lenhSX: lenh, maHang, mua: 'SS27', khachHang: kh, ngay: day(bd - 15), soLuong: tong });
     keHoach.push({
       xn: xn.ma, maTo: toObj.ma, tenTo: toObj.ma, maHang, soLuong: tong,
       ngayVaoChuyen: day(bd - 1), ngayBatDau: day(bd), ngayKetThuc: day(bd + int(5, 15)),
@@ -150,18 +151,24 @@ module.exports = {
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),
   lenhSX: ({ q }) => lenhSX.filter((l) => !q || l.lenhSX.includes(q) || l.maHang.includes(q))
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
-  btpCatNXT: ({ lenhSX: lenh }) => {
+  btpCatNXT: ({ lenhSX: lenh, tuNgay, denNgay }) => {
     const groups = new Map();
-    tem.filter((t) => t.lenhSX === lenh).forEach((t) => {
-      const key = [t.loaiNL, t.chiTiet, t.mau, t.size].join('|');
-      const g = groups.get(key) || { loaiNL: t.loaiNL, chiTiet: t.chiTiet, mau: t.mau, size: t.size, maHang: t.maHang, soTem: 0, slCat: 0, slXuat: 0 };
+    tem.filter((t) => (!lenh || t.lenhSX === lenh) && inRange(t.ngayTao, tuNgay, denNgay)).forEach((t) => {
+      const key = [t.lenhSX, t.loaiNL, t.chiTiet, t.mau, t.size].join('|');
+      const g = groups.get(key) || {
+        lenhSX: t.lenhSX, loaiNL: t.loaiNL, chiTiet: t.chiTiet, mau: t.mau, size: t.size, maHang: t.maHang,
+        soTem: 0, slCat: 0, slXuat: 0, tuNgay: t.ngayTao, denNgay: t.ngayTao,
+      };
       g.soTem++; g.slCat += t.soLuong; g.slXuat += t.slXuat;
+      if (t.ngayTao < g.tuNgay) g.tuNgay = t.ngayTao;
+      if (t.ngayTao > g.denNgay) g.denNgay = t.ngayTao;
       groups.set(key, g);
     });
     return [...groups.values()].map((g) => ({ ...g, slTon: g.slCat - g.slXuat }));
   },
-  btpCatXuat: ({ lenhSX: lenh, loaiNL, chiTiet, mau, size }) => {
-    const codes = new Set(tem.filter((t) => t.lenhSX === lenh && t.loaiNL === loaiNL && t.chiTiet === chiTiet && t.mau === mau && t.size === size).map((t) => t.barcode));
+  btpCatXuat: ({ lenhSX: lenh, loaiNL, chiTiet, mau, size, tuNgay, denNgay }) => {
+    const codes = new Set(tem.filter((t) => t.lenhSX === lenh && t.loaiNL === loaiNL && t.chiTiet === chiTiet && t.mau === mau && t.size === size
+      && (!tuNgay || inRange(t.ngayTao, tuNgay, denNgay))).map((t) => t.barcode));
     const groups = new Map();
     quetXuat.filter((x) => codes.has(x.barcode)).forEach((x) => {
       const pc = phieuCap.find((p) => p.soPhieu === x.soPhieu);

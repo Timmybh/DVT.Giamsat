@@ -53,3 +53,19 @@ thead tr.total-row th { border-bottom: 2px solid var(--primary); }
 .card .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
 a.btn { display: inline-block; padding: 7px 14px; background: var(--primary-soft); color: var(--primary); border-radius: 4px; text-decoration: none; }
+/* Lọc cột kiểu Excel */
+.loc-nut { background: none; color: var(--muted); padding: 0 4px; margin-left: 4px; font-size: 11px; border: 1px solid var(--line); border-radius: 3px; line-height: 16px; }
+.loc-nut.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.loc-dem { font-weight: 400; color: var(--muted); }
+.loc-hop { position: absolute; z-index: 50; background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.15); padding: 8px; width: 260px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.loc-hop > button[data-s] { background: none; color: var(--text); text-align: left; padding: 5px 6px; }
+.loc-hop > button[data-s]:hover { background: var(--primary-soft); }
+.loc-tim { padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; }
+.loc-ds { max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+.loc-ds label, .loc-all { display: block; padding: 2px 0; white-space: nowrap; cursor: pointer; }
+.loc-cuoi { display: flex; justify-content: flex-end; gap: 6px; }
+.loc-cuoi .phu { background: var(--primary-soft); color: var(--primary); }
+/* Lưới dài: cuộn trong khung, giữ tiêu đề và dòng tổng */
+.luoi-cao .table-wrap { max-height: 65vh; overflow: auto; }
+.luoi-cao thead tr.total-row th { position: sticky; top: var(--th-cao, 32px); z-index: 1; }
+.luoi-cao thead tr:first-child th { z-index: 2; }

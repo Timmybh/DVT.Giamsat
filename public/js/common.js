@@ -53,9 +53,36 @@ const App = {
 
   // Vẽ bảng. cols: [{ key, label, type: 'num'|'date'|'datetime', render(row), sum, value(row), total(rows) }]
   // sum: cộng cột (theo value(row) nếu có); total(rows): HTML tự tính cho ô tổng.
-  // footer: dòng tổng hiện ngay dưới tiêu đề và ở cuối bảng.
-  table(el, cols, rows, { onClick, empty = 'Không có dữ liệu', footer } = {}) {
+  // footer: dòng tổng hiện ngay dưới tiêu đề và ở cuối bảng (tính trên các dòng đang hiện).
+  // filter: mỗi cột có nút ▾ để lọc giá trị / sắp xếp như Excel. Bộ lọc giữ nguyên khi vẽ lại cùng bảng.
+  table(el, cols, rows, opts = {}) {
+    el._tbl = { cols, rows, opts };
+    if (!el._loc || el._loc.cols !== cols.map((c) => c.key).join('|')) el._loc = { cols: cols.map((c) => c.key).join('|'), an: {}, sort: null };
+    App._veBang(el);
+  },
+
+  // Chữ hiển thị của 1 ô (dùng cho bộ lọc)
+  _chu(c, r) {
+    if (c.type === 'num') return App.num(c.value ? c.value(r) : r[c.key]);
+    if (c.type === 'date') return App.date(r[c.key]);
+    if (c.type === 'datetime') return App.datetime(r[c.key]);
+    if (c.render) { const d = document.createElement('div'); d.innerHTML = c.render(r); return d.textContent; }
+    return String(r[c.key] ?? '');
+  },
+
+  _veBang(el) {
+    const { cols, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter } } = el._tbl;
     if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
+    const loc = el._loc;
+    let data = rows.filter((r) => cols.every((c, i) => !loc.an[i] || !loc.an[i].has(App._chu(c, r))));
+    if (loc.sort) {
+      const c = cols[loc.sort.i];
+      const v = (r) => (c.value ? c.value(r) : r[c.key]);
+      const cmp = c.type === 'num' ? (a, b) => Number(v(a) || 0) - Number(v(b) || 0)
+        : (c.type === 'date' || c.type === 'datetime') ? (a, b) => new Date(v(a) || 0) - new Date(v(b) || 0)
+          : (a, b) => App._chu(c, a).localeCompare(App._chu(c, b), 'vi', { numeric: true });
+      data = [...data].sort((a, b) => cmp(a, b) * loc.sort.dir);
+    }
     const cell = (c, r) => {
       if (c.render) return c.render(r);
       if (c.type === 'num') return App.num(r[c.key]);
@@ -63,25 +90,87 @@ const App = {
       if (c.type === 'datetime') return App.datetime(r[c.key]);
       return App.esc(r[c.key]);
     };
+    const dangLoc = Object.values(loc.an).some((x) => x && x.size);
     let totalRow = '';
     if (footer) {
       totalRow = `<tr class="total-row">${cols.map((c, i) => {
-        if (c.total) return `<th>${c.total(rows)}</th>`;
-        if (c.sum) return `<th class="num">${App.num(rows.reduce((s, r) => s + Number((c.value ? c.value(r) : r[c.key]) || 0), 0))}</th>`;
-        return i === 0 ? `<th title="${App.num(rows.length)} dòng">Tổng</th>` : '<th></th>';
+        if (c.total) return `<th>${c.total(data)}</th>`;
+        if (c.sum) return `<th class="num">${App.num(data.reduce((s, r) => s + Number((c.value ? c.value(r) : r[c.key]) || 0), 0))}</th>`;
+        return i === 0 ? `<th title="${App.num(data.length)} dòng">Tổng${dangLoc ? ` <span class="loc-dem">(${App.num(data.length)}/${App.num(rows.length)} dòng)</span>` : ''}</th>` : '<th></th>';
       }).join('')}</tr>`;
     }
+    const head = cols.map((c, i) => {
+      const nut = filter ? `<button class="loc-nut${(loc.an[i] && loc.an[i].size) || (loc.sort && loc.sort.i === i) ? ' on' : ''}" data-c="${i}" title="Lọc / sắp xếp">${loc.sort && loc.sort.i === i ? (loc.sort.dir > 0 ? '▲' : '▼') : '▾'}</button>` : '';
+      return `<th class="${c.type === 'num' ? 'num' : ''}">${c.label}${nut}</th>`;
+    }).join('');
     el.innerHTML = `<div class="table-wrap"><table>
-      <thead><tr>${cols.map((c) => `<th class="${c.type === 'num' ? 'num' : ''}">${c.label}</th>`).join('')}</tr>${totalRow}</thead>
-      <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')}</tbody>
+      <thead><tr>${head}</tr>${totalRow}</thead>
+      <tbody>${data.length ? data.map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')
+        : `<tr><td colspan="${cols.length}" class="empty">Không có dòng nào khớp bộ lọc</td></tr>`}</tbody>
       ${totalRow ? `<tfoot>${totalRow}</tfoot>` : ''}</table></div>`;
     if (onClick) {
-      el.querySelectorAll('tbody tr').forEach((tr) => tr.addEventListener('click', () => {
+      el.querySelectorAll('tbody tr[data-i]').forEach((tr) => tr.addEventListener('click', () => {
         el.querySelectorAll('tr.selected').forEach((x) => x.classList.remove('selected'));
         tr.classList.add('selected');
-        onClick(rows[tr.dataset.i]);
+        onClick(data[tr.dataset.i]);
       }));
     }
+    const th = el.querySelector('thead tr:first-child th');
+    if (th) el.style.setProperty('--th-cao', `${th.offsetHeight}px`);
+    el.querySelectorAll('.loc-nut').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); App._moLoc(el, Number(b.dataset.c), b); }));
+  },
+
+  // Hộp lọc kiểu Excel cho cột i
+  _moLoc(el, i, nut) {
+    document.querySelectorAll('.loc-hop').forEach((x) => x.remove());
+    const { cols, rows } = el._tbl;
+    const c = cols[i];
+    const loc = el._loc;
+    const giaTri = [...new Set(rows.map((r) => App._chu(c, r)))];
+    giaTri.sort(c.type === 'num' ? (a, b) => Number(a.replace(/\./g, '').replace(',', '.') || 0) - Number(b.replace(/\./g, '').replace(',', '.') || 0)
+      : (a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+    const an = new Set(loc.an[i] || []);
+    const hop = document.createElement('div');
+    hop.className = 'loc-hop';
+    hop.innerHTML = `
+      <button data-s="1">Sắp xếp tăng dần</button><button data-s="-1">Sắp xếp giảm dần</button>
+      <input class="loc-tim" placeholder="Tìm…">
+      <label class="loc-all"><input type="checkbox"> (Chọn tất cả)</label>
+      <div class="loc-ds">${giaTri.map((v, k) => `<label><input type="checkbox" data-k="${k}"${an.has(v) ? '' : ' checked'}> ${App.esc(v === '' ? '(Trống)' : v)}</label>`).join('')}</div>
+      <div class="loc-cuoi"><button class="phu" data-x>Xóa lọc</button><button data-ok>OK</button></div>`;
+    document.body.appendChild(hop);
+    const r = nut.getBoundingClientRect();
+    hop.style.top = `${r.bottom + window.scrollY + 4}px`;
+    hop.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - hop.offsetWidth - 8))}px`;
+    const boxes = [...hop.querySelectorAll('.loc-ds input')];
+    const all = hop.querySelector('.loc-all input');
+    const hien = () => boxes.filter((b) => b.parentElement.style.display !== 'none');
+    const capNhatAll = () => { const h = hien(); all.checked = h.every((b) => b.checked); all.indeterminate = !all.checked && h.some((b) => b.checked); };
+    capNhatAll();
+    all.onchange = () => hien().forEach((b) => (b.checked = all.checked));
+    boxes.forEach((b) => (b.onchange = capNhatAll));
+    const tim = hop.querySelector('.loc-tim');
+    tim.oninput = () => {
+      const q = tim.value.trim().toLowerCase();
+      boxes.forEach((b) => {
+        const khop = !q || giaTri[b.dataset.k].toLowerCase().includes(q);
+        b.parentElement.style.display = khop ? '' : 'none';
+        if (q) b.checked = khop;
+      });
+      capNhatAll();
+    };
+    tim.focus();
+    const dong = () => { hop.remove(); document.removeEventListener('mousedown', ngoai); };
+    const ngoai = (e) => { if (!hop.contains(e.target)) dong(); };
+    setTimeout(() => document.addEventListener('mousedown', ngoai));
+    hop.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { loc.sort = { i, dir: Number(b.dataset.s) }; dong(); App._veBang(el); }));
+    hop.querySelector('[data-x]').onclick = () => { delete loc.an[i]; if (loc.sort && loc.sort.i === i) loc.sort = null; dong(); App._veBang(el); };
+    hop.querySelector('[data-ok]').onclick = () => {
+      const bo = new Set(boxes.filter((b) => !b.checked).map((b) => giaTri[b.dataset.k]));
+      if (bo.size) loc.an[i] = bo; else delete loc.an[i];
+      dong(); App._veBang(el);
+    };
+    tim.onkeydown = (e) => { if (e.key === 'Enter') hop.querySelector('[data-ok]').click(); if (e.key === 'Escape') dong(); };
   },
 
   loading(el) { el.innerHTML = '<div class="empty">Đang tải…</div>'; },

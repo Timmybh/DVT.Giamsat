@@ -137,25 +137,30 @@ module.exports = {
       ORDER BY m.DocDate DESC, m.Id DESC`,
   },
 
-  // Nhập - xuất - tồn BTP cắt theo lệnh SX, gom theo loại NL x chi tiết x màu x size. Tham số: @lenhSX
+  // Nhập - xuất - tồn BTP cắt theo tem, gom theo lệnh x loại NL x chi tiết x màu x size.
+  // Lọc theo ngày tạo tem; @lenhSX = '' là mọi lệnh. Tham số: @lenhSX, @tuNgay, @denNgay
   btpCatNXT: {
     db: 'egmf',
     text: `
-      SELECT ISNULL(t.LoaiNguyenLieu, '') AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
-             ISNULL(t.MauSP, '') AS mau, ISNULL(t.TenSize, '') AS size,
-             MAX(t.MaHang) AS maHang, COUNT(*) AS soTem,
-             SUM(ISNULL(t.SoLuong, 0)) AS slCat,
-             SUM(ISNULL(t.SoLuongThucXuat, 0)) AS slXuat,
-             SUM(ISNULL(t.SoLuong, 0)) - SUM(ISNULL(t.SoLuongThucXuat, 0)) AS slTon
-      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
-      WHERE ${matchLenh('t.LenhSanXuat')}
-      GROUP BY ISNULL(t.LoaiNguyenLieu, ''), ISNULL(t.TenChiTiet, ''), ISNULL(t.MauSP, ''), ISNULL(t.TenSize, '')
-      ORDER BY loaiNL, chiTiet, mau, size`,
+      SELECT x.lenhSX, x.loaiNL, x.chiTiet, x.mau, x.size,
+             MAX(x.maHang) AS maHang, COUNT(*) AS soTem, MIN(x.NgayTao) AS tuNgay, MAX(x.NgayTao) AS denNgay,
+             SUM(x.sl) AS slCat, SUM(x.xuat) AS slXuat, SUM(x.sl) - SUM(x.xuat) AS slTon
+      FROM (
+        SELECT LEFT(REPLACE(ISNULL(t.LenhSanXuat, ''), ' ', ''), CHARINDEX(';', REPLACE(ISNULL(t.LenhSanXuat, ''), ' ', '') + ';') - 1) AS lenhSX,
+               ISNULL(t.LoaiNguyenLieu, '') AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
+               ISNULL(t.MauSP, '') AS mau, ISNULL(t.TenSize, '') AS size, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang,
+               t.NgayTao, ISNULL(t.SoLuong, 0) AS sl, ISNULL(t.SoLuongThucXuat, 0) AS xuat
+        FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+        WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
+          AND (@lenhSX = '' OR ${matchLenh('t.LenhSanXuat')})
+      ) x
+      GROUP BY x.lenhSX, x.loaiNL, x.chiTiet, x.mau, x.size
+      ORDER BY x.lenhSX, x.loaiNL, x.chiTiet, x.mau, x.size`,
   },
 
   // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng
   // trong CUTTING_PhieuCapBTP_ChiTiet (nối qua BarcodeChiTiet.IdCapBTPCT).
-  // Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size
+  // Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size, @tuNgay, @denNgay (ngày tạo tem, '' là không lọc)
   btpCatXuat: {
     db: 'egmf',
     text: `
@@ -171,6 +176,7 @@ module.exports = {
       WHERE ${matchLenh('t.LenhSanXuat')}
         AND ISNULL(t.LoaiNguyenLieu, '') = @loaiNL AND ISNULL(t.TenChiTiet, '') = @chiTiet
         AND ISNULL(t.MauSP, '') = @mau AND ISNULL(t.TenSize, '') = @size
+        AND (@tuNgay = '' OR (t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)))
       GROUP BY bc.SoPhieuCapBTP, bc.IdCapBTPCT
       ORDER BY MIN(bc.ThoiGianQuetXuat)`,
   },
