@@ -10,8 +10,50 @@
 <body>
 <main>
   <h1>Tổ trưởng QC</h1>
-  <div class="panel placeholder">Trang đang xây dựng. Anh cho biết các chỉ số cần theo dõi để em bổ sung.</div>
+  <div class="panel">
+    <div class="filters">
+      <label>Từ ngày <input type="date" id="tuNgay"></label>
+      <label>Đến ngày <input type="date" id="denNgay"></label>
+    </div>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="panel">
+    <h2>Số lỗi theo ngày</h2>
+    <div id="bang"></div>
+    <div class="note">Inline = tổng SL lỗi; Endline, Đầu chuyền, Prefinal/Final = số lần ghi nhận lỗi (DFC). Số liệu theo xí nghiệp, chưa tách theo tổ.</div>
+  </div>
 </main>
-<script>App.header([['Trang chính', '/'], ['Tổ trưởng QC']]);</script>
+<script>
+  const NHOM = ['Đầu chuyền', 'Inline', 'Endline', 'Prefinal/Final'];
+  denNgay.value = App.today();
+  tuNgay.value = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 10);
+
+  async function load() {
+    App.loading(bang);
+    try {
+      const rows = await App.api('qc-loi', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value });
+      const byDay = new Map();
+      rows.forEach((r) => {
+        const k = App.ymd(r.ngay);
+        const d = byDay.get(k) || { ngay: k, tong: 0 };
+        d[r.nhom] = (d[r.nhom] || 0) + Number(r.soLoi || 0);
+        d.tong += Number(r.soLoi || 0);
+        byDay.set(k, d);
+      });
+      const data = [...byDay.values()].sort((a, b) => b.ngay.localeCompare(a.ngay));
+      const tong = (n) => data.reduce((s, r) => s + (r[n] || 0), 0);
+      const homNay = byDay.get(denNgay.value) || {};
+      App.cards(cards, NHOM.map((n) => ({ label: n, value: App.num(tong(n)), sub: `ngày ${App.date(denNgay.value)}: ${App.num(homNay[n] || 0)}` })));
+      App.table(bang, [
+        { key: 'ngay', label: 'Ngày', type: 'date' },
+        ...NHOM.map((n) => ({ key: n, label: n, type: 'num', sum: true })),
+        { key: 'tong', label: 'Tổng', type: 'num', sum: true },
+      ], data, { footer: true, empty: 'Không có lỗi ghi nhận trong khoảng ngày này' });
+    } catch (e) { App.error(bang, e); }
+  }
+
+  tuNgay.onchange = denNgay.onchange = load;
+  App.header([['Trang chính', '/'], ['Tổ trưởng QC']], load).then(load);
+</script>
 </body>
 </html>

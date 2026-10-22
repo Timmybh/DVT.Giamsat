@@ -36,6 +36,19 @@ const App = {
   num: (v) => (v == null ? '' : Number(v).toLocaleString('vi-VN')),
   date: (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : ''),
   datetime: (v) => (v ? new Date(v).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''),
+  pct: (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '-'),
+  pctTag: (a, b) => {
+    if (!b) return '<span class="tag">-</span>';
+    const p = (a / b) * 100;
+    return `<span class="tag ${p >= 100 ? 'ok' : p >= 85 ? 'warn' : 'bad'}">${p.toFixed(0)}%</span>`;
+  },
+  // Ô số liệu: cards(el, [{ label, value, sub }])
+  cards(el, items) {
+    el.innerHTML = items.map((c) => `<div class="card"><div class="label">${c.label}</div><div class="value">${c.value}</div>${c.sub ? `<div class="sub">${c.sub}</div>` : ''}</div>`).join('');
+  },
+  // Ngày theo giờ máy người xem (YYYY-MM-DD)
+  ymd: (v) => { const d = new Date(v); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); },
+  today: () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); },
   esc: (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
 
   // Vẽ bảng. cols: [{ key, label, type: 'num'|'date'|'datetime', render(row), sum, value(row), total(rows) }]

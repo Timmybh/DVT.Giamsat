@@ -44,6 +44,14 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | Phiếu cấp BTP | `CUTTING_PhieuCapBTP` (TenPhanXuong = XN1.., TenCum = tổ) + `CUTTING_PhieuCapBTP_ChiTiet` |
 | Tem đã xuất cho phiếu cấp | `CUTTING_PhieuCapBTP_BarcodeChiTiet` |
 | Nhập xuất tồn BTP cắt | `CUTTING_PhieuHoachToan_TemBarCode` (SL cắt = SoLuong, xuất = SoLuongThucXuat) |
+| Kế hoạch ngày theo tổ | `OMM_KeHoachThang` (SoLuong / SoNgaySX) |
+| Sản lượng theo giờ | HiPro `pro_nscl` (qty_1_h … qty_14_h) → `pro_ke_hoach_san_xuat` → `pro_chuyen` / `pro_nha_may` / `pro_san_pham` |
+| PO đang may | `Report_BaoCaoMayRa` (bản ghi mới nhất theo PO x chuyền trong ngày) |
+| Lao động | `LCD_Truc_Quan_ChuyenMay_LaoDong` |
+| Lỗi QC | `DFC_InLine_*`, `DFCEndlineChitietloi`, `DFCDauChuyenChitietloi`, `DFCFinalChitietloiBoSung` |
+| Doanh thu XN | `LCD_Truc_Quan_XiNghiep_DoanhThu_Ngay` |
+
+Mọi truy vấn chạy `READ UNCOMMITTED` (đọc không khóa, tương đương `WITH (NOLOCK)`).
 
 ## Cấu trúc
 
@@ -57,4 +65,4 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | `scripts/build-zip.ps1` | Đóng gói production |
 | `public/index.html` | Trang chính: chọn xí nghiệp + 4 vai trò |
 | `public/lean/` | Kế hoạch phân bổ, Tình hình đặt BTP, Nhập xuất tồn BTP cắt |
-| `public/role/` | Tổ trưởng may, QC, Giám đốc XN (đang xây dựng) |
+| `public/role/` | Tổ trưởng may, Tổ trưởng QC, Giám đốc XN |

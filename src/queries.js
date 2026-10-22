@@ -174,4 +174,109 @@ module.exports = {
       GROUP BY bc.SoPhieuCapBTP, bc.IdCapBTPCT
       ORDER BY MIN(bc.ThoiGianQuetXuat)`,
   },
+
+  // ======================= Tổ trưởng may / QC / Giám đốc XN =======================
+  // Nguồn và cách tính theo dự án DH-DVT (egmf_ops.py, hipro.py, omm_plan.py).
+
+  // Kế hoạch may trong ngày theo tổ: SoNgaySX <= 1 lấy SoLuong, ngược lại SoLuong / SoNgaySX. Tham số: @xn, @d0
+  keHoachNgay: {
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(e.TenCum)) AS line,
+             SUM(CASE WHEN ISNULL(k.SoNgaySX, 0) <= 1 THEN k.SoLuong ELSE k.SoLuong / k.SoNgaySX END) AS keHoach
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND k.SoLuong > 0
+        AND CAST(k.NgayMayKeHoachBatDau AS date) <= @d0 AND @d0 <= CAST(k.NgayMayKeHoachKetThuc AS date)
+      GROUP BY e.TenCum`,
+  },
+
+  // Sản lượng theo giờ (HiPro): tổng qty_1_h..qty_14_h theo chuyền x mã hàng. Tham số: @d0. API lọc xí nghiệp theo tên nhà máy.
+  sanLuongGio: {
+    db: 'hipro',
+    text: `
+      SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang,
+             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.qty_${i + 1}_h, 0)) AS h${i + 1}`).join(', ')}
+      FROM dbo.pro_nscl n
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      WHERE k.ngay_san_xuat >= @d0 AND k.ngay_san_xuat < DATEADD(day, 1, @d0)
+      GROUP BY nm.ten, c.ten, sp.ma_san_pham`,
+  },
+
+  // Tình hình may theo PO (Report_BaoCaoMayRa là nhật ký snapshot ~10 phút: lấy bản mới nhất theo PO x chuyền trong ngày).
+  // Tham số: @xnNum ('1'), @d0
+  poMayRa: {
+    db: 'egmf',
+    text: `
+      WITH latest AS (
+        SELECT TenChuyen, PO, LenhSanXuat, MaHang, KhachHang, SoLuong, VaoChuyenLuyKe, MayRaSoLuong, MayRaLuyKe, NgayXuatHang,
+               ROW_NUMBER() OVER (PARTITION BY PO, TenChuyen ORDER BY ThoiGianTao DESC) AS rn
+        FROM dbo.Report_BaoCaoMayRa
+        WHERE PO IS NOT NULL AND CAST(XiNghiep AS nvarchar(20)) = @xnNum
+          AND NgaySanXuat >= @d0 AND NgaySanXuat < DATEADD(day, 1, @d0)
+      )
+      SELECT TenChuyen AS line, PO AS po, LenhSanXuat AS lenhSX, MaHang AS maHang, KhachHang AS khachHang,
+             SoLuong AS soLuong, VaoChuyenLuyKe AS vaoChuyenLK, MayRaSoLuong AS mayRaNgay, MayRaLuyKe AS mayRaLK,
+             NgayXuatHang AS ngayXuat
+      FROM latest WHERE rn = 1
+      ORDER BY LEN(TenChuyen), TenChuyen, PO`,
+  },
+
+  // Lao động theo chuyền trong ngày. Tham số: @d0. API lọc xí nghiệp theo tên.
+  laoDong: {
+    db: 'egmf',
+    text: `
+      SELECT XiNghiep AS xn, TenChuyen AS line, MAX(TongSoLaoDong) AS tong, MAX(SoLaoDongHienDien) AS hienDien
+      FROM dbo.LCD_Truc_Quan_ChuyenMay_LaoDong
+      WHERE Ngay >= @d0 AND Ngay < DATEADD(day, 1, @d0) AND TenChuyen IS NOT NULL
+      GROUP BY XiNghiep, TenChuyen`,
+  },
+
+  // Số lỗi QC theo ngày x nhóm kiểm. Tham số: @tuNgay, @denNgay. API lọc xí nghiệp theo tên.
+  // Inline = tổng SLLoi; Endline, Đầu chuyền, Final = số dòng chi tiết lỗi (như DH-DVT)
+  qcLoi: {
+    db: 'egmf',
+    text: `
+      SELECT CAST(l.NgayKiem AS date) AS ngay, s.XiNghiep AS xn, N'Inline' AS nhom, SUM(l.SLLoi) AS soLoi
+      FROM dbo.DFC_InLine_SoDoChuyen_Tram_KiemTra_SanPham_CTLoi l
+      JOIN dbo.DFC_InLine_SoDoChuyen_Tram_KiemTra_SanPham s ON s.Id = l.IdSanPham
+      WHERE l.SLLoi > 0 AND l.NgayKiem >= @tuNgay AND l.NgayKiem < DATEADD(day, 1, @denNgay)
+      GROUP BY CAST(l.NgayKiem AS date), s.XiNghiep
+      UNION ALL
+      SELECT CAST(l.thoiGianKiem AS date), m.XiNghiep, N'Endline', COUNT(*)
+      FROM dbo.DFCEndlineChitietloi l
+      JOIN dbo.DFC_EndLine_Detail dt ON dt.Id = l.dfcEndlineDetailId
+      JOIN dbo.DFC_Master m ON m.IdMaster = dt.MasterId
+      WHERE l.thoiGianKiem >= @tuNgay AND l.thoiGianKiem < DATEADD(day, 1, @denNgay)
+      GROUP BY CAST(l.thoiGianKiem AS date), m.XiNghiep
+      UNION ALL
+      SELECT CAST(dt.ThoiGianTao AS date), m.XiNghiep, N'Đầu chuyền', COUNT(*)
+      FROM dbo.DFCDauChuyenChitietloi l
+      JOIN dbo.DFC_DauChuyen_Detail dt ON dt.Id = l.dfcDauChuyenDetailId
+      JOIN dbo.DFC_Master m ON m.IdMaster = dt.MasterId
+      WHERE dt.ThoiGianTao >= @tuNgay AND dt.ThoiGianTao < DATEADD(day, 1, @denNgay)
+      GROUP BY CAST(dt.ThoiGianTao AS date), m.XiNghiep
+      UNION ALL
+      SELECT CAST(l.thoiGianKiem AS date), p.FtyXN, N'Prefinal/Final', COUNT(*)
+      FROM dbo.DFCFinalChitietloiBoSung l
+      JOIN dbo.DFC_Pre_Final_Master p ON p.Id = l.dfcPreFinalMasterId
+      WHERE l.thoiGianKiem >= @tuNgay AND l.thoiGianKiem < DATEADD(day, 1, @denNgay)
+      GROUP BY CAST(l.thoiGianKiem AS date), p.FtyXN`,
+  },
+
+  // Doanh thu xí nghiệp theo ngày (màn hình ERP "DOANH THU XÍ NGHIỆP"). Dữ liệu nhập tay nên có thể trùng ngày:
+  // API giữ dòng Id lớn nhất mỗi ngày. Tham số: @xnNum, @tuNgay, @denNgay
+  doanhThuNgay: {
+    db: 'egmf',
+    text: `
+      SELECT Id AS id, Ngay AS ngay, DoanhThuKeHoach AS keHoach, DoanhThuThucHien AS thucHien, DoanhThuConLai AS conLai
+      FROM dbo.LCD_Truc_Quan_XiNghiep_DoanhThu_Ngay
+      WHERE CAST(XiNghiep AS nvarchar(20)) = @xnNum AND Ngay >= @tuNgay AND Ngay < DATEADD(day, 1, @denNgay)
+      ORDER BY Ngay, Id`,
+  },
 };

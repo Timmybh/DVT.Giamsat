@@ -91,6 +91,20 @@ xiNghiep.forEach((xn) => {
   }
 });
 
+// Số ngẫu nhiên cố định theo khóa (để cùng ngày/tổ luôn ra cùng số)
+const hash = (str) => { let h = 2166136261; for (const ch of String(str)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) / 4294967296; };
+const hInt = (key, a, b) => a + Math.floor(hash(key) * (b - a + 1));
+const datesBetween = (tu, den) => {
+  const out = [];
+  for (let d = new Date(tu); d <= new Date(den); d.setDate(d.getDate() + 1)) out.push(d.toISOString().slice(0, 10));
+  return out;
+};
+// Mã hàng đang may của từng tổ trong ngày (lấy theo kế hoạch mẫu, không có thì gán cố định)
+const hangCuaTo = (xn, line, d0) => {
+  const k = keHoach.find((x) => x.xn === xn && x.maTo === line && x.ngayBatDau.slice(0, 10) <= d0 && x.ngayKetThuc.slice(0, 10) >= d0);
+  return k ? k.maHang : String(hInt(`${xn}${line}`, 330000, 380000));
+};
+
 const inRange = (d, tu, den) => d.slice(0, 10) >= tu && d.slice(0, 10) <= den;
 
 module.exports = {
@@ -146,4 +160,33 @@ module.exports = {
     });
     return [...groups.values()];
   },
+  keHoachNgay: ({ xn, d0 }) => (to[xn] || []).map((t) => ({ line: t.ma, keHoach: hInt(`kh${xn}${t.ma}${d0}`, 500, 1100) })),
+  sanLuongGio: ({ d0 }) => xiNghiep.flatMap((xn) => to[xn.ma].map((t) => {
+    const row = { xn: `XN${xn.ma}`, line: `Chuyền ${t.ma}`, maHang: hangCuaTo(xn.ma, t.ma, d0) };
+    const isToday = d0 === new Date().toISOString().slice(0, 10);
+    const maxH = isToday ? Math.min(14, Math.max(1, ((new Date().getUTCHours() + 7) % 24) - 6)) : 10;
+    for (let h = 1; h <= 14; h++) row[`h${h}`] = h <= maxH ? hInt(`h${xn.ma}${t.ma}${d0}${h}`, 40, 110) : 0;
+    return row;
+  })),
+  poMayRa: ({ xnNum, d0 }) => (to[xnNum] || []).flatMap((t) => Array.from({ length: hInt(`npo${xnNum}${t.ma}`, 1, 2) }, (_, i) => {
+    const soLuong = hInt(`sl${xnNum}${t.ma}${i}`, 2000, 9000);
+    const mayRaLK = Math.floor(soLuong * hash(`lk${xnNum}${t.ma}${i}${d0}`));
+    return {
+      line: t.ma, po: String(hInt(`po${xnNum}${t.ma}${i}`, 4524000000, 4525999999)), lenhSX: `TUNTT-${hInt(`l${xnNum}${t.ma}${i}`, 600, 700)}-2026`,
+      maHang: hangCuaTo(xnNum, t.ma, d0), khachHang: pick(khach), soLuong, vaoChuyenLK: Math.min(soLuong, mayRaLK + hInt(`v${t.ma}${i}`, 200, 900)),
+      mayRaNgay: hInt(`mn${xnNum}${t.ma}${i}${d0}`, 100, 600), mayRaLK, ngayXuat: day(hInt(`nx${t.ma}${i}`, 3, 30)),
+    };
+  })),
+  laoDong: ({ d0 }) => xiNghiep.flatMap((xn) => to[xn.ma].map((t) => {
+    const tong = hInt(`ld${xn.ma}${t.ma}`, 28, 42);
+    return { xn: `XÍ NGHIỆP MAY ${xn.ma}`, line: t.ma, tong, hienDien: tong - hInt(`vm${xn.ma}${t.ma}${d0}`, 0, 5) };
+  })),
+  qcLoi: ({ tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).flatMap((d) => xiNghiep.flatMap((xn) => [
+    ['Inline', 20, 90], ['Endline', 10, 50], ['Đầu chuyền', 0, 8], ['Prefinal/Final', 0, 15],
+  ].map(([nhom, a, b]) => ({ ngay: d, xn: `XN${xn.ma}`, nhom, soLoi: hInt(`qc${xn.ma}${nhom}${d}`, a, b) })))),
+  doanhThuNgay: ({ xnNum, tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).map((d, i) => {
+    const keHoach = hInt(`dtk${xnNum}${d}`, 30000, 45000);
+    const thucHien = Math.floor(keHoach * (0.75 + hash(`dtt${xnNum}${d}`) * 0.35));
+    return { id: i + 1, ngay: d, keHoach, thucHien, conLai: keHoach - thucHien };
+  }),
 };

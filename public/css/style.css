@@ -46,3 +46,10 @@ tr.selected td { background: var(--primary-soft); font-weight: 600; }
 .tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 tr.total-row th { background: #eef3fb; color: var(--text); font-size: 13px; text-transform: none; font-weight: 700; }
 thead tr.total-row th { border-bottom: 2px solid var(--primary); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+.card .value { font-size: 26px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.card .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+a.btn { display: inline-block; padding: 7px 14px; background: var(--primary-soft); color: var(--primary); border-radius: 4px; text-decoration: none; }

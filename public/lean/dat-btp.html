@@ -80,6 +80,10 @@
     toName.textContent = '';
     phieuCap.innerHTML = '<div class="empty">Chọn tổ để xem phiếu cấp BTP</div>';
     resetDetail();
+    // Mở từ trang Tổ trưởng may: ?to=7 chọn sẵn tổ
+    const want = new URLSearchParams(location.search).get('to');
+    const btn = want && [...toList.querySelectorAll('button')].find((b) => b.dataset.ma === want);
+    if (btn) btn.click();
   }
 
   async function loadPhieuCap() {
