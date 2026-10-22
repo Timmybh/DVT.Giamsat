@@ -21,7 +21,7 @@
     </div>
     <div class="cards" id="tomTat" hidden></div>
     <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
-    <div id="nxt" class="luoi-cao luoi-gon"></div>
+    <div id="nxt" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày (và lệnh SX nếu cần) rồi bấm Xem</div></div>
     <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
   </div>
   <div class="panel" id="pDT" hidden>
@@ -49,11 +49,10 @@
   let timer;
   const setName = (t) => document.querySelectorAll('.dongName').forEach((e) => (e.textContent = t ? `- ${t}` : ''));
 
-  // Mặc định: đầu tháng đến cuối tháng hiện tại
-  const homNay = App.today();
-  tuNgay.value = homNay.slice(0, 8) + '01';
-  const cuoi = new Date(Number(homNay.slice(0, 4)), Number(homNay.slice(5, 7)), 0);
-  denNgay.value = `${homNay.slice(0, 8)}${String(cuoi.getDate()).padStart(2, '0')}`;
+  // Mặc định: 60 ngày gần nhất đến hôm nay
+  denNgay.value = App.today();
+  const tu = new Date(); tu.setDate(tu.getDate() - 60);
+  tuNgay.value = App.ymd(tu);
 
   async function searchLenh(q = '') {
     lenhs = await App.api('lenh-sx', { q });
@@ -245,7 +244,7 @@
     ], data, { footer: true, filter: true, empty: 'Chưa xuất' })).catch((e) => App.error(xuatDT, e));
   }
 
-  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Nhập xuất tồn BTP cắt']]).then(() => { searchLenh(); load(); });
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Nhập xuất tồn BTP cắt']]).then(() => searchLenh());
 </script>
 </body>
 </html>
