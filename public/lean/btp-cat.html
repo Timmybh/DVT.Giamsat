@@ -114,21 +114,64 @@
     try {
       const dt = await App.api('btp-cat/dieu-tiet', { lenhSX: v });
       if (!dt.coDieuTiet) { pDT.hidden = true; return; }
-      ghiChu.textContent = `Toàn bộ lệnh, không theo khoảng ngày. SL điều tiết lấy từ phiếu điều tiết (tác nghiệp). Đồng bộ = số sản phẩm đủ mọi loại NL (${dt.loaiNLs.join(', ')}) và đủ tem mọi chi tiết của bó.`;
-      App.table(dieuTiet, [
-        { key: 'mau', label: 'Màu SP' },
-        { key: 'size', label: 'Size' },
-        { key: 'tacNghiep', label: 'SL điều tiết', type: 'num', sum: true },
-        { key: 'slCat', label: 'Đã cắt (đồng bộ)', type: 'num', sum: true },
-        { key: 'conPhaiCat', label: 'Còn phải cắt', type: 'num', sum: true },
-        { key: 'slXuat', label: 'Đã xuất (đồng bộ)', type: 'num', sum: true },
-        { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
-      ], dt.rows, { onClick: loadDetail, footer: true, filter: true });
+      ghiChu.textContent = 'Toàn bộ lệnh, không theo khoảng ngày. SL điều tiết lấy từ tác nghiệp của phiếu điều tiết. '
+        + `Cắt theo chủng loại: loại NL tác nghiệp không ghi màu (${dt.loaiChung.join(', ') || 'không có'}), tính theo size. `
+        + `Cắt theo màu: đồng bộ = số sản phẩm đủ mọi loại NL có màu (${dt.loaiMau.join(', ') || 'không có'}). `
+        + 'Đã xuất: bó tính khi mọi tem có tên chi tiết của bó đều đã xuất. Bấm dòng nhóm để thu gọn / mở, bấm dòng size để xem chi tiết.';
+      veNhom(dt);
     } catch (e) { App.error(dieuTiet, e); }
   }
 
+  // Bảng 2 nhóm cha (chủng loại / màu) -> nhóm con -> size, nhóm nào cũng có dòng tổng
+  function veNhom(dt) {
+    const so = ['tacNghiep', 'slCat', 'conPhaiCat', 'slXuat', 'slTon'];
+    const cong = (rows) => Object.fromEntries(so.map((k) => [k, rows.reduce((t, r) => t + Number(r[k] || 0), 0)]));
+    const oSo = (x) => so.map((k) => `<td class="num">${App.num(x[k])}</td>`).join('');
+    const dongs = []; // { cap, html, row?, nhom }
+    const cha = [
+      { ten: 'Cắt theo chủng loại', con: dt.nhomLoai.map((g) => ({ ten: g.loaiNL, rows: g.rows })) },
+      { ten: 'Cắt theo màu', con: dt.nhomMau.map((g) => ({ ten: g.mau || '(không màu)', rows: g.rows })) },
+    ].filter((c) => c.con.length);
+    cha.forEach((c, i) => {
+      const tatCa = c.con.flatMap((g) => g.rows);
+      dongs.push(`<tr class="nhom-cha" data-nhom="${i}"><td>▾ ${c.ten} <span class="loc-dem">(${c.con.length} nhóm)</span></td>${oSo(cong(tatCa))}</tr>`);
+      c.con.forEach((g, j) => {
+        dongs.push(`<tr class="nhom-con" data-cha="${i}" data-nhom="${i}-${j}"><td>▾ ${App.esc(g.ten)}</td>${oSo(cong(g.rows))}</tr>`);
+        g.rows.forEach((r) => {
+          const k = dongs.length;
+          veNhom.rows[k] = r;
+          dongs.push(`<tr class="clickable nhom-size" data-cha="${i}" data-con="${i}-${j}" data-k="${k}"><td>${App.esc(r.size)}</td>${oSo(r)}</tr>`);
+        });
+      });
+    });
+    const tong = cong(cha.flatMap((c) => c.con.flatMap((g) => g.rows)));
+    dieuTiet.innerHTML = `<div class="table-wrap"><table class="bang-nhom">
+      <thead><tr><th>Nhóm / Size</th><th class="num">SL điều tiết</th><th class="num">Đã cắt (đồng bộ)</th><th class="num">Còn phải cắt</th>
+      <th class="num">Đã xuất (đồng bộ)</th><th class="num">Tồn</th></tr></thead>
+      <tbody>${dongs.join('')}</tbody>
+      <tfoot><tr class="total-row"><th>Tổng cộng</th>${so.map((k) => `<th class="num">${App.num(tong[k])}</th>`).join('')}</tr></tfoot></table></div>`;
+    dieuTiet.querySelectorAll('tr.nhom-size').forEach((tr) => tr.addEventListener('click', () => {
+      dieuTiet.querySelectorAll('tr.selected').forEach((x) => x.classList.remove('selected'));
+      tr.classList.add('selected');
+      loadDetail(veNhom.rows[tr.dataset.k]);
+    }));
+    // Thu gọn / mở nhóm
+    dieuTiet.querySelectorAll('tr.nhom-cha, tr.nhom-con').forEach((tr) => tr.addEventListener('click', () => {
+      const dong = tr.classList.toggle('dong');
+      tr.cells[0].innerHTML = tr.cells[0].innerHTML.replace(/^[▾▸]/, dong ? '▸' : '▾');
+      const n = tr.dataset.nhom;
+      const con = tr.classList.contains('nhom-cha')
+        ? dieuTiet.querySelectorAll(`tr[data-cha="${n}"]`) : dieuTiet.querySelectorAll(`tr[data-con="${n}"]`);
+      con.forEach((x) => {
+        if (dong) x.hidden = true;
+        else if (x.classList.contains('nhom-con') || !dieuTiet.querySelector(`tr[data-nhom="${x.dataset.con}"].dong`)) x.hidden = false;
+      });
+    }));
+  }
+  veNhom.rows = {};
+
   async function loadDetail(r) {
-    setName(`${r.mau} / ${r.size}`);
+    setName([r.mau || r.loaiNL, r.size].filter(Boolean).join(' / '));
     pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = false;
     App.table(theoLoai, [
       { key: 'loaiNL', label: 'Loại NL' },

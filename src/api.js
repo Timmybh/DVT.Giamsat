@@ -95,35 +95,62 @@ router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
 })));
 
 // ---- Nhập xuất tồn BTP cắt theo điều tiết ----
-// Gộp theo màu SP x size: tác nghiệp = lớn nhất giữa các loại NL; cắt / xuất đồng bộ = nhỏ nhất giữa các loại NL
-// (loại NL nào chưa cắt size đó tính 0). Size ghi khác nhau giữa tác nghiệp và bàn máy sẽ thành dòng riêng.
+// Chia 2 nhóm theo phiếu điều tiết:
+//  - Cắt theo chủng loại: loại NL có tác nghiệp không ghi màu (vd Keo) -> nhóm con từng loại NL, dòng theo size (cộng mọi màu).
+//  - Cắt theo màu: loại NL có màu -> nhóm con từng màu, dòng theo size; cắt / xuất đồng bộ = nhỏ nhất giữa các loại NL có màu
+//    (loại NL nào chưa cắt size đó tính 0), tác nghiệp = lớn nhất.
+// Size ghi khác nhau giữa tác nghiệp và bàn máy sẽ thành dòng riêng.
+const sizeSort = (a, b) => a.size.localeCompare(b.size, undefined, { numeric: true });
+const tinh = (r) => ({ ...r, slTon: r.slCat - r.slXuat, conPhaiCat: Math.max(r.tacNghiep - r.slCat, 0) });
 router.get('/btp-cat/dieu-tiet', async (req, res) => {
   try {
     const p = { lenhSX: (req.query.lenhSX || '').trim() };
     const [phieus, tns, bms] = await Promise.all([run('dtPhieu', p), run('dtTacNghiep', p), run('dtBanMay', p)]);
-    if (!phieus.length) return res.json({ coDieuTiet: false, loaiNLs: [], rows: [] });
+    if (!phieus.length) return res.json({ coDieuTiet: false, loaiNLs: [], nhomLoai: [], nhomMau: [] });
     const loaiOf = new Map(phieus.map((x) => [String(x.id), x.loaiNL || '(trống)']));
     const loaiNLs = [...new Set(phieus.map((x) => x.loaiNL || '(trống)'))];
-    const keys = new Map();
-    const at = (mau, size) => {
-      const k = `${mau}|${size}`;
-      if (!keys.has(k)) keys.set(k, { mau, size, theoLoai: {} });
-      return keys.get(k);
+    // Loại NL cắt theo chủng loại: mọi dòng tác nghiệp đều không có màu
+    const coMau = new Set(tns.filter((t) => t.mau).map((t) => loaiOf.get(String(t.idPhieu))));
+    const loaiMau = loaiNLs.filter((l) => coMau.has(l));
+    const loaiChung = loaiNLs.filter((l) => !coMau.has(l));
+
+    const mapLoai = new Map(); // loaiNL|size
+    const mapMau = new Map(); // mau|size
+    const oLoai = (loaiNL, size) => {
+      const k = `${loaiNL}|${size}`;
+      if (!mapLoai.has(k)) mapLoai.set(k, { loaiNL, size, mau: '', tacNghiep: 0, soBo: 0, slCat: 0, slXuat: 0 });
+      return mapLoai.get(k);
     };
-    const loai = (row, l) => (row.theoLoai[l] = row.theoLoai[l] || { tacNghiep: 0, soBo: 0, slCat: 0, slXuat: 0 });
-    tns.forEach((t) => (loai(at(t.mau, t.size), loaiOf.get(String(t.idPhieu))).tacNghiep += Number(t.soLuong || 0)));
+    const oMau = (mau, size, loaiNL) => {
+      const k = `${mau}|${size}`;
+      if (!mapMau.has(k)) mapMau.set(k, { mau, size, theoLoai: Object.fromEntries(loaiMau.map((l) => [l, { tacNghiep: 0, soBo: 0, slCat: 0, slXuat: 0 }])) });
+      return mapMau.get(k).theoLoai[loaiNL];
+    };
+    const o = (x) => {
+      const l = loaiOf.get(String(x.idPhieu));
+      return coMau.has(l) ? oMau(x.mau, x.size, l) : oLoai(l, x.size);
+    };
+    tns.forEach((t) => (o(t).tacNghiep += Number(t.soLuong || 0)));
     bms.forEach((b) => {
-      const x = loai(at(b.mau, b.size), loaiOf.get(String(b.idPhieu)));
+      const x = o(b);
       x.soBo += Number(b.soBo || 0); x.slCat += Number(b.slCat || 0); x.slXuat += Number(b.slXuat || 0);
     });
-    const rows = [...keys.values()].map((r) => {
+
+    const nhomLoai = loaiChung.map((loaiNL) => ({
+      loaiNL,
+      rows: [...mapLoai.values()].filter((r) => r.loaiNL === loaiNL).map((r) => tinh({ ...r, theoLoai: { [loaiNL]: { ...r } } })).sort(sizeSort),
+    })).filter((g) => g.rows.length);
+    const dongMau = [...mapMau.values()].map((r) => {
       const ls = Object.values(r.theoLoai);
-      const tacNghiep = Math.max(...ls.map((x) => x.tacNghiep));
-      const slCat = Math.min(...ls.map((x) => x.slCat));
-      const slXuat = Math.min(...ls.map((x) => x.slXuat));
-      return { ...r, tacNghiep, slCat, slXuat, slTon: slCat - slXuat, conPhaiCat: Math.max(tacNghiep - slCat, 0) };
-    }).sort((a, b) => a.mau.localeCompare(b.mau) || a.size.localeCompare(b.size, undefined, { numeric: true }));
-    res.json({ coDieuTiet: true, loaiNLs, rows });
+      return tinh({
+        ...r,
+        tacNghiep: Math.max(...ls.map((x) => x.tacNghiep)),
+        slCat: Math.min(...ls.map((x) => x.slCat)),
+        slXuat: Math.min(...ls.map((x) => x.slXuat)),
+      });
+    });
+    const nhomMau = [...new Set(dongMau.map((r) => r.mau))].sort().map((mau) => ({ mau, rows: dongMau.filter((r) => r.mau === mau).sort(sizeSort) }));
+    res.json({ coDieuTiet: true, loaiNLs, loaiMau, loaiChung, nhomLoai, nhomMau });
   } catch (err) {
     console.error('[dieuTiet]', err.message);
     res.status(500).json({ error: err.message });

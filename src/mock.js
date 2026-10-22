@@ -21,7 +21,8 @@ const khach = ['AF07802', 'AF01234', 'AF05555'];
 const nguoi = ['VÕ THỊ NGA', 'NGÔ THỊ KIỀU OANH', 'LÊ VŨ PHONG', 'ĐẶNG QUỐC HIỆP'];
 const mauList = ['8941360 NOIR', '8996818 BLANC', '9013014 GREEN'];
 const sizeList = ['S', 'M', 'L', 'XL'];
-const chiTietList = [['Vải chính', 'THÂN TRƯỚC'], ['Vải chính', 'THÂN SAU'], ['Vải chính', 'TAY'], ['Vải lót', 'LÓT THÂN']];
+const chiTietList = [['Vải chính', 'THÂN TRƯỚC'], ['Vải chính', 'THÂN SAU'], ['Vải chính', 'TAY'], ['Vải lót', 'LÓT THÂN'], ['Keo', 'KEO NẸP']];
+const khongMau = new Set(['Keo']); // loại NL cắt theo chủng loại: tác nghiệp không ghi màu
 const loaiNLList = [...new Set(chiTietList.map((c) => c[0]))];
 
 const lenhSX = [];
@@ -60,15 +61,16 @@ xiNghiep.forEach((xn) => {
       tong += slSize;
       loaiNLList.forEach((loaiNL) => {
         const p = phieuDT[loaiNL];
-        tacNghiep.push({ idPhieu: p.id, mau, size, soLuong: slSize });
+        const m = khongMau.has(loaiNL) ? '' : mau;
+        tacNghiep.push({ idPhieu: p.id, mau: m, size, soLuong: slSize });
         let left = Math.floor(slSize * (rnd() < 0.3 ? 0.7 + rnd() * 0.25 : 1)); // có size cắt chưa đủ
         while (left > 0) {
           const sl = Math.min(left, int(20, 60));
           left -= sl;
-          const bm = { idBanMay: idBM++, idPhieu: p.id, mau, size, soLuong: sl };
+          const bm = { idBanMay: idBM++, idPhieu: p.id, mau: m, size, soLuong: sl };
           banMay.push(bm);
           chiTietList.filter((c) => c[0] === loaiNL).forEach(([, chiTiet]) => {
-            tem.push({ barcode: `BTP26100${String(soTem++).padStart(5, '0')}`, lenhSX: lenh, maHang, loaiNL, chiTiet, mau, size, soLuong: sl, slXuat: 0, idBanMay: bm.idBanMay, ngayTao: day(bd - int(1, 4), 10) });
+            tem.push({ barcode: `BTP26100${String(soTem++).padStart(5, '0')}`, lenhSX: lenh, maHang, loaiNL, chiTiet, mau: m, size, soLuong: sl, slXuat: 0, idBanMay: bm.idBanMay, ngayTao: day(bd - int(1, 4), 10) });
           });
         }
       });
@@ -89,7 +91,7 @@ xiNghiep.forEach((xn) => {
         trangThai: daXuat ? 'ĐÃ DUYỆT' : 'MỚI TẠO', nguoiTao: pick(nguoi),
       });
       sizeList.forEach((size) => {
-        const tems = tem.filter((t) => t.lenhSX === lenh && t.mau === mau && t.size === size);
+        const tems = tem.filter((t) => t.lenhSX === lenh && (t.mau === mau || (t.mau === '' && i === 0)) && t.size === size);
         const slDat = sum(tems.filter((t) => t.chiTiet === chiTietList[0][1]), 'soLuong');
         let slXuat = 0;
         if (daXuat) {

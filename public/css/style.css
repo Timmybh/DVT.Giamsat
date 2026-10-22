@@ -70,3 +70,8 @@ a.btn { display: inline-block; padding: 7px 14px; background: var(--primary-soft
 .luoi-cao thead tr.total-row th { position: sticky; top: var(--th-cao, 32px); z-index: 1; }
 .luoi-cao thead tr:first-child th { z-index: 2; }
 .loc-them { color: var(--muted); padding: 4px 0; font-size: 12px; }
+/* Bảng nhóm cha - con */
+.bang-nhom tr.nhom-cha td { background: #e3ecfa; font-weight: 700; cursor: pointer; }
+.bang-nhom tr.nhom-con td { background: #f3f7fd; font-weight: 600; cursor: pointer; }
+.bang-nhom tr.nhom-con td:first-child { padding-left: 24px; }
+.bang-nhom tr.nhom-size td:first-child { padding-left: 48px; }

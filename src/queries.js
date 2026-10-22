@@ -298,7 +298,8 @@ module.exports = {
   // ======================= Nhập xuất tồn BTP cắt theo điều tiết =======================
   // Cutting_PhieuDieuTietGiacSoDo (phiếu điều tiết: lệnh x loại NL) -> _TacNghiep (SL sản phẩm theo màu SP x size)
   // -> _ChiTiet_BanMay (bó cắt: màu SP, size, SL sản phẩm) -> CUTTING_PhieuHoachToan_TemBarcode_ChiTiet (IdBanMay)
-  // -> CUTTING_PhieuHoachToan_TemBarCode (mỗi bó 1 tem / chi tiết). Bó đã xuất đồng bộ = SL xuất nhỏ nhất trong các tem của bó.
+  // -> CUTTING_PhieuHoachToan_TemBarCode (mỗi bó 1 tem / chi tiết). Bó đã xuất đồng bộ = SL xuất nhỏ nhất trong các tem có tên chi tiết của bó
+  // (bỏ qua tem chi tiết trống; bó chỉ có tem trống thì lấy theo các tem đó).
 
   // Các phiếu điều tiết của lệnh. Tham số: @lenhSX
   dtPhieu: {
@@ -329,7 +330,9 @@ module.exports = {
       FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm
       JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = bm.IdPhieuDieuTiet
       JOIN (
-        SELECT tc.IdBanMay, MIN(ISNULL(t.SoLuongThucXuat, 0)) AS slXuat
+        SELECT tc.IdBanMay,
+               ISNULL(MIN(CASE WHEN ISNULL(t.TenChiTiet, '') <> '' THEN ISNULL(t.SoLuongThucXuat, 0) END),
+                      MIN(ISNULL(t.SoLuongThucXuat, 0))) AS slXuat
         FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
         JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet tc ON tc.IdTem = t.Id
         WHERE ${matchLenh('t.LenhSanXuat')}
