@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kế hoạch phân bổ - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Kế hoạch phân bổ</h1>
+  <div class="panel">
+    <div class="filters">
+      <label>Từ ngày <input type="date" id="tuNgay"></label>
+      <label>Đến ngày <input type="date" id="denNgay"></label>
+      <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
+      <button id="btn">Xem</button>
+    </div>
+    <div id="result"></div>
+  </div>
+</main>
+<script>
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  tuNgay.value = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+  denNgay.value = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  let rows = [];
+
+  async function loadTo() {
+    const list = await App.api('to', { xn: App.xn });
+    to.innerHTML = '<option value="">Tất cả</option>' + list.map((t) => `<option value="${t.ma}">${t.ten}</option>`).join('');
+  }
+  function draw() {
+    const data = to.value ? rows.filter((r) => r.maTo === to.value) : rows;
+    App.table(result, [
+      { key: 'tenTo', label: 'Tổ' },
+      { key: 'maHang', label: 'Mã hàng' },
+      { key: 'soLuong', label: 'SL kế hoạch', type: 'num', sum: true },
+      { key: 'ngayVaoChuyen', label: 'Vào chuyền', type: 'date' },
+      { key: 'ngayBatDau', label: 'Bắt đầu may', type: 'date' },
+      { key: 'ngayKetThuc', label: 'Kết thúc may', type: 'date' },
+    ], data, { footer: true });
+  }
+  async function load() {
+    App.loading(result);
+    try {
+      rows = await App.api('ke-hoach-phan-bo', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value });
+      draw();
+    } catch (e) { App.error(result, e); }
+  }
+  btn.onclick = load;
+  to.onchange = draw;
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Kế hoạch phân bổ']], () => loadTo().then(load))
+    .then(() => loadTo()).then(load);
+</script>
+</body>
+</html>

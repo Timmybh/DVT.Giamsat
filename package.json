@@ -1,0 +1,17 @@
+{
+  "name": "dvt-giamsat",
+  "version": "0.1.0",
+  "description": "Web giám sát xưởng may - kết nối eGMF và HiPro (SQL Server)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "mock": "node -e \"process.env.USE_MOCK='true';require('./server')\"",
+    "khao-sat": "node scripts/khao-sat.js",
+    "build:zip": "powershell -ExecutionPolicy Bypass -File scripts/build-zip.ps1"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "mssql": "^11.0.1"
+  }
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tình hình đặt BTP - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Tình hình đặt bán thành phẩm</h1>
+  <div class="panel">
+    <h2>Chọn tổ</h2>
+    <div class="to-list" id="toList"></div>
+  </div>
+  <div class="panel">
+    <h2>Phiếu cấp BTP <span id="toName"></span></h2>
+    <div id="phieuCap"><div class="empty">Chọn tổ để xem phiếu cấp BTP</div></div>
+  </div>
+  <div class="panel">
+    <h2>Phiếu xuất BTP từ khâu cắt <span id="pcName"></span></h2>
+    <div id="phieuXuat"><div class="empty">Click vào một phiếu cấp BTP để xem phiếu xuất</div></div>
+  </div>
+</main>
+<script>
+  const status = (r) => {
+    const pct = r.slDat ? (r.slDaCap / r.slDat) * 100 : 0;
+    const cls = pct >= 100 ? 'ok' : pct > 0 ? 'warn' : 'bad';
+    return `<span class="tag ${cls}">${pct.toFixed(0)}%</span>`;
+  };
+
+  async function loadTo() {
+    const list = await App.api('to', { xn: App.xn });
+    toList.innerHTML = list.map((t) => `<button data-ma="${t.ma}">${t.ten}</button>`).join('');
+    toList.querySelectorAll('button').forEach((b) => b.onclick = () => {
+      toList.querySelectorAll('.active').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      loadPhieuCap(b.dataset.ma, b.textContent);
+    });
+    phieuCap.innerHTML = '<div class="empty">Chọn tổ để xem phiếu cấp BTP</div>';
+    phieuXuat.innerHTML = '<div class="empty">Click vào một phiếu cấp BTP để xem phiếu xuất</div>';
+    toName.textContent = pcName.textContent = '';
+  }
+
+  async function loadPhieuCap(maTo, ten) {
+    toName.textContent = `- ${ten}`;
+    pcName.textContent = '';
+    phieuXuat.innerHTML = '<div class="empty">Click vào một phiếu cấp BTP để xem phiếu xuất</div>';
+    App.loading(phieuCap);
+    try {
+      const rows = await App.api('phieu-cap-btp', { xn: App.xn, to: maTo });
+      App.table(phieuCap, [
+        { key: 'soPhieu', label: 'Số phiếu cấp' },
+        { key: 'ngayDat', label: 'Ngày đặt', type: 'date' },
+        { key: 'ngayCan', label: 'Ngày cần', type: 'date' },
+        { key: 'lenhSX', label: 'Lệnh SX' },
+        { key: 'maHang', label: 'Mã hàng' },
+        { key: 'mau', label: 'Màu' },
+        { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
+        { key: 'slDaCap', label: 'SL đã cấp', type: 'num', sum: true },
+        { key: 'conLai', label: 'Còn thiếu', type: 'num', render: (r) => App.num(Math.max(r.slDat - r.slDaCap, 0)) },
+        { key: 'tt', label: 'Đáp ứng', render: status },
+      ], rows, { onClick: loadPhieuXuat, footer: true, empty: 'Tổ chưa có phiếu cấp BTP' });
+    } catch (e) { App.error(phieuCap, e); }
+  }
+
+  async function loadPhieuXuat(pc) {
+    pcName.textContent = `- phiếu ${pc.soPhieu}`;
+    App.loading(phieuXuat);
+    try {
+      const rows = await App.api(`phieu-cap-btp/${encodeURIComponent(pc.soPhieu)}/phieu-xuat`);
+      App.table(phieuXuat, [
+        { key: 'soPhieuXuat', label: 'Số phiếu xuất' },
+        { key: 'ngayXuat', label: 'Ngày xuất', type: 'date' },
+        { key: 'lenhSX', label: 'Lệnh SX' },
+        { key: 'maHang', label: 'Mã hàng' },
+        { key: 'mau', label: 'Màu' },
+        { key: 'size', label: 'Size' },
+        { key: 'soBo', label: 'Số bó', type: 'num', sum: true },
+        { key: 'soLuong', label: 'Số lượng', type: 'num', sum: true },
+        { key: 'nguoiXuat', label: 'Người xuất' },
+      ], rows, { footer: true, empty: 'Khâu cắt chưa xuất cho phiếu này' });
+    } catch (e) { App.error(phieuXuat, e); }
+  }
+
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Tình hình đặt BTP']], loadTo).then(loadTo);
+</script>
+</body>
+</html>

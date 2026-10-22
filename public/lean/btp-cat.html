@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nhập xuất tồn BTP cắt - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Nhập xuất tồn BTP cắt</h1>
+  <div class="panel">
+    <div class="filters">
+      <label>Lệnh sản xuất <input id="lenh" list="lenhList" placeholder="Gõ lệnh SX hoặc mã hàng"></label>
+      <datalist id="lenhList"></datalist>
+      <button id="btn">Xem</button>
+      <span id="lenhInfo" style="color:var(--muted)"></span>
+    </div>
+    <div id="nxt"><div class="empty">Chọn lệnh sản xuất để xem BTP cắt</div></div>
+  </div>
+  <div class="panel">
+    <h2>Chi tiết xuất cho phiếu cấp BTP <span id="dongName"></span></h2>
+    <div id="xuat"><div class="empty">Click vào một dòng BTP cắt để xem đã xuất cho phiếu cấp nào</div></div>
+  </div>
+</main>
+<script>
+  let lenhs = [];
+  let timer;
+
+  async function searchLenh(q = '') {
+    lenhs = await App.api('lenh-sx', { xn: App.xn, q });
+    lenhList.innerHTML = lenhs.map((l) => `<option value="${l.lenhSX}">${l.maHang} - ${l.khachHang}</option>`).join('');
+  }
+  lenh.oninput = () => { clearTimeout(timer); timer = setTimeout(() => searchLenh(lenh.value.trim()), 300); };
+  lenh.onchange = load;
+  lenh.onkeydown = (e) => { if (e.key === 'Enter') load(); };
+  btn.onclick = load;
+
+  async function load() {
+    const v = lenh.value.trim();
+    if (!v) return;
+    const info = lenhs.find((l) => l.lenhSX === v);
+    lenhInfo.textContent = info ? `${info.maHang} · ${info.khachHang} · SL ${App.num(info.soLuong)}` : '';
+    dongName.textContent = '';
+    xuat.innerHTML = '<div class="empty">Click vào một dòng BTP cắt để xem đã xuất cho phiếu cấp nào</div>';
+    App.loading(nxt);
+    try {
+      const rows = await App.api('btp-cat', { lenhSX: v });
+      App.table(nxt, [
+        { key: 'maHang', label: 'Mã hàng' },
+        { key: 'mau', label: 'Màu' },
+        { key: 'size', label: 'Size' },
+        { key: 'slCat', label: 'SL cắt (nhập)', type: 'num', sum: true },
+        { key: 'slXuat', label: 'SL đã xuất', type: 'num', sum: true },
+        { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
+      ], rows, { onClick: (r) => loadXuat(v, r), footer: true, empty: 'Lệnh này chưa có BTP cắt' });
+    } catch (e) { App.error(nxt, e); }
+  }
+
+  async function loadXuat(lenhSX, r) {
+    dongName.textContent = `- ${r.mau} / ${r.size}`;
+    App.loading(xuat);
+    try {
+      const rows = await App.api('btp-cat/xuat', { lenhSX, mau: r.mau, size: r.size });
+      App.table(xuat, [
+        { key: 'soPhieuXuat', label: 'Số phiếu xuất' },
+        { key: 'ngayXuat', label: 'Ngày xuất', type: 'date' },
+        { key: 'soPhieuCap', label: 'Phiếu cấp BTP' },
+        { key: 'maTo', label: 'Tổ nhận' },
+        { key: 'soBo', label: 'Số bó', type: 'num', sum: true },
+        { key: 'soLuong', label: 'Số lượng', type: 'num', sum: true },
+      ], rows, { footer: true, empty: 'Chưa xuất' });
+    } catch (e) { App.error(xuat, e); }
+  }
+
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Nhập xuất tồn BTP cắt']], () => {
+    lenh.value = ''; lenhInfo.textContent = '';
+    nxt.innerHTML = '<div class="empty">Chọn lệnh sản xuất để xem BTP cắt</div>';
+    searchLenh();
+  }).then(() => searchLenh());
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổ trưởng LEAN - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Tổ trưởng LEAN</h1>
+  <div class="grid" id="tiles"></div>
+</main>
+<script>
+  const pages = [
+    { icon: '🗓️', title: 'Kế hoạch phân bổ', desc: 'Lệnh sản xuất phân bổ cho từng tổ', url: 'ke-hoach.html' },
+    { icon: '📦', title: 'Tình hình đặt BTP', desc: 'Phiếu cấp BTP theo tổ và phiếu xuất từ khâu cắt', url: 'dat-btp.html' },
+    { icon: '✂️', title: 'Nhập xuất tồn BTP cắt', desc: 'SL cắt, đã xuất, tồn theo lệnh sản xuất', url: 'btp-cat.html' },
+  ];
+  const draw = () => {
+    document.getElementById('tiles').innerHTML = pages.map((r) => `
+      <a class="tile" href="${r.url}?xn=${App.xn}">
+        <div class="icon">${r.icon}</div><div class="title">${r.title}</div><div class="desc">${r.desc}</div>
+      </a>`).join('');
+  };
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN']], draw).then(draw);
+</script>
+</body>
+</html>

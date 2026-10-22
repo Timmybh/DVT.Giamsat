@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trang chính - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Chọn vai trò</h1>
+  <div class="grid" id="tiles"></div>
+</main>
+<script>
+  const roles = [
+    { icon: '🧵', title: 'Tổ trưởng chuyền may', desc: 'Theo dõi sản lượng, BTP của chuyền', url: '/role/may.html' },
+    { icon: '🔍', title: 'Tổ trưởng QC', desc: 'Kiểm tra chất lượng, tỷ lệ lỗi', url: '/role/qc.html' },
+    { icon: '📈', title: 'Tổ trưởng LEAN', desc: 'Kế hoạch phân bổ, đặt BTP, nhập xuất tồn BTP cắt', url: '/lean/' },
+    { icon: '🏭', title: 'Giám đốc xí nghiệp', desc: 'Tổng quan toàn xí nghiệp', url: '/role/giam-doc.html' },
+  ];
+  const draw = () => {
+    document.getElementById('tiles').innerHTML = roles.map((r) => `
+      <a class="tile" href="${r.url}?xn=${App.xn}">
+        <div class="icon">${r.icon}</div><div class="title">${r.title}</div><div class="desc">${r.desc}</div>
+      </a>`).join('');
+  };
+  App.header([['Trang chính']], draw).then(draw);
+</script>
+</body>
+</html>
