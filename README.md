@@ -23,8 +23,8 @@ Các bảng phiếu cấp BTP, phiếu xuất BTP cắt, lệnh sản xuất ch�
 npm run khao-sat
 ```
 
-Script chỉ đọc `sys.objects` / `sys.columns`, ghi danh sách bảng + cột vào `khao-sat\eGMF.csv` và `khao-sat\HiPro.csv`.
-Gửi 2 file này để sửa các câu SQL đánh dấu `[TẠM]` trong `src/queries.js`.
+Script chỉ đọc (SELECT), ghi cột, khóa ngoại và 5 dòng mẫu của các bảng `CUTTING_PhieuCapBTP*`, `CUTTING_PhieuHoachToan*`, lệnh sản xuất vào `khao-sat\ket-qua.txt`.
+Gửi file này để sửa các câu SQL đánh dấu `[TẠM]` trong `src/queries.js`.
 
 ## Triển khai production (máy khác trong LAN)
 
@@ -41,7 +41,9 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | Xí nghiệp | `Lib_XiNghiep` | Đã xác nhận (theo DH-DVT) |
 | Tổ / chuyền | `Lib_CumChuyen` → `Lib_PhanXuong` | Đã xác nhận |
 | Kế hoạch phân bổ | `OMM_KeHoachThang` → `OMM_PO_ChiTiet` → `OMM_PO` → `OMM_DonHang` | Đã xác nhận |
-| Phiếu cấp BTP, phiếu xuất BTP cắt, lệnh SX | chưa rõ | Tạm, chờ khảo sát |
+| Phiếu cấp BTP | `CUTTING_PhieuCapBTP` + các bảng chi tiết `CUTTING_PhieuCapBTP*` | Đã biết tên bảng, chờ khảo sát cột |
+| Tem BTP cắt, SL xuất | `CUTTING_PhieuHoachToan_TemBarCode` | Đã biết tên bảng, chờ khảo sát cột |
+| Lệnh sản xuất | chưa rõ | Chờ khảo sát |
 
 ## Cấu trúc
 
