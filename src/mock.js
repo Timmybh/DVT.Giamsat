@@ -134,6 +134,10 @@ module.exports = {
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau)),
+  sanLuongTheoHang: () => keHoach.map((k) => ({
+    xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, maHang: k.maHang,
+    slSX: Math.floor(k.soLuong * Math.min(1, Math.max(0, (Date.now() - new Date(k.ngayBatDau)) / (new Date(k.ngayKetThuc) - new Date(k.ngayBatDau))))),
+  })),
   phieuCapBTP: ({ xnCode, to: maTo, tuNgay, denNgay }) =>
     phieuCap.filter((p) => p.xnCode === xnCode && p.to === maTo && inRange(p.ngayNhan, tuNgay, denNgay))
       .map((p) => {

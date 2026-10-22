@@ -71,9 +71,26 @@ function handleXn(name, getParams) {
 router.get('/status', (req, res) => res.json({ mock: db.useMock() }));
 router.get('/xi-nghiep', handle('xiNghiep', () => ({})));
 router.get('/to', handle('to', (req) => ({ xn: req.query.xn })));
-router.get('/ke-hoach-phan-bo', handle('keHoachPhanBo', (req) => ({
-  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(),
-})));
+// Kế hoạch phân bổ + SL đã sản xuất (HiPro, đạt lũy kế từ ngày vào chuyền sớm nhất đến hôm nay, theo tổ x mã hàng)
+router.get('/ke-hoach-phan-bo', async (req, res) => {
+  try {
+    const rows = await run('keHoachPhanBo', { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() });
+    if (!rows.length) return res.json([]);
+    const n = await xnNum(req.query.xn);
+    const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
+    const sx = await run('sanLuongTheoHang', { tuNgay: tu.toISOString().slice(0, 10), denNgay: today() });
+    const key = (line, maHang) => `${lineOf(line)}|${String(maHang || '').trim().toUpperCase()}`;
+    const map = new Map();
+    sx.filter((r) => xnOf(r.xn) === n).forEach((r) => map.set(key(r.line, r.maHang), (map.get(key(r.line, r.maHang)) || 0) + Number(r.slSX || 0)));
+    res.json(rows.map((r) => {
+      const slSX = map.get(key(r.maTo, r.maHang)) || 0;
+      return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
+    }));
+  } catch (err) {
+    console.error('[keHoachPhanBo]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,
   tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),

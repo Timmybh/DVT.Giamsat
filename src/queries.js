@@ -221,6 +221,22 @@ module.exports = {
       GROUP BY nm.ten, c.ten, sp.ma_san_pham`,
   },
 
+  // Sản lượng đạt (qty) lũy kế theo xí nghiệp x chuyền x mã hàng trong khoảng ngày (pro_nscl hiện hành). Tham số: @tuNgay, @denNgay
+  sanLuongTheoHang: {
+    db: 'hipro',
+    text: `
+      SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS slSX
+      FROM dbo.pro_nscl n
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      GROUP BY nm.ten, c.ten, sp.ma_san_pham`,
+  },
+
   // Tình hình may theo PO (Report_BaoCaoMayRa là nhật ký snapshot ~10 phút: lấy bản mới nhất theo PO x chuyền trong ngày).
   // Tham số: @xnNum ('1'), @d0
   poMayRa: {
