@@ -3,7 +3,12 @@ const App = {
   get xn() {
     return new URLSearchParams(location.search).get('xn') || localStorage.getItem('xn') || '';
   },
-  set xn(v) { localStorage.setItem('xn', v); },
+  // Ghi cả localStorage lẫn ?xn= trên URL (getter ưu tiên URL, nên phải đổi theo, nếu không đổi xí nghiệp sẽ không có tác dụng)
+  set xn(v) {
+    localStorage.setItem('xn', v);
+    const u = new URL(location.href);
+    if (u.searchParams.get('xn') !== v) { u.searchParams.set('xn', v); history.replaceState(null, '', u); }
+  },
 
   async api(path, params = {}) {
     const qs = new URLSearchParams(params).toString();
