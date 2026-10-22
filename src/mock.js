@@ -146,7 +146,7 @@ module.exports = {
     if (!k) return [];
     const maus = mauList.slice(0, 1 + (Number(maHang) % 2));
     let n = 0;
-    return maus.flatMap((mau) => sizeList.map((size) => ({ mau, size, soLuong: Math.round(k.soLuong / maus.length / sizeList.length), thuTu: n++ })));
+    return maus.flatMap((mau) => ['M', 'S', 'L', 'XL', 'XS'].map((size) => ({ mau, size, soLuong: Math.round(k.soLuong / maus.length / sizeList.length), thuTu: n++, thuTuSize: null })));
   },
   sanLuongTheoHang: () => keHoach.map((k) => ({
     xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, maHang: k.maHang,

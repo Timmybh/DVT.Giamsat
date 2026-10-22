@@ -68,11 +68,16 @@ module.exports = {
   },
 
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.
+  // thuTuSize = STT size trên phiếu điều tiết của mã hàng (Cutting_PhieuDieuTietGiacSoDo_ThuTuSize), null nếu chưa có điều tiết.
   // Cùng điều kiện với keHoachPhanBo. Tham số: @xn, @tuNgay, @denNgay, @to, @maHang
   keHoachSize: {
     db: 'egmf',
     text: `
-      SELECT ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong, MIN(s.SKId) AS thuTu
+      SELECT ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong, MIN(s.SKId) AS thuTu,
+             (SELECT MIN(ts.STT) FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ThuTuSize ts
+              JOIN dbo.Cutting_PhieuDieuTietGiacSoDo p ON p.Id = ts.PhieuDieuTietId
+              WHERE p.MaHang = @maHang
+                AND (ts.SizeName = ISNULL(s.TenSize, '') OR ts.SizeCode = REPLACE(ISNULL(s.TenSize, ''), ' ', ''))) AS thuTuSize
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
       JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId

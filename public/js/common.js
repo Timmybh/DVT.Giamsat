@@ -52,6 +52,21 @@ const App = {
   },
   // Ngày theo giờ máy người xem (YYYY-MM-DD)
   ymd: (v) => { const d = new Date(v); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); },
+  // So sánh size: theo STT trên phiếu điều tiết (thuTuSize) nếu cả 2 có; không thì theo bậc size chuẩn
+  // (XS < S < M < L < XL < 2XL..., lấy phần chữ cuối như 'UK 6-8 / EU S' -> S), rồi theo số, rồi theo chữ.
+  sizeRank: (s) => {
+    const R = { XXXS: 1, '3XS': 1, XXS: 2, '2XS': 2, XS: 3, S: 4, M: 5, L: 6, XL: 7, XXL: 8, '2XL': 8, XXXL: 9, '3XL': 9, '4XL': 10, '5XL': 11, '6XL': 12 };
+    const tokens = String(s ?? '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).reverse();
+    const t = tokens.find((x) => R[x]);
+    return t ? R[t] : null;
+  },
+  sizeCmp: (a, b) => {
+    if (a.thuTuSize != null && b.thuTuSize != null && a.thuTuSize !== b.thuTuSize) return a.thuTuSize - b.thuTuSize;
+    const ra = App.sizeRank(a.size), rb = App.sizeRank(b.size);
+    if (ra != null && rb != null && ra !== rb) return ra - rb;
+    if ((ra == null) !== (rb == null)) return ra == null ? 1 : -1;
+    return String(a.size).localeCompare(String(b.size), undefined, { numeric: true });
+  },
   today: () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); },
   esc: (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
 

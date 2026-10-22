@@ -56,7 +56,10 @@
     App.loading(size);
     try {
       const data = await App.api('ke-hoach-phan-bo/size', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value, to: r.maTo, maHang: r.maHang });
-      const sizes = [...new Map(data.slice().sort((a, b) => a.thuTu - b.thuTu).map((x) => [x.size, x.thuTu])).keys()];
+      // Mỗi size 1 đại diện (STT điều tiết nhỏ nhất), rồi xếp theo App.sizeCmp
+      const dsSize = new Map();
+      data.forEach((x) => { const c = dsSize.get(x.size); if (!c || (x.thuTuSize != null && (c.thuTuSize == null || x.thuTuSize < c.thuTuSize))) dsSize.set(x.size, x); });
+      const sizes = [...dsSize.values()].sort(App.sizeCmp).map((x) => x.size);
       const maus = new Map();
       data.forEach((x) => {
         const m = maus.get(x.mau) || { mau: x.mau, tong: 0 };
