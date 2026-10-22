@@ -279,4 +279,97 @@ module.exports = {
       WHERE CAST(XiNghiep AS nvarchar(20)) = @xnNum AND Ngay >= @tuNgay AND Ngay < DATEADD(day, 1, @denNgay)
       ORDER BY Ngay, Id`,
   },
+
+  // ======================= Nhập xuất tồn BTP cắt theo điều tiết =======================
+  // Cutting_PhieuDieuTietGiacSoDo (phiếu điều tiết: lệnh x loại NL) -> _TacNghiep (SL sản phẩm theo màu SP x size)
+  // -> _ChiTiet_BanMay (bó cắt: màu SP, size, SL sản phẩm) -> CUTTING_PhieuHoachToan_TemBarcode_ChiTiet (IdBanMay)
+  // -> CUTTING_PhieuHoachToan_TemBarCode (mỗi bó 1 tem / chi tiết). Bó đã xuất đồng bộ = SL xuất nhỏ nhất trong các tem của bó.
+
+  // Các phiếu điều tiết của lệnh. Tham số: @lenhSX
+  dtPhieu: {
+    db: 'egmf',
+    text: `
+      SELECT m.Id AS id, ISNULL(m.ChungLoai, '') AS loaiNL
+      FROM dbo.Cutting_PhieuDieuTietGiacSoDo m
+      WHERE ${matchLenh('m.LenhSanXuat')}`,
+  },
+
+  // SL tác nghiệp theo phiếu x màu SP x size. Tham số: @lenhSX
+  dtTacNghiep: {
+    db: 'egmf',
+    text: `
+      SELECT t.IdMaster AS idPhieu, ISNULL(t.MauProduct, '') AS mau, ISNULL(t.Size, '') AS size, SUM(ISNULL(t.SoLuong, 0)) AS soLuong
+      FROM dbo.Cutting_PhieuDieuTietGiacSoDo_TacNghiep t
+      JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = t.IdMaster
+      WHERE ${matchLenh('m.LenhSanXuat')}
+      GROUP BY t.IdMaster, ISNULL(t.MauProduct, ''), ISNULL(t.Size, '')`,
+  },
+
+  // Bó đã cắt (đã in tem) theo phiếu x màu SP x size, kèm SL sản phẩm đã xuất đồng bộ. Tham số: @lenhSX
+  dtBanMay: {
+    db: 'egmf',
+    text: `
+      SELECT bm.IdPhieuDieuTiet AS idPhieu, ISNULL(bm.MauSanPham, '') AS mau, ISNULL(bm.TenSize, '') AS size,
+             COUNT(*) AS soBo, SUM(ISNULL(bm.SoLuong, 0)) AS slCat, SUM(x.slXuat) AS slXuat
+      FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm
+      JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = bm.IdPhieuDieuTiet
+      JOIN (
+        SELECT tc.IdBanMay, MIN(ISNULL(t.SoLuongThucXuat, 0)) AS slXuat
+        FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+        JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet tc ON tc.IdTem = t.Id
+        WHERE ${matchLenh('t.LenhSanXuat')}
+        GROUP BY tc.IdBanMay
+      ) x ON x.IdBanMay = bm.IdBanMay
+      WHERE ${matchLenh('m.LenhSanXuat')}
+      GROUP BY bm.IdPhieuDieuTiet, ISNULL(bm.MauSanPham, ''), ISNULL(bm.TenSize, '')`,
+  },
+
+  // Tem theo chi tiết của 1 màu SP x size (qua bó cắt). Tham số: @lenhSX, @mau, @size
+  dtChiTiet: {
+    db: 'egmf',
+    text: `
+      WITH tems AS (
+        SELECT DISTINCT t.Id, ISNULL(t.LoaiNguyenLieu, ISNULL(m.ChungLoai, '')) AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
+               ISNULL(t.SoLuong, 0) AS sl, ISNULL(t.SoLuongThucXuat, 0) AS xuat
+        FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm
+        JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = bm.IdPhieuDieuTiet
+        JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet tc ON tc.IdBanMay = bm.IdBanMay
+        JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Id = tc.IdTem
+        WHERE ${matchLenh('m.LenhSanXuat')} AND ISNULL(bm.MauSanPham, '') = @mau AND ISNULL(bm.TenSize, '') = @size
+      )
+      SELECT loaiNL, chiTiet, COUNT(*) AS soTem, SUM(sl) AS slCat, SUM(xuat) AS slXuat, SUM(sl) - SUM(xuat) AS slTon
+      FROM tems GROUP BY loaiNL, chiTiet ORDER BY loaiNL, chiTiet`,
+  },
+
+  // Phiếu cấp đã nhận 1 màu SP x size, theo loại NL: số bó, SL sản phẩm đồng bộ (bó đủ tem mọi chi tiết).
+  // Tham số: @lenhSX, @mau, @size
+  dtPhieuCap: {
+    db: 'egmf',
+    text: `
+      WITH tems AS (
+        SELECT DISTINCT t.Id, t.Barcode, tc.IdBanMay, ISNULL(m.ChungLoai, '') AS loaiNL
+        FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm
+        JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = bm.IdPhieuDieuTiet
+        JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet tc ON tc.IdBanMay = bm.IdBanMay
+        JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Id = tc.IdTem
+        WHERE ${matchLenh('m.LenhSanXuat')} AND ISNULL(bm.MauSanPham, '') = @mau AND ISNULL(bm.TenSize, '') = @size
+      ),
+      temMoiBo AS (SELECT IdBanMay, COUNT(*) AS n FROM tems GROUP BY IdBanMay),
+      quet AS (
+        SELECT bc.SoPhieuCapBTP, x.loaiNL, x.IdBanMay, COUNT(*) AS n, MIN(ISNULL(bc.SoLuongDaXuat, 0)) AS mn,
+               MIN(bc.ThoiGianQuetXuat) AS tu, MAX(bc.ThoiGianQuetXuat) AS den, MAX(bc.IdCapBTPCT) AS idct
+        FROM tems x JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = x.Barcode
+        GROUP BY bc.SoPhieuCapBTP, x.loaiNL, x.IdBanMay
+      )
+      SELECT q.SoPhieuCapBTP AS soPhieuCap, q.loaiNL, MAX(pc.TenPhanXuong) AS xn, MAX(LTRIM(RTRIM(pc.TenCum))) AS maTo,
+             MAX(ct.PO) AS po, MAX(ct.SizeCode) AS sizeDat, MAX(ct.SoLuong) AS slDat,
+             COUNT(*) AS soBo, SUM(q.n) AS soTem, SUM(CASE WHEN q.n >= tb.n THEN q.mn ELSE 0 END) AS slSP,
+             MIN(q.tu) AS tuLuc, MAX(q.den) AS denLuc
+      FROM quet q
+      JOIN temMoiBo tb ON tb.IdBanMay = q.IdBanMay
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = q.SoPhieuCapBTP
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.Id = q.idct
+      GROUP BY q.SoPhieuCapBTP, q.loaiNL
+      ORDER BY MIN(q.tu)`,
+  },
 };

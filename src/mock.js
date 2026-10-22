@@ -22,6 +22,7 @@ const nguoi = ['VÕ THỊ NGA', 'NGÔ THỊ KIỀU OANH', 'LÊ VŨ PHONG', 'Đ�
 const mauList = ['8941360 NOIR', '8996818 BLANC', '9013014 GREEN'];
 const sizeList = ['S', 'M', 'L', 'XL'];
 const chiTietList = [['Vải chính', 'THÂN TRƯỚC'], ['Vải chính', 'THÂN SAU'], ['Vải chính', 'TAY'], ['Vải lót', 'LÓT THÂN']];
+const loaiNLList = [...new Set(chiTietList.map((c) => c[0]))];
 
 const lenhSX = [];
 const keHoach = [];
@@ -29,7 +30,12 @@ const tem = [];
 const phieuCap = [];
 const phieuCapCT = [];
 const quetXuat = [];
+const dieuTiet = []; // phiếu điều tiết: 1 phiếu / (lệnh, loại NL)
+const tacNghiep = []; // SL sản phẩm theo màu x size của phiếu điều tiết
+const banMay = []; // bó cắt (bàn máy): mỗi bó in 1 tem cho mỗi chi tiết của loại NL
 let soTem = 1;
+let idDT = 25000;
+let idBM = 1150000;
 let soPC = 2610001000;
 
 xiNghiep.forEach((xn) => {
@@ -42,15 +48,27 @@ xiNghiep.forEach((xn) => {
     const po = String(int(4524000000, 4525999999));
     let tong = 0;
 
-    // Tem BTP cắt: mỗi (chi tiết, màu, size) cắt thành vài tem
+    // Điều tiết -> bó cắt -> tem: mỗi bó in 1 tem cho mỗi chi tiết của loại NL
+    const phieuDT = Object.fromEntries(loaiNLList.map((loaiNL) => {
+      const p = { id: idDT++, lenhSX: lenh, loaiNL };
+      dieuTiet.push(p);
+      return [loaiNL, p];
+    }));
     maus.forEach((mau) => sizeList.forEach((size) => {
       const slSize = int(100, 400);
       tong += slSize;
-      chiTietList.forEach(([loaiNL, chiTiet]) => {
-        for (let left = slSize; left > 0;) {
+      loaiNLList.forEach((loaiNL) => {
+        const p = phieuDT[loaiNL];
+        tacNghiep.push({ idPhieu: p.id, mau, size, soLuong: slSize });
+        let left = Math.floor(slSize * (rnd() < 0.3 ? 0.7 + rnd() * 0.25 : 1)); // có size cắt chưa đủ
+        while (left > 0) {
           const sl = Math.min(left, int(20, 60));
           left -= sl;
-          tem.push({ barcode: `BTP26100${String(soTem++).padStart(5, '0')}`, lenhSX: lenh, maHang, loaiNL, chiTiet, mau, size, soLuong: sl, slXuat: 0 });
+          const bm = { idBanMay: idBM++, idPhieu: p.id, mau, size, soLuong: sl };
+          banMay.push(bm);
+          chiTietList.filter((c) => c[0] === loaiNL).forEach(([, chiTiet]) => {
+            tem.push({ barcode: `BTP26100${String(soTem++).padStart(5, '0')}`, lenhSX: lenh, maHang, loaiNL, chiTiet, mau, size, soLuong: sl, slXuat: 0, idBanMay: bm.idBanMay });
+          });
         }
       });
     }));
@@ -189,4 +207,58 @@ module.exports = {
     const thucHien = Math.floor(keHoach * (0.75 + hash(`dtt${xnNum}${d}`) * 0.35));
     return { id: i + 1, ngay: d, keHoach, thucHien, conLai: keHoach - thucHien };
   }),
+  // ---- Nhập xuất tồn theo điều tiết ----
+  dtPhieu: ({ lenhSX: lenh }) => dieuTiet.filter((p) => p.lenhSX === lenh).map((p) => ({ id: p.id, loaiNL: p.loaiNL })),
+  dtTacNghiep: ({ lenhSX: lenh }) => {
+    const ids = new Set(dieuTiet.filter((p) => p.lenhSX === lenh).map((p) => p.id));
+    return tacNghiep.filter((t) => ids.has(t.idPhieu));
+  },
+  dtBanMay: ({ lenhSX: lenh }) => {
+    const ids = new Set(dieuTiet.filter((p) => p.lenhSX === lenh).map((p) => p.id));
+    const groups = new Map();
+    banMay.filter((b) => ids.has(b.idPhieu)).forEach((b) => {
+      const tems = tem.filter((t) => t.idBanMay === b.idBanMay);
+      if (!tems.length) return;
+      const key = [b.idPhieu, b.mau, b.size].join('|');
+      const g = groups.get(key) || { idPhieu: b.idPhieu, mau: b.mau, size: b.size, soBo: 0, slCat: 0, slXuat: 0 };
+      g.soBo++; g.slCat += b.soLuong; g.slXuat += Math.min(...tems.map((t) => t.slXuat));
+      groups.set(key, g);
+    });
+    return [...groups.values()];
+  },
+  dtChiTiet: ({ lenhSX: lenh, mau, size }) => {
+    const groups = new Map();
+    tem.filter((t) => t.lenhSX === lenh && t.mau === mau && t.size === size).forEach((t) => {
+      const key = `${t.loaiNL}|${t.chiTiet}`;
+      const g = groups.get(key) || { loaiNL: t.loaiNL, chiTiet: t.chiTiet, soTem: 0, slCat: 0, slXuat: 0 };
+      g.soTem++; g.slCat += t.soLuong; g.slXuat += t.slXuat;
+      groups.set(key, g);
+    });
+    return [...groups.values()].map((g) => ({ ...g, slTon: g.slCat - g.slXuat }));
+  },
+  dtPhieuCap: ({ lenhSX: lenh, mau, size }) => {
+    const groups = new Map();
+    const tems = new Map(tem.filter((t) => t.lenhSX === lenh && t.mau === mau && t.size === size).map((t) => [t.barcode, t]));
+    const temMoiBo = (id) => tem.filter((t) => t.idBanMay === id).length;
+    quetXuat.filter((x) => tems.has(x.barcode)).forEach((x) => {
+      const t = tems.get(x.barcode);
+      const key = `${x.soPhieu}|${t.loaiNL}`;
+      const pc = phieuCap.find((p) => p.soPhieu === x.soPhieu);
+      const ct = phieuCapCT.find((c) => c.soPhieu === x.soPhieu && c.mau === x.mau && c.size === x.size) || {};
+      const g = groups.get(key) || {
+        soPhieuCap: x.soPhieu, loaiNL: t.loaiNL, xn: pc.xnCode, maTo: pc.to, po: ct.po, sizeDat: ct.size, slDat: ct.slDat,
+        soTem: 0, bo: new Map(), tuLuc: x.thoiGianXuat, denLuc: x.thoiGianXuat,
+      };
+      g.soTem++;
+      const b = g.bo.get(t.idBanMay) || { n: 0, min: Infinity };
+      b.n++; b.min = Math.min(b.min, x.soLuong);
+      g.bo.set(t.idBanMay, b);
+      if (x.thoiGianXuat < g.tuLuc) g.tuLuc = x.thoiGianXuat;
+      if (x.thoiGianXuat > g.denLuc) g.denLuc = x.thoiGianXuat;
+      groups.set(key, g);
+    });
+    return [...groups.values()].map(({ bo, ...g }) => ({
+      ...g, soBo: bo.size, slSP: [...bo.entries()].reduce((s, [id, b]) => s + (b.n >= temMoiBo(id) ? b.min : 0), 0),
+    }));
+  },
 };

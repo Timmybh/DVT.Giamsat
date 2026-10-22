@@ -15,21 +15,32 @@
       <label>Lệnh sản xuất <input id="lenh" list="lenhList" placeholder="Gõ lệnh SX hoặc mã hàng" style="min-width:240px"></label>
       <datalist id="lenhList"></datalist>
       <button id="btn">Xem</button>
-      <label>Lọc nhanh <input id="loc" placeholder="chi tiết, màu, size…"></label>
+      <label>Lọc nhanh <input id="loc" placeholder="màu, size…"></label>
       <span id="lenhInfo" style="color:var(--muted)"></span>
     </div>
     <div id="nxt"><div class="empty">Chọn lệnh sản xuất để xem BTP cắt</div></div>
+    <div class="note" id="ghiChu"></div>
+  </div>
+  <div class="panel" id="pLoai" hidden>
+    <h2>Theo loại nguyên liệu <span class="dongName"></span></h2>
+    <div id="theoLoai"></div>
+  </div>
+  <div class="panel" id="pChiTiet" hidden>
+    <h2>Theo chi tiết (tem) <span class="dongName"></span></h2>
+    <div id="theoChiTiet"></div>
   </div>
   <div class="panel">
-    <h2>Đã xuất cho phiếu cấp BTP <span id="dongName"></span></h2>
+    <h2>Đã xuất cho phiếu cấp BTP <span class="dongName"></span></h2>
     <div id="xuat"><div class="empty">Click vào một dòng BTP cắt để xem đã xuất cho phiếu cấp nào</div></div>
   </div>
 </main>
 <script>
   let lenhs = [];
   let rows = [];
+  let mode = 'dieuTiet'; // 'dieuTiet' | 'tem' (lệnh cũ không có phiếu điều tiết)
   let lenhDangXem = '';
   let timer;
+  const setName = (t) => document.querySelectorAll('.dongName').forEach((e) => (e.textContent = t ? `- ${t}` : ''));
 
   async function searchLenh(q = '') {
     lenhs = await App.api('lenh-sx', { q });
@@ -43,17 +54,29 @@
 
   function draw() {
     const q = loc.value.trim().toLowerCase();
-    const data = q ? rows.filter((r) => [r.loaiNL, r.chiTiet, r.mau, r.size].join(' ').toLowerCase().includes(q)) : rows;
-    App.table(nxt, [
-      { key: 'loaiNL', label: 'Loại NL' },
-      { key: 'chiTiet', label: 'Chi tiết' },
-      { key: 'mau', label: 'Màu SP' },
-      { key: 'size', label: 'Size' },
-      { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
-      { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
-      { key: 'slXuat', label: 'SL đã xuất', type: 'num', sum: true },
-      { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
-    ], data, { onClick: loadXuat, footer: true, empty: lenhDangXem ? 'Lệnh này chưa có tem BTP cắt' : 'Chọn lệnh sản xuất' });
+    const data = q ? rows.filter((r) => [r.mau, r.size, r.loaiNL, r.chiTiet].join(' ').toLowerCase().includes(q)) : rows;
+    if (mode === 'dieuTiet') {
+      App.table(nxt, [
+        { key: 'mau', label: 'Màu SP' },
+        { key: 'size', label: 'Size' },
+        { key: 'tacNghiep', label: 'SL điều tiết', type: 'num', sum: true },
+        { key: 'slCat', label: 'Đã cắt (đồng bộ)', type: 'num', sum: true },
+        { key: 'conPhaiCat', label: 'Còn phải cắt', type: 'num', sum: true },
+        { key: 'slXuat', label: 'Đã xuất (đồng bộ)', type: 'num', sum: true },
+        { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
+      ], data, { onClick: loadDetail, footer: true, empty: 'Lệnh này chưa có số liệu điều tiết' });
+    } else {
+      App.table(nxt, [
+        { key: 'loaiNL', label: 'Loại NL' },
+        { key: 'chiTiet', label: 'Chi tiết' },
+        { key: 'mau', label: 'Màu SP' },
+        { key: 'size', label: 'Size' },
+        { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
+        { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
+        { key: 'slXuat', label: 'SL đã xuất', type: 'num', sum: true },
+        { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
+      ], data, { onClick: loadXuatTem, footer: true, empty: 'Lệnh này chưa có tem BTP cắt' });
+    }
   }
 
   async function load() {
@@ -62,17 +85,65 @@
     lenhDangXem = v;
     const info = lenhs.find((l) => l.lenhSX === v);
     lenhInfo.textContent = info ? [info.maHang, info.khachHang, info.soLuong && `SL lệnh ${App.num(info.soLuong)}`].filter(Boolean).join(' · ') : '';
-    dongName.textContent = '';
+    setName('');
+    pLoai.hidden = pChiTiet.hidden = true;
     xuat.innerHTML = '<div class="empty">Click vào một dòng BTP cắt để xem đã xuất cho phiếu cấp nào</div>';
     App.loading(nxt);
     try {
-      rows = await App.api('btp-cat', { lenhSX: v });
+      const dt = await App.api('btp-cat/dieu-tiet', { lenhSX: v });
+      if (dt.coDieuTiet) {
+        mode = 'dieuTiet';
+        rows = dt.rows;
+        ghiChu.textContent = `SL điều tiết lấy từ phiếu điều tiết (tác nghiệp). Đồng bộ = số sản phẩm đủ mọi loại NL (${dt.loaiNLs.join(', ')}) và đủ tem mọi chi tiết của bó.`;
+      } else {
+        mode = 'tem';
+        rows = await App.api('btp-cat', { lenhSX: v });
+        ghiChu.textContent = 'Lệnh không có phiếu điều tiết: hiển thị theo tem từng chi tiết.';
+      }
       draw();
     } catch (e) { lenhDangXem = ''; App.error(nxt, e); }
   }
 
-  async function loadXuat(r) {
-    dongName.textContent = `- ${[r.chiTiet, r.mau, r.size].filter(Boolean).join(' / ')}`;
+  async function loadDetail(r) {
+    setName(`${r.mau} / ${r.size}`);
+    pLoai.hidden = pChiTiet.hidden = false;
+    App.table(theoLoai, [
+      { key: 'loaiNL', label: 'Loại NL' },
+      { key: 'tacNghiep', label: 'SL điều tiết', type: 'num' },
+      { key: 'soBo', label: 'Số bó', type: 'num' },
+      { key: 'slCat', label: 'Đã cắt', type: 'num' },
+      { key: 'slXuat', label: 'Đã xuất (bó đủ chi tiết)', type: 'num' },
+      { key: 'ton', label: 'Tồn', type: 'num', render: (x) => App.num(x.slCat - x.slXuat) },
+    ], Object.entries(r.theoLoai).map(([loaiNL, x]) => ({ loaiNL, ...x })));
+    [theoChiTiet, xuat].forEach(App.loading);
+    const q = { lenhSX: lenhDangXem, mau: r.mau, size: r.size };
+    App.api('btp-cat/dieu-tiet/chi-tiet', q).then((data) => App.table(theoChiTiet, [
+      { key: 'loaiNL', label: 'Loại NL' },
+      { key: 'chiTiet', label: 'Chi tiết' },
+      { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
+      { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
+      { key: 'slXuat', label: 'SL đã xuất', type: 'num', sum: true },
+      { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
+    ], data, { footer: true, empty: 'Chưa in tem' })).catch((e) => App.error(theoChiTiet, e));
+    App.api('btp-cat/dieu-tiet/phieu-cap', q).then((data) => App.table(xuat, [
+      { key: 'soPhieuCap', label: 'Phiếu cấp BTP' },
+      { key: 'xn', label: 'XN' },
+      { key: 'maTo', label: 'Tổ' },
+      { key: 'loaiNL', label: 'Loại NL' },
+      { key: 'po', label: 'PO' },
+      { key: 'sizeDat', label: 'Size đặt' },
+      { key: 'slDat', label: 'SL đặt', type: 'num' },
+      { key: 'soBo', label: 'Số bó', type: 'num', sum: true },
+      { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
+      { key: 'slSP', label: 'SL SP đủ bộ', type: 'num' },
+      { key: 'tuLuc', label: 'Xuất từ', type: 'datetime' },
+      { key: 'denLuc', label: 'đến', type: 'datetime' },
+    ], data, { footer: true, empty: 'Chưa xuất' })).catch((e) => App.error(xuat, e));
+  }
+
+  // Lệnh cũ không có điều tiết: xem theo từng dòng tem
+  async function loadXuatTem(r) {
+    setName([r.chiTiet, r.mau, r.size].filter(Boolean).join(' / '));
     App.loading(xuat);
     try {
       const data = await App.api('btp-cat/xuat', { lenhSX: lenhDangXem, loaiNL: r.loaiNL, chiTiet: r.chiTiet, mau: r.mau, size: r.size });

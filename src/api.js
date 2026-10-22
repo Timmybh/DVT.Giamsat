@@ -92,6 +92,45 @@ router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
   mau: req.query.mau || '', size: req.query.size || '',
 })));
 
+// ---- Nhập xuất tồn BTP cắt theo điều tiết ----
+// Gộp theo màu SP x size: tác nghiệp = lớn nhất giữa các loại NL; cắt / xuất đồng bộ = nhỏ nhất giữa các loại NL
+// (loại NL nào chưa cắt size đó tính 0). Size ghi khác nhau giữa tác nghiệp và bàn máy sẽ thành dòng riêng.
+router.get('/btp-cat/dieu-tiet', async (req, res) => {
+  try {
+    const p = { lenhSX: (req.query.lenhSX || '').trim() };
+    const [phieus, tns, bms] = await Promise.all([run('dtPhieu', p), run('dtTacNghiep', p), run('dtBanMay', p)]);
+    if (!phieus.length) return res.json({ coDieuTiet: false, loaiNLs: [], rows: [] });
+    const loaiOf = new Map(phieus.map((x) => [String(x.id), x.loaiNL || '(trống)']));
+    const loaiNLs = [...new Set(phieus.map((x) => x.loaiNL || '(trống)'))];
+    const keys = new Map();
+    const at = (mau, size) => {
+      const k = `${mau}|${size}`;
+      if (!keys.has(k)) keys.set(k, { mau, size, theoLoai: {} });
+      return keys.get(k);
+    };
+    const loai = (row, l) => (row.theoLoai[l] = row.theoLoai[l] || { tacNghiep: 0, soBo: 0, slCat: 0, slXuat: 0 });
+    tns.forEach((t) => (loai(at(t.mau, t.size), loaiOf.get(String(t.idPhieu))).tacNghiep += Number(t.soLuong || 0)));
+    bms.forEach((b) => {
+      const x = loai(at(b.mau, b.size), loaiOf.get(String(b.idPhieu)));
+      x.soBo += Number(b.soBo || 0); x.slCat += Number(b.slCat || 0); x.slXuat += Number(b.slXuat || 0);
+    });
+    const rows = [...keys.values()].map((r) => {
+      const ls = Object.values(r.theoLoai);
+      const tacNghiep = Math.max(...ls.map((x) => x.tacNghiep));
+      const slCat = Math.min(...ls.map((x) => x.slCat));
+      const slXuat = Math.min(...ls.map((x) => x.slXuat));
+      return { ...r, tacNghiep, slCat, slXuat, slTon: slCat - slXuat, conPhaiCat: Math.max(tacNghiep - slCat, 0) };
+    }).sort((a, b) => a.mau.localeCompare(b.mau) || a.size.localeCompare(b.size, undefined, { numeric: true }));
+    res.json({ coDieuTiet: true, loaiNLs, rows });
+  } catch (err) {
+    console.error('[dieuTiet]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+const dtParams = (req) => ({ lenhSX: (req.query.lenhSX || '').trim(), mau: req.query.mau || '', size: req.query.size || '' });
+router.get('/btp-cat/dieu-tiet/chi-tiet', handle('dtChiTiet', dtParams));
+router.get('/btp-cat/dieu-tiet/phieu-cap', handle('dtPhieuCap', dtParams));
+
 // ---- Tổ trưởng may / QC / Giám đốc XN ----
 const ngay = (req) => req.query.d || today();
 router.get('/ke-hoach-ngay', handleXn('keHoachNgay', (req) => ({ xn: req.query.xn, d0: ngay(req) })));

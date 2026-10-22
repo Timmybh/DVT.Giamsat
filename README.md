@@ -43,7 +43,7 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | Lệnh sản xuất | `Bravo_LenhSanXuat_Master` (DocNo) + `_Detail`, SL lệnh từ `CUTTING_LenhSanXuat_SoLuongLenh` |
 | Phiếu cấp BTP | `CUTTING_PhieuCapBTP` (TenPhanXuong = XN1.., TenCum = tổ) + `CUTTING_PhieuCapBTP_ChiTiet` |
 | Tem đã xuất cho phiếu cấp | `CUTTING_PhieuCapBTP_BarcodeChiTiet` |
-| Nhập xuất tồn BTP cắt | `CUTTING_PhieuHoachToan_TemBarCode` (SL cắt = SoLuong, xuất = SoLuongThucXuat) |
+| Nhập xuất tồn BTP cắt | Điều tiết `Cutting_PhieuDieuTietGiacSoDo` → `_TacNghiep` (SL theo size) → `_ChiTiet_BanMay` (bó cắt) → `CUTTING_PhieuHoachToan_TemBarcode_ChiTiet` → `CUTTING_PhieuHoachToan_TemBarCode`. Lệnh không có điều tiết: theo tem |
 | Kế hoạch ngày theo tổ | `OMM_KeHoachThang` (SoLuong / SoNgaySX) |
 | Sản lượng theo giờ | HiPro `pro_nscl` (qty_1_h … qty_14_h) → `pro_ke_hoach_san_xuat` → `pro_chuyen` / `pro_nha_may` / `pro_san_pham` |
 | PO đang may | `Report_BaoCaoMayRa` (bản ghi mới nhất theo PO x chuyền trong ngày) |
