@@ -43,7 +43,7 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | Kế hoạch phân bổ | `OMM_KeHoachThang` → `OMM_PO_ChiTiet` → `OMM_PO` → `OMM_DonHang` | Đã xác nhận |
 | Phiếu cấp BTP | `CUTTING_PhieuCapBTP` + các bảng chi tiết `CUTTING_PhieuCapBTP*` | Đã biết tên bảng, chờ khảo sát cột |
 | Tem BTP cắt, SL xuất | `CUTTING_PhieuHoachToan_TemBarCode` | Đã biết tên bảng, chờ khảo sát cột |
-| Lệnh sản xuất | chưa rõ | Chờ khảo sát |
+| Lệnh sản xuất | `Bravo_LenhSanXuat_Master` | Đã biết tên bảng, chờ khảo sát cột |
 
 ## Cấu trúc
 

@@ -8,7 +8,7 @@ const sql = require('mssql');
 
 const PATTERNS = [
   'CUTTING[_]PhieuCapBTP%', 'CUTTING[_]PhieuHoachToan%', 'CUTTING[_]%Xuat%',
-  '%LenhSanXuat%', '%ProductionOrder%',
+  'Bravo[_]LenhSanXuat%', '%LenhSanXuat%', '%ProductionOrder%',
 ];
 const SAMPLE_ROWS = 5;
 
