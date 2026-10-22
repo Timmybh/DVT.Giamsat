@@ -1,15 +1,17 @@
 // Khảo sát (CHỈ ĐỌC) các bảng BTP cắt, phiếu cấp BTP, lệnh sản xuất trên eGMF.
 // Chạy: npm run khao-sat   -> ghi ra khao-sat/ket-qua.txt để gửi lại cho người phát triển.
+// Khảo sát nhóm bảng khác: npm run khao-sat -- "%DieuTiet%" "%GiacSoDo%"  (mẫu LIKE theo tên bảng)
 // Gồm: cột của từng bảng, khóa ngoại, số dòng và 5 dòng mẫu mới nhất.
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const sql = require('mssql');
 
-const PATTERNS = [
+const DEFAULT_PATTERNS = [
   'CUTTING[_]PhieuCapBTP%', 'CUTTING[_]PhieuHoachToan%', 'CUTTING[_]%Xuat%',
   'Bravo[_]LenhSanXuat%', '%LenhSanXuat%', '%ProductionOrder%',
 ];
+const PATTERNS = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_PATTERNS;
 const SAMPLE_ROWS = 5;
 
 const TABLES_SQL = `
