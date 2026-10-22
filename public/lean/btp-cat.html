@@ -81,7 +81,7 @@
         { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
         { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
         { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
-        { key: 'chiTiet', label: 'Chi tiết' },
+        { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
         { key: 'mau', label: 'Màu SP' },
         { key: 'size', label: 'Size' },
         { key: 'maTo', label: 'Tổ' },
@@ -135,7 +135,7 @@
     });
     App.table(tongHop, [
       { key: 'loaiNL', label: 'Loại NL' },
-      { key: 'chiTiet', label: 'Chi tiết' },
+      { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
       { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
       { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
@@ -155,7 +155,7 @@
       ghiChu.textContent = 'Toàn bộ lệnh, không theo khoảng ngày. SL điều tiết lấy từ tác nghiệp của phiếu điều tiết. '
         + `Cắt theo chủng loại: loại NL tác nghiệp không ghi màu (${dt.loaiChung.join(', ') || 'không có'}), tính theo size. `
         + `Cắt theo màu: đồng bộ = số sản phẩm đủ mọi loại NL có màu (${dt.loaiMau.join(', ') || 'không có'}). `
-        + 'Đã xuất: bó tính khi mọi tem có tên chi tiết của bó đều đã xuất. Bấm dòng nhóm để thu gọn / mở, bấm dòng size để xem chi tiết.';
+        + 'Đã xuất: theo tem thân chính (tem chi tiết trống) của bó, kho quét tem này khi xuất. Bấm dòng nhóm để thu gọn / mở, bấm dòng size để xem chi tiết.';
       veNhom(dt);
     } catch (e) { App.error(dieuTiet, e); }
   }
