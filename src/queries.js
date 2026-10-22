@@ -30,7 +30,7 @@ module.exports = {
       FROM dbo.Lib_CumChuyen e
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) NOT IN ('0', '99')
-      ORDER BY TRY_CAST(e.TenCum AS int), e.TenCum`,
+      ORDER BY LEN(e.TenCum), e.TenCum`,
   },
 
   // Kế hoạch phân bổ (kế hoạch tháng theo chuyền) [ĐÃ XÁC NHẬN]. Tham số: @xn, @tuNgay, @denNgay
@@ -52,7 +52,7 @@ module.exports = {
       WHERE px.XNId = @xn AND k.SoLuong > 0
         AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
       GROUP BY e.CumId, e.TenCum, dh.MaHang
-      ORDER BY TRY_CAST(e.TenCum AS int), MIN(k.NgayMayKeHoachBatDau)`,
+      ORDER BY LEN(e.TenCum), e.TenCum, MIN(k.NgayMayKeHoachBatDau)`,
   },
 
   // [TẠM] Phiếu cấp BTP (tổ may đặt BTP). Tham số: @xn, @to

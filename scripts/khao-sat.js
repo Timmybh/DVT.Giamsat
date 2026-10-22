@@ -26,7 +26,7 @@ const COLUMNS_SQL = `
   JOIN sys.types t ON t.user_type_id = c.user_type_id
   LEFT JOIN sys.indexes i ON i.object_id = c.object_id AND i.is_primary_key = 1
   LEFT JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.column_id = c.column_id
-  WHERE c.object_id IN (SELECT value FROM STRING_SPLIT(@ids, ','))
+  WHERE c.object_id IN (@@IDS)
   ORDER BY c.object_id, c.column_id`;
 
 const FK_SQL = `
@@ -35,8 +35,7 @@ const FK_SQL = `
   FROM sys.foreign_key_columns fk
   JOIN sys.columns pc ON pc.object_id = fk.parent_object_id AND pc.column_id = fk.parent_column_id
   JOIN sys.columns rc ON rc.object_id = fk.referenced_object_id AND rc.column_id = fk.referenced_column_id
-  WHERE fk.parent_object_id IN (SELECT value FROM STRING_SPLIT(@ids, ','))
-     OR fk.referenced_object_id IN (SELECT value FROM STRING_SPLIT(@ids, ','))`;
+  WHERE fk.parent_object_id IN (@@IDS) OR fk.referenced_object_id IN (@@IDS)`;
 
 const fmt = (v) => {
   if (v == null) return 'NULL';
@@ -62,9 +61,10 @@ async function main() {
     PATTERNS.forEach((p, i) => req.input(`p${i}`, p));
     const tables = (await req.query(TABLES_SQL)).recordset;
     if (!tables.length) throw new Error('Không tìm thấy bảng nào khớp');
-    const ids = tables.map((t) => t.id).join(',');
-    const cols = (await pool.request().input('ids', ids).query(COLUMNS_SQL)).recordset;
-    const fks = (await pool.request().input('ids', ids).query(FK_SQL)).recordset;
+    // object_id là số nguyên lấy từ sys.objects nên ghép thẳng vào câu lệnh (SQL Server cũ không có STRING_SPLIT)
+    const ids = tables.map((t) => Number(t.id)).join(',');
+    const cols = (await pool.request().query(COLUMNS_SQL.replace(/@@IDS/g, ids))).recordset;
+    const fks = (await pool.request().query(FK_SQL.replace(/@@IDS/g, ids))).recordset;
 
     out.push('=== DANH SÁCH BẢNG ===');
     tables.forEach((t) => out.push(`${t.sch}.${t.ten}\t${t.loai}\t${t.so_dong ?? '?'} dòng`));
