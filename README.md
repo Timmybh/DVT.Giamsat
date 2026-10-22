@@ -48,7 +48,7 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | Sản lượng theo giờ | HiPro `pro_nscl` (qty_1_h … qty_14_h) → `pro_ke_hoach_san_xuat` → `pro_chuyen` / `pro_nha_may` / `pro_san_pham` |
 | PO đang may | `Report_BaoCaoMayRa` (bản ghi mới nhất theo PO x chuyền trong ngày) |
 | Lao động | `LCD_Truc_Quan_ChuyenMay_LaoDong` |
-| Lỗi QC | `DFC_InLine_*`, `DFCEndlineChitietloi`, `DFCDauChuyenChitietloi`, `DFCFinalChitietloiBoSung` |
+| Lỗi QC (HiPro NSCL) | `pro_nscl` (qty_N_h = đạt, reject_N_h = lỗi, fix_N_h = sửa), `pro_nscl_chi_tiet_loi` → `pro_loi` → `pro_cum_loi`. Chỉ đọc bảng hiện hành, chưa đọc bảng lưu trữ `pro_nscl_MM_YYYY` |
 | Doanh thu XN | `LCD_Truc_Quan_XiNghiep_DoanhThu_Ngay` |
 
 Mọi truy vấn chạy `READ UNCOMMITTED` (đọc không khóa, tương đương `WITH (NOLOCK)`).

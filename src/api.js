@@ -137,7 +137,9 @@ router.get('/ke-hoach-ngay', handleXn('keHoachNgay', (req) => ({ xn: req.query.x
 router.get('/san-luong-gio', handleXn('sanLuongGio', (req) => ({ d0: ngay(req) })));
 router.get('/po-may-ra', handleXn('poMayRa', async (req) => ({ xnNum: await xnNum(req.query.xn), d0: ngay(req) })));
 router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
-router.get('/qc-loi', handleXn('qcLoi', (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() })));
+const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
+router.get('/qc-nscl', handleXn('qcNscl', qcRange));
+router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange));
 router.get('/doanh-thu', async (req, res) => {
   try {
     const rows = await run('doanhThuNgay', {

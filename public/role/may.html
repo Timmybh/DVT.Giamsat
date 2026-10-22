@@ -49,9 +49,13 @@
 
     const gioRows = mine(sl);
     const hours = Array.from({ length: 14 }, (_, i) => i + 1);
-    const lastH = Math.max(0, ...hours.filter((h) => gioRows.some((r) => r[`h${h}`] > 0)));
-    gioRows.forEach((r) => (r.tong = hours.reduce((s, h) => s + (r[`h${h}`] || 0), 0)));
+    const lastH = Math.max(0, ...hours.filter((h) => gioRows.some((r) => r[`h${h}`] > 0 || r[`r${h}`] > 0)));
+    gioRows.forEach((r) => {
+      r.tong = hours.reduce((s, h) => s + (r[`h${h}`] || 0), 0);
+      r.loi = hours.reduce((s, h) => s + (r[`r${h}`] || 0), 0);
+    });
     const mayRa = gioRows.reduce((s, r) => s + r.tong, 0);
+    const loi = gioRows.reduce((s, r) => s + r.loi, 0);
     const keHoach = mine(kh).reduce((s, r) => s + Number(r.keHoach || 0), 0);
     const lao = mine(ld)[0];
 
@@ -59,6 +63,7 @@
       { label: 'Kế hoạch ngày', value: App.num(Math.round(keHoach)) },
       { label: 'May ra (HiPro)', value: App.num(mayRa), sub: lastH ? `đến giờ thứ ${lastH}` : 'chưa có số liệu' },
       { label: 'Đạt kế hoạch', value: App.pctTag(mayRa, keHoach) },
+      { label: 'Lỗi QC', value: App.num(loi), sub: mayRa + loi ? `Tỷ lệ lỗi ${((loi / (mayRa + loi)) * 100).toFixed(1)}%` : '' },
       { label: 'Lao động hiện diện', value: lao ? `${App.num(lao.hienDien)} / ${App.num(lao.tong)}` : '-', sub: lao && lao.hienDien ? `${(mayRa / lao.hienDien).toFixed(1)} SP/người` : '' },
     ]);
 
@@ -66,7 +71,8 @@
     else App.table(gio, [
       { key: 'maHang', label: 'Mã hàng' },
       ...hours.slice(0, Math.max(lastH, 1)).map((h) => ({ key: `h${h}`, label: `Giờ ${h}`, type: 'num', sum: true })),
-      { key: 'tong', label: 'Tổng', type: 'num', sum: true },
+      { key: 'tong', label: 'Tổng đạt', type: 'num', sum: true },
+      { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
     ], gioRows, { footer: true, empty: 'Chưa có sản lượng HiPro cho tổ trong ngày' });
 
     if (pos.error) App.error(po, pos.error);

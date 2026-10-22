@@ -19,7 +19,7 @@
   <div class="panel">
     <h2>Theo tổ</h2>
     <div id="theoTo"></div>
-    <div class="note">Kế hoạch: OMM_KeHoachThang. May ra: HiPro. Lao động: LCD_Truc_Quan_ChuyenMay_LaoDong.</div>
+    <div class="note">Kế hoạch: OMM_KeHoachThang. May ra, lỗi QC: HiPro NSCL. Lao động: LCD_Truc_Quan_ChuyenMay_LaoDong.</div>
   </div>
   <div class="panel">
     <h2>Doanh thu theo ngày (tháng đang xem)</h2>
@@ -37,36 +37,37 @@
     const q = { xn: App.xn, d };
     const [tos, kh, sl, ld, qc, dt] = await Promise.all([
       App.api('to', { xn: App.xn }), safe(App.api('ke-hoach-ngay', q)), safe(App.api('san-luong-gio', q)), safe(App.api('lao-dong', q)),
-      safe(App.api('qc-loi', { xn: App.xn, tuNgay: d, denNgay: d })), safe(App.api('doanh-thu', { xn: App.xn, tuNgay: dau, denNgay: d })),
+      safe(App.api('qc-nscl', { xn: App.xn, tuNgay: d, denNgay: d })), safe(App.api('doanh-thu', { xn: App.xn, tuNgay: dau, denNgay: d })),
     ]);
     const list = (r) => (r.error ? [] : r);
 
     // Gom theo tổ
-    const rows = tos.map((t) => ({ line: t.ma, ten: t.ten, maHang: [], keHoach: 0, mayRa: 0, tong: 0, hienDien: 0 }));
-    const get = (line) => rows.find((r) => r.line === line) || (rows.push({ line, ten: `Tổ ${line}`, maHang: [], keHoach: 0, mayRa: 0, tong: 0, hienDien: 0 }), rows[rows.length - 1]);
+    const rows = tos.map((t) => ({ line: t.ma, ten: t.ten, maHang: [], keHoach: 0, mayRa: 0, loi: 0, tong: 0, hienDien: 0 }));
+    const get = (line) => rows.find((r) => r.line === line) || (rows.push({ line, ten: `Tổ ${line}`, maHang: [], keHoach: 0, mayRa: 0, loi: 0, tong: 0, hienDien: 0 }), rows[rows.length - 1]);
     list(kh).forEach((r) => (get(r.line).keHoach += Number(r.keHoach || 0)));
     list(sl).forEach((r) => {
       const x = get(r.line);
-      for (let h = 1; h <= 14; h++) x.mayRa += Number(r[`h${h}`] || 0);
+      for (let h = 1; h <= 14; h++) { x.mayRa += Number(r[`h${h}`] || 0); x.loi += Number(r[`r${h}`] || 0); }
       if (r.maHang && !x.maHang.includes(r.maHang)) x.maHang.push(r.maHang);
     });
     list(ld).forEach((r) => { const x = get(r.line); x.tong += Number(r.tong || 0); x.hienDien += Number(r.hienDien || 0); });
     rows.forEach((r) => (r.keHoach = Math.round(r.keHoach)));
-    const data = rows.filter((r) => r.keHoach || r.mayRa || r.tong);
+    const data = rows.filter((r) => r.keHoach || r.mayRa || r.loi || r.tong);
     const S = (k) => data.reduce((s, r) => s + r[k], 0);
 
     const dts = list(dt);
     const dtNgay = dts.find((r) => App.ymd(r.ngay) === d);
     const dtKH = dts.reduce((s, r) => s + Number(r.keHoach || 0), 0);
     const dtTH = dts.reduce((s, r) => s + Number(r.thucHien || 0), 0);
-    const loi = list(qc).reduce((s, r) => s + Number(r.soLoi || 0), 0);
+    const loi = list(qc).reduce((s, r) => s + Number(r.loi || 0), 0);
+    const datQc = list(qc).reduce((s, r) => s + Number(r.dat || 0), 0);
 
     App.cards(cards, [
       { label: 'May ra / kế hoạch', value: `${App.num(S('mayRa'))} / ${App.num(S('keHoach'))}`, sub: `Đạt ${App.pct(S('mayRa'), S('keHoach'))}` },
       { label: 'Lao động hiện diện', value: `${App.num(S('hienDien'))} / ${App.num(S('tong'))}`, sub: `Tỷ lệ ${App.pct(S('hienDien'), S('tong'))}` },
       { label: 'Doanh thu ngày', value: dtNgay ? App.num(dtNgay.thucHien) : '-', sub: dtNgay ? `Kế hoạch ${App.num(dtNgay.keHoach)}` : (dt.error ? 'lỗi đọc dữ liệu' : 'chưa khai báo') },
       { label: 'Doanh thu lũy kế tháng', value: App.num(dtTH), sub: `Kế hoạch ${App.num(dtKH)} · đạt ${App.pct(dtTH, dtKH)}` },
-      { label: 'Lỗi QC trong ngày', value: qc.error ? '-' : App.num(loi), sub: 'Inline + Endline + Đầu chuyền + Final' },
+      { label: 'Lỗi QC trong ngày', value: qc.error ? '-' : App.num(loi), sub: datQc + loi ? `Tỷ lệ lỗi ${((loi / (datQc + loi)) * 100).toFixed(1)}%` : 'HiPro NSCL' },
     ]);
 
     App.table(theoTo, [
@@ -75,6 +76,7 @@
       { key: 'keHoach', label: 'Kế hoạch', type: 'num', sum: true },
       { key: 'mayRa', label: 'May ra', type: 'num', sum: true },
       { key: 'dat', label: 'Đạt', render: (r) => App.pctTag(r.mayRa, r.keHoach), total: (rs) => App.pctTag(rs.reduce((s, r) => s + r.mayRa, 0), rs.reduce((s, r) => s + r.keHoach, 0)) },
+      { key: 'loi', label: 'Lỗi QC', type: 'num', sum: true },
       { key: 'tong', label: 'LĐ tổng', type: 'num', sum: true },
       { key: 'hienDien', label: 'LĐ hiện diện', type: 'num', sum: true },
       { key: 'ns', label: 'SP/người', type: 'num', render: (r) => (r.hienDien ? (r.mayRa / r.hienDien).toFixed(1) : '') },

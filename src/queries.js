@@ -192,12 +192,13 @@ module.exports = {
       GROUP BY e.TenCum`,
   },
 
-  // Sản lượng theo giờ (HiPro): tổng qty_1_h..qty_14_h theo chuyền x mã hàng. Tham số: @d0. API lọc xí nghiệp theo tên nhà máy.
+  // Sản lượng theo giờ (HiPro): tổng qty_1_h..qty_14_h (đạt) và reject_1_h..reject_14_h (lỗi) theo chuyền x mã hàng. Tham số: @d0. API lọc xí nghiệp theo tên nhà máy.
   sanLuongGio: {
     db: 'hipro',
     text: `
       SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang,
-             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.qty_${i + 1}_h, 0)) AS h${i + 1}`).join(', ')}
+             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.qty_${i + 1}_h, 0)) AS h${i + 1}`).join(', ')},
+             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.reject_${i + 1}_h, 0)) AS r${i + 1}`).join(', ')}
       FROM dbo.pro_nscl n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
@@ -237,36 +238,39 @@ module.exports = {
       GROUP BY XiNghiep, TenChuyen`,
   },
 
-  // Số lỗi QC theo ngày x nhóm kiểm. Tham số: @tuNgay, @denNgay. API lọc xí nghiệp theo tên.
-  // Inline = tổng SLLoi; Endline, Đầu chuyền, Final = số dòng chi tiết lỗi (như DH-DVT)
-  qcLoi: {
-    db: 'egmf',
+  // QC theo ngày x tổ (HiPro NSCL): đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h. Tham số: @tuNgay, @denNgay.
+  // API lọc xí nghiệp theo tên nhà máy. Chỉ đọc bảng pro_nscl hiện hành (dữ liệu tháng cũ đã chuyển sang pro_nscl_MM_YYYY).
+  qcNscl: {
+    db: 'hipro',
     text: `
-      SELECT CAST(l.NgayKiem AS date) AS ngay, s.XiNghiep AS xn, N'Inline' AS nhom, SUM(l.SLLoi) AS soLoi
-      FROM dbo.DFC_InLine_SoDoChuyen_Tram_KiemTra_SanPham_CTLoi l
-      JOIN dbo.DFC_InLine_SoDoChuyen_Tram_KiemTra_SanPham s ON s.Id = l.IdSanPham
-      WHERE l.SLLoi > 0 AND l.NgayKiem >= @tuNgay AND l.NgayKiem < DATEADD(day, 1, @denNgay)
-      GROUP BY CAST(l.NgayKiem AS date), s.XiNghiep
-      UNION ALL
-      SELECT CAST(l.thoiGianKiem AS date), m.XiNghiep, N'Endline', COUNT(*)
-      FROM dbo.DFCEndlineChitietloi l
-      JOIN dbo.DFC_EndLine_Detail dt ON dt.Id = l.dfcEndlineDetailId
-      JOIN dbo.DFC_Master m ON m.IdMaster = dt.MasterId
-      WHERE l.thoiGianKiem >= @tuNgay AND l.thoiGianKiem < DATEADD(day, 1, @denNgay)
-      GROUP BY CAST(l.thoiGianKiem AS date), m.XiNghiep
-      UNION ALL
-      SELECT CAST(dt.ThoiGianTao AS date), m.XiNghiep, N'Đầu chuyền', COUNT(*)
-      FROM dbo.DFCDauChuyenChitietloi l
-      JOIN dbo.DFC_DauChuyen_Detail dt ON dt.Id = l.dfcDauChuyenDetailId
-      JOIN dbo.DFC_Master m ON m.IdMaster = dt.MasterId
-      WHERE dt.ThoiGianTao >= @tuNgay AND dt.ThoiGianTao < DATEADD(day, 1, @denNgay)
-      GROUP BY CAST(dt.ThoiGianTao AS date), m.XiNghiep
-      UNION ALL
-      SELECT CAST(l.thoiGianKiem AS date), p.FtyXN, N'Prefinal/Final', COUNT(*)
-      FROM dbo.DFCFinalChitietloiBoSung l
-      JOIN dbo.DFC_Pre_Final_Master p ON p.Id = l.dfcPreFinalMasterId
-      WHERE l.thoiGianKiem >= @tuNgay AND l.thoiGianKiem < DATEADD(day, 1, @denNgay)
-      GROUP BY CAST(l.thoiGianKiem AS date), p.FtyXN`,
+      SELECT CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS dat,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.reject_${i + 1}_h, 0)`).join(' + ')}) AS loi,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.fix_${i + 1}_h, 0)`).join(' + ')}) AS sua
+      FROM dbo.pro_nscl n
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      GROUP BY CAST(k.ngay_san_xuat AS date), nm.ten, c.ten`,
+  },
+
+  // Chi tiết lỗi theo tổ x mã lỗi (pro_nscl_chi_tiet_loi -> pro_loi -> pro_cum_loi). Tham số: @tuNgay, @denNgay
+  qcLoiChiTiet: {
+    db: 'hipro',
+    text: `
+      SELECT nm.ten AS xn, c.ten AS line, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi, cl.ten AS cumLoi, COUNT(*) AS soLan
+      FROM dbo.pro_nscl_chi_tiet_loi d
+      JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      LEFT JOIN dbo.pro_loi l ON l.id = d.pro_loi_id
+      LEFT JOIN dbo.pro_cum_loi cl ON cl.id = l.pro_cum_loi_id
+      WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      GROUP BY nm.ten, c.ten, ISNULL(l.ma_loi, d.ma_loi), l.ten_loi, cl.ten`,
   },
 
   // Doanh thu xí nghiệp theo ngày (màn hình ERP "DOANH THU XÍ NGHIỆP"). Dữ liệu nhập tay nên có thể trùng ngày:

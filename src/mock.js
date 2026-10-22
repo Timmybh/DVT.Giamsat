@@ -183,7 +183,10 @@ module.exports = {
     const row = { xn: `XN${xn.ma}`, line: `Chuyền ${t.ma}`, maHang: hangCuaTo(xn.ma, t.ma, d0) };
     const isToday = d0 === new Date().toISOString().slice(0, 10);
     const maxH = isToday ? Math.min(14, Math.max(1, ((new Date().getUTCHours() + 7) % 24) - 6)) : 10;
-    for (let h = 1; h <= 14; h++) row[`h${h}`] = h <= maxH ? hInt(`h${xn.ma}${t.ma}${d0}${h}`, 40, 110) : 0;
+    for (let h = 1; h <= 14; h++) {
+      row[`h${h}`] = h <= maxH ? hInt(`h${xn.ma}${t.ma}${d0}${h}`, 40, 110) : 0;
+      row[`r${h}`] = h <= maxH ? hInt(`r${xn.ma}${t.ma}${d0}${h}`, 0, 8) : 0;
+    }
     return row;
   })),
   poMayRa: ({ xnNum, d0 }) => (to[xnNum] || []).flatMap((t) => Array.from({ length: hInt(`npo${xnNum}${t.ma}`, 1, 2) }, (_, i) => {
@@ -199,9 +202,19 @@ module.exports = {
     const tong = hInt(`ld${xn.ma}${t.ma}`, 28, 42);
     return { xn: `XÍ NGHIỆP MAY ${xn.ma}`, line: t.ma, tong, hienDien: tong - hInt(`vm${xn.ma}${t.ma}${d0}`, 0, 5) };
   })),
-  qcLoi: ({ tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).flatMap((d) => xiNghiep.flatMap((xn) => [
-    ['Inline', 20, 90], ['Endline', 10, 50], ['Đầu chuyền', 0, 8], ['Prefinal/Final', 0, 15],
-  ].map(([nhom, a, b]) => ({ ngay: d, xn: `XN${xn.ma}`, nhom, soLoi: hInt(`qc${xn.ma}${nhom}${d}`, a, b) })))),
+  qcNscl: ({ tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).flatMap((d) => xiNghiep.flatMap((xn) => to[xn.ma].map((t) => {
+    const dat = hInt(`qd${xn.ma}${t.ma}${d}`, 350, 800);
+    const loi = hInt(`ql${xn.ma}${t.ma}${d}`, 5, 60);
+    return { ngay: d, xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, dat, loi, sua: Math.floor(loi * 0.8) };
+  }))),
+  qcLoiChiTiet: ({ tuNgay, denNgay }) => {
+    const loiList = [['QAD00012', 'Sụp mí', 'Cụm Lỗi Cấu Trúc'], ['QAD00019', 'Đứt chỉ', 'Cụm Lỗi Cấu Trúc'], ['QAD00076', 'Dơ dầu', 'Cụm Lỗi Vệ Sinh Công Nghiệp'],
+      ['QAD00003', 'Lỗi vải', 'Cụm Lỗi NPL'], ['QAD00105', 'Rạn đường may', 'Cụm Lỗi Cấu Trúc'], ['QAD00106', 'Lỗi dơ phấn', 'Cụm Lỗi Vệ Sinh Công Nghiệp']];
+    const n = datesBetween(tuNgay, denNgay).length;
+    return xiNghiep.flatMap((xn) => to[xn.ma].flatMap((t) => loiList.map(([maLoi, tenLoi, cumLoi]) => ({
+      xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, maLoi, tenLoi, cumLoi, soLan: hInt(`lc${xn.ma}${t.ma}${maLoi}`, 0, 8) * n,
+    }))));
+  },
   doanhThuNgay: ({ xnNum, tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).map((d, i) => {
     const keHoach = hInt(`dtk${xnNum}${d}`, 30000, 45000);
     const thucHien = Math.floor(keHoach * (0.75 + hash(`dtt${xnNum}${d}`) * 0.35));

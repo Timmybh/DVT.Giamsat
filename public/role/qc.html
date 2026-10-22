@@ -12,48 +12,124 @@
   <h1>Tổ trưởng QC</h1>
   <div class="panel">
     <div class="filters">
+      <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <label>Từ ngày <input type="date" id="tuNgay"></label>
       <label>Đến ngày <input type="date" id="denNgay"></label>
     </div>
   </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
-    <h2>Số lỗi theo ngày</h2>
-    <div id="bang"></div>
-    <div class="note">Inline = tổng SL lỗi; Endline, Đầu chuyền, Prefinal/Final = số lần ghi nhận lỗi (DFC). Số liệu theo xí nghiệp, chưa tách theo tổ.</div>
+    <h2>Theo tổ</h2>
+    <div id="theoTo"></div>
+  </div>
+  <div class="panel">
+    <h2>Lỗi thường gặp <span id="toName"></span></h2>
+    <div id="theoLoi"></div>
+  </div>
+  <div class="panel" id="pGio" hidden>
+    <h2>Theo giờ ngày <span id="gioNgay"></span></h2>
+    <div id="theoGio"></div>
+  </div>
+  <div class="panel">
+    <h2>Theo ngày</h2>
+    <div id="theoNgay"></div>
+    <div class="note">Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi).</div>
   </div>
 </main>
 <script>
-  const NHOM = ['Đầu chuyền', 'Inline', 'Endline', 'Prefinal/Final'];
   denNgay.value = App.today();
-  tuNgay.value = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 10);
+  tuNgay.value = App.ymd(Date.now() - 13 * 86400000);
+  const tyLe = (r) => (r.dat + r.loi ? `${((r.loi / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
+  const tyLeTong = (rs) => tyLe({ dat: rs.reduce((s, r) => s + r.dat, 0), loi: rs.reduce((s, r) => s + r.loi, 0) });
 
-  async function load() {
-    App.loading(bang);
-    try {
-      const rows = await App.api('qc-loi', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value });
-      const byDay = new Map();
-      rows.forEach((r) => {
-        const k = App.ymd(r.ngay);
-        const d = byDay.get(k) || { ngay: k, tong: 0 };
-        d[r.nhom] = (d[r.nhom] || 0) + Number(r.soLoi || 0);
-        d.tong += Number(r.soLoi || 0);
-        byDay.set(k, d);
-      });
-      const data = [...byDay.values()].sort((a, b) => b.ngay.localeCompare(a.ngay));
-      const tong = (n) => data.reduce((s, r) => s + (r[n] || 0), 0);
-      const homNay = byDay.get(denNgay.value) || {};
-      App.cards(cards, NHOM.map((n) => ({ label: n, value: App.num(tong(n)), sub: `ngày ${App.date(denNgay.value)}: ${App.num(homNay[n] || 0)}` })));
-      App.table(bang, [
-        { key: 'ngay', label: 'Ngày', type: 'date' },
-        ...NHOM.map((n) => ({ key: n, label: n, type: 'num', sum: true })),
-        { key: 'tong', label: 'Tổng', type: 'num', sum: true },
-      ], data, { footer: true, empty: 'Không có lỗi ghi nhận trong khoảng ngày này' });
-    } catch (e) { App.error(bang, e); }
+  async function loadTo() {
+    const list = await App.api('to', { xn: App.xn });
+    to.innerHTML = '<option value="">Tất cả</option>' + list.map((t) => `<option value="${App.esc(t.ma)}">${App.esc(t.ten)}</option>`).join('');
+    load();
   }
 
-  tuNgay.onchange = denNgay.onchange = load;
-  App.header([['Trang chính', '/'], ['Tổ trưởng QC']], load).then(load);
+  async function load() {
+    const q = { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value };
+    [theoTo, theoLoi, theoNgay].forEach(App.loading);
+    toName.textContent = to.value ? `- Tổ ${to.value}` : '';
+    try {
+      const [nscl, loi] = await Promise.all([App.api('qc-nscl', q), App.api('qc-loi-chi-tiet', q)]);
+      const chon = (r) => !to.value || r.line === to.value;
+      const data = nscl.filter(chon).map((r) => ({ ...r, dat: Number(r.dat || 0), loi: Number(r.loi || 0), sua: Number(r.sua || 0) }));
+      const S = (k) => data.reduce((s, r) => s + r[k], 0);
+      App.cards(cards, [
+        { label: 'Đạt', value: App.num(S('dat')) },
+        { label: 'Lỗi', value: App.num(S('loi')) },
+        { label: 'Đã sửa', value: App.num(S('sua')), sub: `${App.pct(S('sua'), S('loi'))} số lỗi` },
+        { label: 'Tỷ lệ lỗi', value: tyLeTong(data) },
+      ]);
+
+      const gom = (rows, keyFn, init) => {
+        const m = new Map();
+        rows.forEach((r) => {
+          const k = keyFn(r);
+          const g = m.get(k) || { ...init(r), dat: 0, loi: 0, sua: 0 };
+          g.dat += r.dat; g.loi += r.loi; g.sua += r.sua;
+          m.set(k, g);
+        });
+        return [...m.values()];
+      };
+      const tyLeCol = { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: (rs) => `<span style="float:right">${tyLeTong(rs)}</span>` };
+
+      const tos = gom(nscl.map((r) => ({ ...r, dat: Number(r.dat || 0), loi: Number(r.loi || 0), sua: Number(r.sua || 0) })), (r) => r.line, (r) => ({ line: r.line }))
+        .sort((a, b) => Number(a.line) - Number(b.line));
+      App.table(theoTo, [
+        { key: 'line', label: 'Tổ', render: (r) => `Tổ ${App.esc(r.line)}` },
+        { key: 'dat', label: 'Đạt', type: 'num', sum: true },
+        { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
+        { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
+        tyLeCol,
+      ], tos, { footer: true, onClick: (r) => { to.value = r.line; load(); }, empty: 'Không có số liệu NSCL' });
+
+      const loiRows = gom(loi.filter(chon).map((r) => ({ ...r, dat: 0, loi: Number(r.soLan || 0), sua: 0 })), (r) => r.maLoi, (r) => ({ maLoi: r.maLoi, tenLoi: r.tenLoi, cumLoi: r.cumLoi }))
+        .map((r) => ({ ...r, soLan: r.loi })).filter((r) => r.soLan > 0).sort((a, b) => b.soLan - a.soLan);
+      const tongLan = loiRows.reduce((s, r) => s + r.soLan, 0);
+      App.table(theoLoi, [
+        { key: 'maLoi', label: 'Mã lỗi' },
+        { key: 'tenLoi', label: 'Tên lỗi' },
+        { key: 'cumLoi', label: 'Cụm lỗi' },
+        { key: 'soLan', label: 'Số lần', type: 'num', sum: true },
+        { key: 'tyTrong', label: 'Tỷ trọng', type: 'num', render: (r) => App.pct(r.soLan, tongLan) },
+      ], loiRows, { footer: true, empty: 'Không có chi tiết lỗi' });
+
+      const ngays = gom(data, (r) => App.ymd(r.ngay), (r) => ({ ngay: App.ymd(r.ngay) })).sort((a, b) => b.ngay.localeCompare(a.ngay));
+      App.table(theoNgay, [
+        { key: 'ngay', label: 'Ngày', type: 'date' },
+        { key: 'dat', label: 'Đạt', type: 'num', sum: true },
+        { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
+        { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
+        tyLeCol,
+      ], ngays, { footer: true, empty: 'Không có số liệu' });
+    } catch (e) { [theoTo, theoLoi, theoNgay].forEach((el) => App.error(el, e)); }
+
+    // Theo giờ: chỉ khi chọn 1 tổ, lấy ngày "Đến ngày"
+    pGio.hidden = !to.value;
+    if (to.value) {
+      gioNgay.textContent = App.date(denNgay.value);
+      App.loading(theoGio);
+      try {
+        const rows = (await App.api('san-luong-gio', { xn: App.xn, d: denNgay.value })).filter((r) => r.line === to.value);
+        const hours = Array.from({ length: 14 }, (_, i) => i + 1).filter((h) => rows.some((r) => r[`h${h}`] || r[`r${h}`]));
+        const data = hours.map((h) => ({
+          gio: `Giờ ${h}`, dat: rows.reduce((s, r) => s + Number(r[`h${h}`] || 0), 0), loi: rows.reduce((s, r) => s + Number(r[`r${h}`] || 0), 0),
+        }));
+        App.table(theoGio, [
+          { key: 'gio', label: 'Giờ' },
+          { key: 'dat', label: 'Đạt', type: 'num', sum: true },
+          { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
+          { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: (rs) => `<span style="float:right">${tyLeTong(rs)}</span>` },
+        ], data, { footer: true, empty: 'Chưa có số liệu trong ngày' });
+      } catch (e) { App.error(theoGio, e); }
+    }
+  }
+
+  to.onchange = tuNgay.onchange = denNgay.onchange = load;
+  App.header([['Trang chính', '/'], ['Tổ trưởng QC']], loadTo).then(loadTo);
 </script>
 </body>
 </html>
