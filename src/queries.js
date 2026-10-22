@@ -134,20 +134,25 @@ module.exports = {
       ORDER BY loaiNL, chiTiet, mau, size`,
   },
 
-  // Một dòng BTP cắt đã xuất cho phiếu cấp nào. Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size
+  // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng
+  // trong CUTTING_PhieuCapBTP_ChiTiet (nối qua BarcodeChiTiet.IdCapBTPCT).
+  // Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size
   btpCatXuat: {
     db: 'egmf',
     text: `
       SELECT bc.SoPhieuCapBTP AS soPhieuCap, MAX(pc.TenPhanXuong) AS xn, MAX(LTRIM(RTRIM(pc.TenCum))) AS maTo,
+             MAX(ct.PO) AS po, MAX(ct.TenMau) AS mauDat, MAX(ct.SizeCode) AS sizeDat,
+             MAX(ct.SoLuong) AS slDat, MAX(ct.SoLuongThucXuat) AS slDaXuatPhieu,
              COUNT(*) AS soTem, SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS soLuong,
              MIN(bc.ThoiGianQuetXuat) AS tuLuc, MAX(bc.ThoiGianQuetXuat) AS denLuc
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
       LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.Id = bc.IdCapBTPCT
       WHERE ${matchLenh('t.LenhSanXuat')}
         AND ISNULL(t.LoaiNguyenLieu, '') = @loaiNL AND ISNULL(t.TenChiTiet, '') = @chiTiet
         AND ISNULL(t.MauSP, '') = @mau AND ISNULL(t.TenSize, '') = @size
-      GROUP BY bc.SoPhieuCapBTP
+      GROUP BY bc.SoPhieuCapBTP, bc.IdCapBTPCT
       ORDER BY MIN(bc.ThoiGianQuetXuat)`,
   },
 };

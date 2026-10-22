@@ -126,11 +126,16 @@ module.exports = {
     const groups = new Map();
     quetXuat.filter((x) => codes.has(x.barcode)).forEach((x) => {
       const pc = phieuCap.find((p) => p.soPhieu === x.soPhieu);
-      const g = groups.get(x.soPhieu) || { soPhieuCap: x.soPhieu, xn: pc.xnCode, maTo: pc.to, soTem: 0, soLuong: 0, tuLuc: x.thoiGianXuat, denLuc: x.thoiGianXuat };
+      const ct = phieuCapCT.find((c) => c.soPhieu === x.soPhieu && c.mau === x.mau && c.size === x.size) || {};
+      const key = `${x.soPhieu}|${ct.size}`;
+      const g = groups.get(key) || {
+        soPhieuCap: x.soPhieu, xn: pc.xnCode, maTo: pc.to, po: ct.po, mauDat: ct.mau, sizeDat: ct.size,
+        slDat: ct.slDat, slDaXuatPhieu: ct.slXuat, soTem: 0, soLuong: 0, tuLuc: x.thoiGianXuat, denLuc: x.thoiGianXuat,
+      };
       g.soTem++; g.soLuong += x.soLuong;
       if (x.thoiGianXuat < g.tuLuc) g.tuLuc = x.thoiGianXuat;
       if (x.thoiGianXuat > g.denLuc) g.denLuc = x.thoiGianXuat;
-      groups.set(x.soPhieu, g);
+      groups.set(key, g);
     });
     return [...groups.values()];
   },
