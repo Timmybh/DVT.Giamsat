@@ -45,6 +45,11 @@ router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,
   tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
 })));
+router.get('/chi-tiet-dat-btp', handle('chiTietDatBTP', async (req) => ({
+  xnCode: await xnCode(req.query.xn), to: req.query.to || '',
+  tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
+  lenhSX: (req.query.lenhSX || '').trim(), po: (req.query.po || '').trim(),
+})));
 router.get('/phieu-cap-btp/:soPhieu/chi-tiet', handle('phieuCapChiTiet', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/phieu-cap-btp/:soPhieu/phieu-xuat', handle('phieuXuatTheoPhieuCap', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/lenh-sx', handle('lenhSX', (req) => ({ q: (req.query.q || '').trim() })));

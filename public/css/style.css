@@ -41,3 +41,6 @@ tr.selected td { background: var(--primary-soft); font-weight: 600; }
 .to-list button { background: var(--primary-soft); color: var(--primary); }
 .to-list button.active { background: var(--primary); color: #fff; }
 .placeholder { text-align: center; padding: 60px 20px; color: var(--muted); }
+.tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 16px; }
+.tabs button { background: none; color: var(--muted); border-radius: 6px 6px 0 0; padding: 9px 18px; margin-bottom: -2px; border-bottom: 2px solid transparent; }
+.tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }

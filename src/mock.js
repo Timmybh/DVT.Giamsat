@@ -106,6 +106,13 @@ module.exports = {
         return { ...p, slDat: sum(ct, 'slDat'), slXuat: sum(ct, 'slXuat'), slNhan: sum(ct, 'slNhan') };
       })
       .sort((a, b) => b.ngayNhan.localeCompare(a.ngayNhan)),
+  chiTietDatBTP: ({ xnCode, to: maTo, tuNgay, denNgay, lenhSX: lenh, po }) =>
+    phieuCap.filter((p) => p.xnCode === xnCode && (!maTo || p.to === maTo) && inRange(p.ngayNhan, tuNgay, denNgay) && (!lenh || p.lenhSX.includes(lenh)))
+      .sort((a, b) => Number(a.to) - Number(b.to) || b.ngayNhan.localeCompare(a.ngayNhan))
+      .flatMap((p) => phieuCapCT.filter((c) => c.soPhieu === p.soPhieu && (!po || c.po.includes(po))).map((c) => ({
+        maTo: p.to, soPhieu: p.soPhieu, ngayNhan: p.ngayNhan, lenhSX: p.lenhSX, maHang: p.maHang,
+        po: c.po, mau: c.mau, size: c.size, slDat: c.slDat, slCap: c.slXuat, slNhan: c.slNhan,
+      }))),
   phieuCapChiTiet: ({ soPhieu }) => phieuCapCT.filter((c) => c.soPhieu === soPhieu),
   phieuXuatTheoPhieuCap: ({ soPhieu }) => quetXuat.filter((x) => x.soPhieu === soPhieu)
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),

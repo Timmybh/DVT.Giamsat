@@ -10,6 +10,11 @@
 <body>
 <main>
   <h1>Tình hình đặt bán thành phẩm</h1>
+  <div class="tabs">
+    <button data-tab="tabPhieu" class="active">Theo phiếu cấp</button>
+    <button data-tab="tabChiTiet">Chi tiết đặt BTP</button>
+  </div>
+  <section id="tabPhieu">
   <div class="panel">
     <div class="filters">
       <label>Ngày nhận BTP từ <input type="date" id="tuNgay"></label>
@@ -30,6 +35,20 @@
     <h2>Tem BTP khâu cắt đã xuất <span class="pcName"></span></h2>
     <div id="phieuXuat"><div class="empty">Click vào một phiếu cấp BTP để xem tem đã xuất</div></div>
   </div>
+  </section>
+  <section id="tabChiTiet" hidden>
+  <div class="panel">
+    <div class="filters">
+      <label>Tổ <select id="ctTo"><option value="">Tất cả</option></select></label>
+      <label>Ngày nhận BTP từ <input type="date" id="ctTuNgay"></label>
+      <label>đến <input type="date" id="ctDenNgay"></label>
+      <label>Lệnh SX <input id="ctLenh" placeholder="VD: TUNTT-0634"></label>
+      <label>PO <input id="ctPO"></label>
+      <button id="ctBtn">Xem</button>
+    </div>
+    <div id="ctResult"><div class="empty">Chọn điều kiện rồi bấm Xem</div></div>
+  </div>
+  </section>
 </main>
 <script>
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -114,7 +133,50 @@
   }
 
   tuNgay.onchange = denNgay.onchange = loadPhieuCap;
-  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Tình hình đặt BTP']], loadTo).then(loadTo);
+
+  // ---- Tab Chi tiết đặt BTP ----
+  ctTuNgay.value = tuNgay.value;
+  ctDenNgay.value = denNgay.value;
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+    document.querySelectorAll('main > section').forEach((sec) => (sec.hidden = sec.id !== b.dataset.tab));
+  });
+
+  async function loadCtTo() {
+    const list = await App.api('to', { xn: App.xn });
+    ctTo.innerHTML = '<option value="">Tất cả</option>' + list.map((t) => `<option value="${App.esc(t.ma)}">${App.esc(t.ten)}</option>`).join('');
+    ctResult.innerHTML = '<div class="empty">Chọn điều kiện rồi bấm Xem</div>';
+  }
+
+  async function loadChiTietDat() {
+    App.loading(ctResult);
+    try {
+      const rows = await App.api('chi-tiet-dat-btp', {
+        xn: App.xn, to: ctTo.value, tuNgay: ctTuNgay.value, denNgay: ctDenNgay.value,
+        lenhSX: ctLenh.value.trim(), po: ctPO.value.trim(),
+      });
+      App.table(ctResult, [
+        { key: 'maTo', label: 'Tổ' },
+        { key: 'soPhieu', label: 'Số phiếu cấp' },
+        { key: 'ngayNhan', label: 'Ngày nhận BTP', type: 'date' },
+        { key: 'lenhSX', label: 'Lệnh SX' },
+        { key: 'maHang', label: 'Mã hàng' },
+        { key: 'po', label: 'PO' },
+        { key: 'mau', label: 'Màu' },
+        { key: 'size', label: 'Size' },
+        { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
+        { key: 'slCap', label: 'SL đã cấp', type: 'num', sum: true },
+        { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
+        { key: 'conLai', label: 'Còn thiếu', type: 'num', render: (r) => App.num(Math.max(r.slDat - r.slCap, 0)) },
+        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.slCap }) },
+      ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
+    } catch (e) { App.error(ctResult, e); }
+  }
+  ctBtn.onclick = loadChiTietDat;
+  [ctLenh, ctPO].forEach((el) => (el.onkeydown = (e) => { if (e.key === 'Enter') loadChiTietDat(); }));
+
+  const onXn = () => Promise.all([loadTo(), loadCtTo()]);
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Tình hình đặt BTP']], onXn).then(onXn);
 </script>
 </body>
 </html>

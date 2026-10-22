@@ -90,6 +90,25 @@ module.exports = {
       ORDER BY ct.PO, ct.TenMau, ct.Id`,
   },
 
+  // Chi tiết đặt BTP theo size, lọc nhiều phiếu. Tham số: @xnCode, @to ('' = tất cả tổ),
+  // @tuNgay, @denNgay (ngày nhận BTP), @lenhSX, @po ('' = bỏ qua, có thì tìm gần đúng). Tối đa 3000 dòng.
+  chiTietDatBTP: {
+    db: 'egmf',
+    text: `
+      SELECT TOP 3000 LTRIM(RTRIM(pc.TenCum)) AS maTo, pc.SoPhieuCapBTP AS soPhieu, pc.NgayNhanBTP AS ngayNhan,
+             ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, pc.ProductCode AS maHang,
+             ct.PO AS po, ct.TenMau AS mau, ct.SizeCode AS size,
+             ISNULL(ct.SoLuong, 0) AS slDat, ISNULL(ct.SoLuongThucXuat, 0) AS slCap, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
+      FROM dbo.CUTTING_PhieuCapBTP pc
+      JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
+      WHERE pc.TenPhanXuong = @xnCode
+        AND (@to = '' OR LTRIM(RTRIM(pc.TenCum)) = @to)
+        AND pc.NgayNhanBTP >= @tuNgay AND pc.NgayNhanBTP < DATEADD(day, 1, @denNgay)
+        AND (@lenhSX = '' OR pc.LenhSanXuat LIKE '%' + @lenhSX + '%' OR ct.LenhSanXuat LIKE '%' + @lenhSX + '%')
+        AND (@po = '' OR ct.PO LIKE '%' + @po + '%')
+      ORDER BY LEN(LTRIM(RTRIM(pc.TenCum))), LTRIM(RTRIM(pc.TenCum)), pc.NgayNhanBTP DESC, pc.SoPhieuCapBTP, ct.PO, ct.TenMau, ct.Id`,
+  },
+
   // Tem BTP khâu cắt đã quét xuất cho 1 phiếu cấp. Tham số: @soPhieu
   phieuXuatTheoPhieuCap: {
     db: 'egmf',
