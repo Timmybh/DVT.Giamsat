@@ -96,8 +96,8 @@ router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
 
 // ---- Nhập xuất tồn BTP cắt theo điều tiết ----
 // Chia 2 nhóm theo phiếu điều tiết:
-//  - Cắt theo chủng loại: loại NL có tác nghiệp không ghi màu (vd Keo) -> nhóm con từng loại NL, dòng theo size (cộng mọi màu).
-//  - Cắt theo màu: loại NL có màu -> nhóm con từng màu, dòng theo size; cắt / xuất đồng bộ = nhỏ nhất giữa các loại NL có màu
+//  - Cắt theo chủng loại: mọi loại NL (Vải chính, Keo...) -> nhóm con từng loại NL, dòng theo size (cộng mọi màu).
+//  - Cắt theo màu: chỉ loại NL có ghi màu -> nhóm con từng màu, dòng theo size; cắt / xuất đồng bộ = nhỏ nhất giữa các loại NL có màu
 //    (loại NL nào chưa cắt size đó tính 0), tác nghiệp = lớn nhất.
 // Size ghi khác nhau giữa tác nghiệp và bàn máy sẽ thành dòng riêng.
 const sizeSort = (a, b) => a.size.localeCompare(b.size, undefined, { numeric: true });
@@ -126,17 +126,17 @@ router.get('/btp-cat/dieu-tiet', async (req, res) => {
       if (!mapMau.has(k)) mapMau.set(k, { mau, size, theoLoai: Object.fromEntries(loaiMau.map((l) => [l, { tacNghiep: 0, soBo: 0, slCat: 0, slXuat: 0 }])) });
       return mapMau.get(k).theoLoai[loaiNL];
     };
+    // Mọi loại NL đều vào nhóm chủng loại (cộng mọi màu theo size); loại NL có màu vào thêm nhóm màu
     const o = (x) => {
       const l = loaiOf.get(String(x.idPhieu));
-      return coMau.has(l) ? oMau(x.mau, x.size, l) : oLoai(l, x.size);
+      return coMau.has(l) ? [oLoai(l, x.size), oMau(x.mau, x.size, l)] : [oLoai(l, x.size)];
     };
-    tns.forEach((t) => (o(t).tacNghiep += Number(t.soLuong || 0)));
-    bms.forEach((b) => {
-      const x = o(b);
+    tns.forEach((t) => o(t).forEach((x) => (x.tacNghiep += Number(t.soLuong || 0))));
+    bms.forEach((b) => o(b).forEach((x) => {
       x.soBo += Number(b.soBo || 0); x.slCat += Number(b.slCat || 0); x.slXuat += Number(b.slXuat || 0);
-    });
+    }));
 
-    const nhomLoai = loaiChung.map((loaiNL) => ({
+    const nhomLoai = loaiNLs.map((loaiNL) => ({
       loaiNL,
       rows: [...mapLoai.values()].filter((r) => r.loaiNL === loaiNL).map((r) => tinh({ ...r, theoLoai: { [loaiNL]: { ...r } } })).sort(sizeSort),
     })).filter((g) => g.rows.length);
@@ -156,7 +156,9 @@ router.get('/btp-cat/dieu-tiet', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-const dtParams = (req) => ({ lenhSX: (req.query.lenhSX || '').trim(), mau: req.query.mau || '', size: req.query.size || '' });
+const dtParams = (req) => ({
+  lenhSX: (req.query.lenhSX || '').trim(), mau: req.query.mau || '', size: req.query.size || '', loaiNL: req.query.loaiNL || '',
+});
 router.get('/btp-cat/dieu-tiet/chi-tiet', handle('dtChiTiet', dtParams));
 router.get('/btp-cat/dieu-tiet/phieu-cap', handle('dtPhieuCap', dtParams));
 

@@ -253,9 +253,9 @@ module.exports = {
     });
     return [...groups.values()];
   },
-  dtChiTiet: ({ lenhSX: lenh, mau, size }) => {
+  dtChiTiet: ({ lenhSX: lenh, mau, size, loaiNL }) => {
     const groups = new Map();
-    tem.filter((t) => t.lenhSX === lenh && t.mau === mau && t.size === size).forEach((t) => {
+    tem.filter((t) => t.lenhSX === lenh && (mau === '*' || t.mau === mau) && t.size === size && (!loaiNL || t.loaiNL === loaiNL)).forEach((t) => {
       const key = `${t.loaiNL}|${t.chiTiet}`;
       const g = groups.get(key) || { loaiNL: t.loaiNL, chiTiet: t.chiTiet, soTem: 0, slCat: 0, slXuat: 0 };
       g.soTem++; g.slCat += t.soLuong; g.slXuat += t.slXuat;
@@ -263,9 +263,9 @@ module.exports = {
     });
     return [...groups.values()].map((g) => ({ ...g, slTon: g.slCat - g.slXuat }));
   },
-  dtPhieuCap: ({ lenhSX: lenh, mau, size }) => {
+  dtPhieuCap: ({ lenhSX: lenh, mau, size, loaiNL }) => {
     const groups = new Map();
-    const tems = new Map(tem.filter((t) => t.lenhSX === lenh && t.mau === mau && t.size === size).map((t) => [t.barcode, t]));
+    const tems = new Map(tem.filter((t) => t.lenhSX === lenh && (mau === '*' || t.mau === mau) && t.size === size && (!loaiNL || t.loaiNL === loaiNL)).map((t) => [t.barcode, t]));
     const temMoiBo = (id) => tem.filter((t) => t.idBanMay === id).length;
     quetXuat.filter((x) => tems.has(x.barcode)).forEach((x) => {
       const t = tems.get(x.barcode);

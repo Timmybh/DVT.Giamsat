@@ -343,7 +343,7 @@ module.exports = {
       GROUP BY bm.IdPhieuDieuTiet, ISNULL(bm.MauSanPham, ''), ISNULL(bm.TenSize, '')`,
   },
 
-  // Tem theo chi tiết của 1 màu SP x size (qua bó cắt). Tham số: @lenhSX, @mau, @size
+  // Tem theo chi tiết của 1 màu SP x size (qua bó cắt). Tham số: @lenhSX, @mau ('*' = mọi màu), @size, @loaiNL ('' = mọi loại)
   dtChiTiet: {
     db: 'egmf',
     text: `
@@ -354,7 +354,8 @@ module.exports = {
         JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = bm.IdPhieuDieuTiet
         JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet tc ON tc.IdBanMay = bm.IdBanMay
         JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Id = tc.IdTem
-        WHERE ${matchLenh('m.LenhSanXuat')} AND ISNULL(bm.MauSanPham, '') = @mau AND ISNULL(bm.TenSize, '') = @size
+        WHERE ${matchLenh('m.LenhSanXuat')} AND (@mau = '*' OR ISNULL(bm.MauSanPham, '') = @mau) AND ISNULL(bm.TenSize, '') = @size
+          AND (@loaiNL = '' OR ISNULL(m.ChungLoai, '') = @loaiNL)
       )
       SELECT loaiNL, chiTiet, COUNT(*) AS soTem, SUM(sl) AS slCat, SUM(xuat) AS slXuat, SUM(sl) - SUM(xuat) AS slTon
       FROM tems GROUP BY loaiNL, chiTiet ORDER BY loaiNL, chiTiet`,
@@ -371,7 +372,8 @@ module.exports = {
         JOIN dbo.Cutting_PhieuDieuTietGiacSoDo m ON m.Id = bm.IdPhieuDieuTiet
         JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet tc ON tc.IdBanMay = bm.IdBanMay
         JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Id = tc.IdTem
-        WHERE ${matchLenh('m.LenhSanXuat')} AND ISNULL(bm.MauSanPham, '') = @mau AND ISNULL(bm.TenSize, '') = @size
+        WHERE ${matchLenh('m.LenhSanXuat')} AND (@mau = '*' OR ISNULL(bm.MauSanPham, '') = @mau) AND ISNULL(bm.TenSize, '') = @size
+          AND (@loaiNL = '' OR ISNULL(m.ChungLoai, '') = @loaiNL)
       ),
       temMoiBo AS (SELECT IdBanMay, COUNT(*) AS n FROM tems GROUP BY IdBanMay),
       quet AS (

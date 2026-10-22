@@ -154,7 +154,7 @@
       const dt = await App.api('btp-cat/dieu-tiet', { lenhSX: v });
       if (!dt.coDieuTiet) { pDT.hidden = true; return; }
       ghiChu.textContent = 'Toàn bộ lệnh, không theo khoảng ngày. SL điều tiết lấy từ tác nghiệp của phiếu điều tiết. '
-        + `Cắt theo chủng loại: loại NL tác nghiệp không ghi màu (${dt.loaiChung.join(', ') || 'không có'}), tính theo size. `
+        + `Cắt theo chủng loại: từng loại NL (${dt.loaiNLs.join(', ')}), cộng mọi màu theo size. `
         + `Cắt theo màu: đồng bộ = số sản phẩm đủ mọi loại NL có màu (${dt.loaiMau.join(', ') || 'không có'}). `
         + 'Đã xuất: theo tem thân chính (tem chi tiết trống) của bó, kho quét tem này khi xuất. Bấm dòng nhóm để thu gọn / mở, bấm dòng size để xem chi tiết.';
       veNhom(dt);
@@ -183,12 +183,10 @@
         });
       });
     });
-    const tong = cong(cha.flatMap((c) => c.con.flatMap((g) => g.rows)));
     dieuTiet.innerHTML = `<div class="table-wrap"><table class="bang-nhom">
       <thead><tr><th>Nhóm / Size</th><th class="num">SL điều tiết</th><th class="num">Đã cắt (đồng bộ)</th><th class="num">Còn phải cắt</th>
       <th class="num">Đã xuất (đồng bộ)</th><th class="num">Tồn</th></tr></thead>
-      <tbody>${dongs.join('')}</tbody>
-      <tfoot><tr class="total-row"><th>Tổng cộng</th>${so.map((k) => `<th class="num">${App.num(tong[k])}</th>`).join('')}</tr></tfoot></table></div>`;
+      <tbody>${dongs.join('')}</tbody></table></div>`;
     dieuTiet.querySelectorAll('tr.nhom-size').forEach((tr) => tr.addEventListener('click', () => {
       dieuTiet.querySelectorAll('tr.selected').forEach((x) => x.classList.remove('selected'));
       tr.classList.add('selected');
@@ -210,7 +208,7 @@
   veNhom.rows = {};
 
   async function loadDetail(r) {
-    setName([r.mau || r.loaiNL, r.size].filter(Boolean).join(' / '));
+    setName([r.loaiNL || r.mau, r.size].filter(Boolean).join(' / '));
     pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = false;
     App.table(theoLoai, [
       { key: 'loaiNL', label: 'Loại NL' },
@@ -221,7 +219,8 @@
       { key: 'ton', label: 'Tồn', type: 'num', render: (x) => App.num(x.slCat - x.slXuat) },
     ], Object.entries(r.theoLoai).map(([loaiNL, x]) => ({ loaiNL, ...x })));
     [theoChiTiet, xuatDT].forEach(App.loading);
-    const q = { lenhSX: lenhDangXem, mau: r.mau, size: r.size };
+    // Dòng nhóm chủng loại: mọi màu của loại NL đó; dòng nhóm màu: đúng màu, mọi loại NL có màu
+    const q = r.loaiNL ? { lenhSX: lenhDangXem, mau: '*', size: r.size, loaiNL: r.loaiNL } : { lenhSX: lenhDangXem, mau: r.mau, size: r.size };
     App.api('btp-cat/dieu-tiet/chi-tiet', q).then((data) => App.table(theoChiTiet, [
       { key: 'loaiNL', label: 'Loại NL' },
       { key: 'chiTiet', label: 'Chi tiết' },
