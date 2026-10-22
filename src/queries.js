@@ -146,7 +146,7 @@ module.exports = {
       SELECT TOP 30000 t.Barcode AS barcode, t.NgayTao AS ngayTao,
              REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang, t.Mua AS mua,
              t.LoaiNguyenLieu AS loaiNL, t.TenChiTiet AS chiTiet, t.MauSP AS mau, t.MauVai AS mauVai, t.TenSize AS size,
-             t.BanMay AS banCat, t.IdBanMay AS idBanMay, ht.SoPhieu AS phieuHoachToan, t.ViTriBTP AS viTri,
+             tc.BanCat AS banCat, t.BanMay AS banMay, t.IdBanMay AS idBanMay, ht.SoPhieu AS phieuHoachToan, t.ViTriBTP AS viTri,
              CASE WHEN ROW_NUMBER() OVER (PARTITION BY t.Id ORDER BY bc.ThoiGianQuetXuat) = 1 THEN ISNULL(t.SoLuong, 0) END AS slCat,
              CASE WHEN ROW_NUMBER() OVER (PARTITION BY t.Id ORDER BY bc.ThoiGianQuetXuat) = 1
                   THEN ISNULL(t.SoLuong, 0) - ISNULL(t.SoLuongThucXuat, 0) END AS slTon,
@@ -156,6 +156,7 @@ module.exports = {
              bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
+      OUTER APPLY (SELECT TOP 1 c.BanCat FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c WHERE c.IdTem = t.Id) tc
       LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
       LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
       WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)

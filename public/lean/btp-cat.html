@@ -92,6 +92,7 @@
         { key: 'lenhSX', label: 'Lệnh (tem)' },
         { key: 'loaiNL', label: 'Loại NL' },
         { key: 'banCat', label: 'Bàn cắt' },
+        { key: 'banMay', label: 'Bàn máy' },
         { key: 'ngayTao', label: 'Ngày tạo tem', type: 'date' },
         { key: 'ngayNhan', label: 'Ngày nhận BTP', type: 'date', an: true },
         { key: 'thoiGianNhan', label: 'Quét nhận', type: 'datetime', an: true },
@@ -100,10 +101,10 @@
         { key: 'mua', label: 'Mùa', an: true },
         { key: 'mauVai', label: 'Màu vải', an: true },
         { key: 'phieuHoachToan', label: 'Phiếu hoạch toán', an: true },
-        { key: 'idBanMay', label: 'Bó (bàn máy)', an: true },
+        { key: 'idBanMay', label: 'ID bàn máy', an: true },
         { key: 'nguoiXuat', label: 'Người xuất', an: true },
       ], rows, {
-        footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-2', coDinh: 1, onData: veTomTat,
+        footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-3', coDinh: 1, onData: veTomTat,
         empty: 'Không có tem BTP cắt trong khoảng ngày này',
       });
       if (rows.length >= 30000) lenhInfo.textContent = 'Chỉ lấy 30.000 dòng đầu, hãy thu hẹp khoảng ngày hoặc nhập lệnh SX.';

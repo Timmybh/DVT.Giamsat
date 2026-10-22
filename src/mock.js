@@ -158,7 +158,7 @@ module.exports = {
     .flatMap((t) => {
       const goc = {
         barcode: t.barcode, ngayTao: t.ngayTao, lenhSX: t.lenhSX, maHang: t.maHang, mua: 'SS27', loaiNL: t.loaiNL, chiTiet: t.chiTiet,
-        mau: t.mau, mauVai: t.mau, size: t.size, banCat: 1 + (t.idBanMay % 9), idBanMay: t.idBanMay, phieuHoachToan: String(130000 + (t.idBanMay % 5000)),
+        mau: t.mau, mauVai: t.mau, size: t.size, banCat: 1 + (t.idBanMay % 9), banMay: t.idBanMay % 500, idBanMay: t.idBanMay, phieuHoachToan: String(130000 + (t.idBanMay % 5000)),
       };
       const xs = quetXuat.filter((x) => x.barcode === t.barcode);
       if (!xs.length) return [{ ...goc, slCat: t.soLuong, slTon: t.soLuong - t.slXuat }];
