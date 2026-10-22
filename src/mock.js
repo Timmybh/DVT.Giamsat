@@ -134,6 +134,13 @@ module.exports = {
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau)),
+  keHoachSize: ({ xn, to: maTo, maHang }) => {
+    const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang);
+    if (!k) return [];
+    const maus = mauList.slice(0, 1 + (Number(maHang) % 2));
+    let n = 0;
+    return maus.flatMap((mau) => sizeList.map((size) => ({ mau, size, soLuong: Math.round(k.soLuong / maus.length / sizeList.length), thuTu: n++ })));
+  },
   sanLuongTheoHang: () => keHoach.map((k) => ({
     xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, maHang: k.maHang,
     slSX: Math.floor(k.soLuong * Math.min(1, Math.max(0, (Date.now() - new Date(k.ngayBatDau)) / (new Date(k.ngayKetThuc) - new Date(k.ngayBatDau))))),

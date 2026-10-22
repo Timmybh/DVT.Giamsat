@@ -60,6 +60,24 @@ module.exports = {
       ORDER BY LEN(LTRIM(RTRIM(e.TenCum))), LTRIM(RTRIM(e.TenCum)), MIN(k.NgayMayKeHoachBatDau)`,
   },
 
+  // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.
+  // Cùng điều kiện với keHoachPhanBo. Tham số: @xn, @tuNgay, @denNgay, @to, @maHang
+  keHoachSize: {
+    db: 'egmf',
+    text: `
+      SELECT ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong, MIN(s.SKId) AS thuTu
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+      JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = ct.POId
+      JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND k.SoLuong > 0 AND LTRIM(RTRIM(e.TenCum)) = @to AND dh.MaHang = @maHang
+        AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
+      GROUP BY ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+  },
+
   // Phiếu cấp BTP của 1 tổ. Tham số: @xnCode ('XN1'), @to (số tổ), @tuNgay, @denNgay (theo ngày nhận BTP)
   phieuCapBTP: {
     db: 'egmf',

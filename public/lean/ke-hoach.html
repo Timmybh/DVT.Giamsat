@@ -17,7 +17,12 @@
       <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <button id="btn">Xem</button>
     </div>
-    <div id="result"></div>
+    <div id="result" class="luoi-cao luoi-10"></div>
+  </div>
+  <div class="panel">
+    <h2>Size breakdown <span id="tenDong"></span></h2>
+    <div id="size"><div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div></div>
+    <div class="note">SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD. Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
   </div>
 </main>
 <script>
@@ -43,9 +48,33 @@
       { key: 'ngayVaoChuyen', label: 'Vào chuyền', type: 'date' },
       { key: 'ngayBatDau', label: 'Bắt đầu may', type: 'date' },
       { key: 'ngayKetThuc', label: 'Kết thúc may', type: 'date' },
-    ], data, { footer: true });
+    ], data, { footer: true, onClick: loadSize });
   }
+  // Bảng ma trận màu x size của dòng kế hoạch
+  async function loadSize(r) {
+    tenDong.textContent = `- Tổ ${r.tenTo} / ${r.maHang}`;
+    App.loading(size);
+    try {
+      const data = await App.api('ke-hoach-phan-bo/size', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value, to: r.maTo, maHang: r.maHang });
+      const sizes = [...new Map(data.slice().sort((a, b) => a.thuTu - b.thuTu).map((x) => [x.size, x.thuTu])).keys()];
+      const maus = new Map();
+      data.forEach((x) => {
+        const m = maus.get(x.mau) || { mau: x.mau, tong: 0 };
+        m[`s:${x.size}`] = (m[`s:${x.size}`] || 0) + Number(x.soLuong || 0);
+        m.tong += Number(x.soLuong || 0);
+        maus.set(x.mau, m);
+      });
+      App.table(size, [
+        { key: 'mau', label: 'Màu' },
+        ...sizes.map((sz) => ({ key: `s:${sz}`, label: App.esc(sz), type: 'num', sum: true })),
+        { key: 'tong', label: 'Tổng', type: 'num', sum: true },
+      ], [...maus.values()], { footer: true, empty: 'Dòng kế hoạch này chưa có size breakdown' });
+    } catch (e) { App.error(size, e); }
+  }
+
   async function load() {
+    tenDong.textContent = '';
+    size.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div>';
     App.loading(result);
     try {
       rows = await App.api('ke-hoach-phan-bo', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value });

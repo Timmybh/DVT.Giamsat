@@ -91,6 +91,9 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', (req) => ({
+  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '',
+})));
 router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,
   tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
