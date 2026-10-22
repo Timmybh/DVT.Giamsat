@@ -23,7 +23,7 @@ Các bảng phiếu cấp BTP, phiếu xuất BTP cắt, lệnh sản xuất ch�
 npm run khao-sat
 ```
 
-Script chỉ đọc (SELECT), ghi cột, khóa ngoại và 5 dòng mẫu của các bảng `CUTTING_PhieuCapBTP*`, `CUTTING_PhieuHoachToan*`, lệnh sản xuất vào `khao-sat\ket-qua.txt`.
+Script chỉ đọc (SELECT), ghi cột, khóa ngoại và 5 dòng mẫu của các bảng `CUTTING_PhieuCapBTP*`, `CUTTING_PhieuHoachToan*`, lệnh sản xuất vào `khao-sat\ket-qua-<database>.txt`.
 Gửi file này để sửa các câu SQL đánh dấu `[TẠM]` trong `src/queries.js`.
 
 ## Triển khai production (máy khác trong LAN)

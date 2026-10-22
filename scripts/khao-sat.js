@@ -1,5 +1,5 @@
 // Khảo sát (CHỈ ĐỌC) các bảng BTP cắt, phiếu cấp BTP, lệnh sản xuất trên eGMF.
-// Chạy: npm run khao-sat   -> ghi ra khao-sat/ket-qua.txt để gửi lại cho người phát triển.
+// Chạy: npm run khao-sat   -> ghi ra khao-sat/ket-qua-<database>.txt để gửi lại cho người phát triển.
 // Khảo sát nhóm bảng khác: npm run khao-sat -- "%DieuTiet%" "%GiacSoDo%"  (mẫu LIKE theo tên bảng)
 // Database khác eGMF: npm run khao-sat -- --db=HiPro "pro[_]nscl%"
 // Gồm: cột của từng bảng, khóa ngoại, số dòng và 5 dòng mẫu mới nhất.
@@ -102,7 +102,7 @@ async function main() {
   }
   const dir = path.join(__dirname, '..', 'khao-sat');
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'ket-qua.txt');
+  const file = path.join(dir, `ket-qua-${database}.txt`);
   fs.writeFileSync(file, out.join('\n'));
   console.log(`Đã ghi ${file}`);
 }
