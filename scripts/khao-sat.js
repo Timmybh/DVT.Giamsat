@@ -57,16 +57,18 @@ async function main() {
     options: { encrypt: process.env.DB_ENCRYPT === 'true', trustServerCertificate: process.env.DB_TRUST_CERT !== 'false' },
     requestTimeout: 60000,
   }).connect();
+  // Đọc không khóa bảng (READ UNCOMMITTED áp dụng cho các câu sau trên cùng kết nối)
+  const nolock = (text) => `SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;\n${text}`;
   const out = [`Khảo sát ${database} trên ${process.env.DB_SERVER} lúc ${new Date().toISOString()}`, ''];
   try {
     const req = pool.request();
     PATTERNS.forEach((p, i) => req.input(`p${i}`, p));
-    const tables = (await req.query(TABLES_SQL)).recordset;
+    const tables = (await req.query(nolock(TABLES_SQL))).recordset;
     if (!tables.length) throw new Error('Không tìm thấy bảng nào khớp');
     // object_id là số nguyên lấy từ sys.objects nên ghép thẳng vào câu lệnh (SQL Server cũ không có STRING_SPLIT)
     const ids = tables.map((t) => Number(t.id)).join(',');
-    const cols = (await pool.request().query(COLUMNS_SQL.replace(/@@IDS/g, ids))).recordset;
-    const fks = (await pool.request().query(FK_SQL.replace(/@@IDS/g, ids))).recordset;
+    const cols = (await pool.request().query(nolock(COLUMNS_SQL).replace(/@@IDS/g, ids))).recordset;
+    const fks = (await pool.request().query(nolock(FK_SQL).replace(/@@IDS/g, ids))).recordset;
 
     out.push('=== DANH SÁCH BẢNG ===');
     tables.forEach((t) => out.push(`${t.sch}.${t.ten}\t${t.loai}\t${t.so_dong ?? '?'} dòng`));
@@ -82,7 +84,7 @@ async function main() {
       const pk = tc.find((c) => c.khoa_chinh);
       const order = pk ? `ORDER BY [${pk.cot}] DESC` : '';
       try {
-        const rows = (await pool.request().query(`SELECT TOP ${SAMPLE_ROWS} * FROM [${t.sch}].[${t.ten}] ${order}`)).recordset;
+        const rows = (await pool.request().query(nolock(`SELECT TOP ${SAMPLE_ROWS} * FROM [${t.sch}].[${t.ten}] ${order}`))).recordset;
         out.push('  -- dòng mẫu --');
         const names = tc.map((c) => c.cot);
         out.push('  ' + names.join(' | '));

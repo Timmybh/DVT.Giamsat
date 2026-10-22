@@ -27,12 +27,15 @@ async function getPool(dbKey) {
   return pools[dbKey];
 }
 
+// Chỉ đọc, không giữ khóa trên eGMF/HiPro (tương đương WITH (NOLOCK) cho mọi bảng)
+const NO_LOCK = 'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;\n';
+
 // Chạy câu truy vấn có tham số: query({ db, text }, { ten: giaTri })
 async function query(q, params = {}) {
   const pool = await getPool(q.db);
   const req = pool.request();
   for (const [k, v] of Object.entries(params)) req.input(k, v);
-  const result = await req.query(q.text);
+  const result = await req.query(NO_LOCK + q.text);
   return result.recordset;
 }
 
