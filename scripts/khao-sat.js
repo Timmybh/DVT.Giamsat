@@ -3,6 +3,7 @@
 // Khảo sát nhóm bảng khác: npm run khao-sat -- "%DieuTiet%" "%GiacSoDo%"  (mẫu LIKE theo tên bảng)
 // Database khác eGMF: npm run khao-sat -- --db=HiPro "pro[_]nscl%"
 // Gồm: cột của từng bảng, khóa ngoại, số dòng và 5 dòng mẫu mới nhất.
+// Xuất code store procedure / view / function: npm run khao-sat -- --proc "%MayRa%"  -> khao-sat/store-<database>.txt
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -14,7 +15,8 @@ const DEFAULT_PATTERNS = [
 ];
 const ARGS = process.argv.slice(2);
 const DB_ARG = (ARGS.find((a) => a.startsWith('--db=')) || '').slice(5);
-const PATTERN_ARGS = ARGS.filter((a) => !a.startsWith('--db='));
+const PROC = ARGS.includes('--proc');
+const PATTERN_ARGS = ARGS.filter((a) => !a.startsWith('--db=') && a !== '--proc');
 const PATTERNS = PATTERN_ARGS.length ? PATTERN_ARGS : DEFAULT_PATTERNS;
 const SAMPLE_ROWS = 5;
 
@@ -43,6 +45,15 @@ const FK_SQL = `
   JOIN sys.columns rc ON rc.object_id = fk.referenced_object_id AND rc.column_id = fk.referenced_column_id
   WHERE fk.parent_object_id IN (@@IDS) OR fk.referenced_object_id IN (@@IDS)`;
 
+// Code của store / view / function / trigger (cần quyền VIEW DEFINITION)
+const PROC_SQL = `
+  SELECT s.name AS sch, o.name AS ten, o.type_desc AS loai, o.modify_date AS sua_luc, m.definition AS code
+  FROM sys.sql_modules m
+  JOIN sys.objects o ON o.object_id = m.object_id
+  JOIN sys.schemas s ON s.schema_id = o.schema_id
+  WHERE (${PATTERNS.map((_, i) => `o.name LIKE @p${i}`).join(' OR ')})
+  ORDER BY o.type_desc, o.name`;
+
 const fmt = (v) => {
   if (v == null) return 'NULL';
   if (v instanceof Date) return v.toISOString().replace('T', ' ').slice(0, 19);
@@ -64,6 +75,20 @@ async function main() {
   // Đọc không khóa bảng (READ UNCOMMITTED áp dụng cho các câu sau trên cùng kết nối)
   const nolock = (text) => `SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;\n${text}`;
   const out = [`Khảo sát ${database} trên ${process.env.DB_SERVER} lúc ${new Date().toISOString()}`, ''];
+  if (PROC) {
+    try {
+      const req = pool.request();
+      PATTERNS.forEach((p, i) => req.input(`p${i}`, p));
+      const mods = (await req.query(nolock(PROC_SQL))).recordset;
+      if (!mods.length) throw new Error('Không tìm thấy store / view / function nào khớp (hoặc tài khoản không có quyền VIEW DEFINITION)');
+      out.push('=== DANH SÁCH ===');
+      mods.forEach((m) => out.push(`${m.sch}.${m.ten}\t${m.loai}\tsửa lúc ${fmt(m.sua_luc)}`));
+      mods.forEach((m) => out.push('', `=== ${m.sch}.${m.ten} (${m.loai}) ===`, m.code));
+    } finally {
+      await pool.close();
+    }
+    return ghi(`store-${database}.txt`, out);
+  }
   try {
     const req = pool.request();
     PATTERNS.forEach((p, i) => req.input(`p${i}`, p));
@@ -100,9 +125,13 @@ async function main() {
   } finally {
     await pool.close();
   }
+  return ghi(`ket-qua-${database}.txt`, out);
+}
+
+function ghi(ten, out) {
   const dir = path.join(__dirname, '..', 'khao-sat');
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `ket-qua-${database}.txt`);
+  const file = path.join(dir, ten);
   fs.writeFileSync(file, out.join('\n'));
   console.log(`Đã ghi ${file}`);
 }
