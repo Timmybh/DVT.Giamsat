@@ -55,9 +55,16 @@ const App = {
   // sum: cộng cột (theo value(row) nếu có); total(rows): HTML tự tính cho ô tổng.
   // footer: dòng tổng hiện ngay dưới tiêu đề và ở cuối bảng (tính trên các dòng đang hiện).
   // filter (mặc định bật, filter: false để tắt): mỗi cột có nút ▾ để lọc giá trị / sắp xếp như Excel. Bộ lọc giữ nguyên khi vẽ lại cùng bảng.
+  // chonCot: 'khóa' -> nút chọn cột hiển thị, nhớ theo máy (cột có an: true mặc định ẩn).
+  // coDinh: số cột đầu đứng yên khi cuộn ngang. onData(data): gọi lại với các dòng đang hiện sau khi lọc.
   table(el, cols, rows, opts = {}) {
     el._tbl = { cols, rows, opts };
     if (!el._loc || el._loc.cols !== cols.map((c) => c.key).join('|')) el._loc = { cols: cols.map((c) => c.key).join('|'), an: {}, sort: null };
+    if (opts.chonCot && !el._hien) {
+      let luu = null;
+      try { luu = JSON.parse(localStorage.getItem(`cot:${opts.chonCot}`)); } catch (e) { /* bỏ qua */ }
+      el._hien = new Set(luu || cols.filter((c) => !c.an).map((c) => c.key));
+    }
     App._veBang(el);
   },
 
@@ -71,12 +78,15 @@ const App = {
   },
 
   _veBang(el) {
-    const { cols, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter = true, maxRows } } = el._tbl;
-    if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
+    const { cols: tatCaCot, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter = true, maxRows, chonCot, coDinh, onData } } = el._tbl;
+    if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; if (onData) onData([]); return; }
+    // Bộ lọc giữ theo vị trí trong tatCaCot; cols chỉ gồm các cột đang hiện
+    const viTri = new Map(tatCaCot.map((c, i) => [c, i]));
+    const cols = el._hien ? tatCaCot.filter((c) => el._hien.has(c.key)) : tatCaCot;
     const loc = el._loc;
-    let data = rows.filter((r) => cols.every((c, i) => !loc.an[i] || !loc.an[i].has(App._chu(c, r))));
+    let data = rows.filter((r) => tatCaCot.every((c, i) => !loc.an[i] || !loc.an[i].has(App._chu(c, r))));
     if (loc.sort) {
-      const c = cols[loc.sort.i];
+      const c = tatCaCot[loc.sort.i];
       const v = (r) => (c.value ? c.value(r) : r[c.key]);
       const cmp = c.type === 'num' ? (a, b) => Number(v(a) || 0) - Number(v(b) || 0)
         : (c.type === 'date' || c.type === 'datetime') ? (a, b) => new Date(v(a) || 0) - new Date(v(b) || 0)
@@ -99,11 +109,14 @@ const App = {
         return i === 0 ? `<th title="${App.num(data.length)} dòng">Tổng${dangLoc ? ` <span class="loc-dem">(${App.num(data.length)}/${App.num(rows.length)} dòng)</span>` : ''}</th>` : '<th></th>';
       }).join('')}</tr>`;
     }
-    const head = cols.map((c, i) => {
+    const head = cols.map((c) => {
+      const i = viTri.get(c);
       const nut = filter ? `<button class="loc-nut${(loc.an[i] && loc.an[i].size) || (loc.sort && loc.sort.i === i) ? ' on' : ''}" data-c="${i}" title="Lọc / sắp xếp">${loc.sort && loc.sort.i === i ? (loc.sort.dir > 0 ? '▲' : '▼') : '▾'}</button>` : '';
       return `<th class="${c.type === 'num' ? 'num' : ''}">${c.label}${nut}</th>`;
     }).join('');
-    el.innerHTML = `<div class="table-wrap"><table>
+    const dangAn = tatCaCot.length - cols.length;
+    const thanhCot = chonCot ? `<div class="thanh-bang"><button class="nut-cot">Cột hiển thị (${cols.length}/${tatCaCot.length}) ▾</button>${dangAn ? `<span class="loc-dem">${dangAn} cột đang ẩn</span>` : ''}</div>` : '';
+    el.innerHTML = `${thanhCot}<div class="table-wrap"><table>
       <thead><tr>${head}</tr>${totalRow}</thead>
       <tbody>${data.length ? (maxRows ? data.slice(0, maxRows) : data).map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')
         : `<tr><td colspan="${cols.length}" class="empty">Không có dòng nào khớp bộ lọc</td></tr>`}
@@ -118,7 +131,45 @@ const App = {
     }
     const th = el.querySelector('thead tr:first-child th');
     if (th) el.style.setProperty('--th-cao', `${th.offsetHeight}px`);
+    if (coDinh) {
+      const ths = [...el.querySelectorAll('thead tr:first-child th')].slice(0, coDinh);
+      let trai = 0;
+      ths.forEach((h, k) => {
+        el.querySelectorAll(`tr > :nth-child(${k + 1})`).forEach((o) => { o.classList.add('co-dinh'); o.style.left = `${trai}px`; });
+        trai += h.offsetWidth;
+      });
+    }
+    if (chonCot) el.querySelector('.nut-cot').onclick = (e) => { e.stopPropagation(); App._moCot(el, e.target); };
+    if (onData) onData(data);
     el.querySelectorAll('.loc-nut').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); App._moLoc(el, Number(b.dataset.c), b); }));
+  },
+
+  // Hộp chọn cột hiển thị
+  _moCot(el, nut) {
+    document.querySelectorAll('.loc-hop').forEach((x) => x.remove());
+    const { cols, opts } = el._tbl;
+    const hop = document.createElement('div');
+    hop.className = 'loc-hop';
+    hop.innerHTML = `<div class="loc-ds" style="max-height:360px">${cols.map((c) => `<label><input type="checkbox" value="${c.key}"${el._hien.has(c.key) ? ' checked' : ''}> ${c.label}</label>`).join('')}</div>
+      <div class="loc-cuoi"><button class="phu" data-md>Mặc định</button><button data-ok>OK</button></div>`;
+    document.body.appendChild(hop);
+    const r = nut.getBoundingClientRect();
+    hop.style.top = `${r.bottom + window.scrollY + 4}px`;
+    hop.style.left = `${r.left + window.scrollX}px`;
+    const dong = () => { hop.remove(); document.removeEventListener('mousedown', ngoai); };
+    const ngoai = (e) => { if (!hop.contains(e.target)) dong(); };
+    setTimeout(() => document.addEventListener('mousedown', ngoai));
+    const luu = (keys) => {
+      el._hien = new Set(keys);
+      try { localStorage.setItem(`cot:${opts.chonCot}`, JSON.stringify(keys)); } catch (e) { /* bỏ qua */ }
+      dong(); App._veBang(el);
+    };
+    hop.querySelector('[data-ok]').onclick = () => luu([...hop.querySelectorAll('input:checked')].map((x) => x.value));
+    hop.querySelector('[data-md]').onclick = () => {
+      try { localStorage.removeItem(`cot:${opts.chonCot}`); } catch (e) { /* bỏ qua */ }
+      el._hien = new Set(cols.filter((c) => !c.an).map((c) => c.key));
+      dong(); App._veBang(el);
+    };
   },
 
   // Hộp lọc kiểu Excel cho cột i. Danh sách giá trị chỉ vẽ tối đa 500 dòng khớp ô tìm.
