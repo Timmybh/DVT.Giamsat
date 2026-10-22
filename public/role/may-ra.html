@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo may ra - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Báo cáo may ra</h1>
+  <div class="panel">
+    <div class="filters">
+      <label>Từ ngày <input type="date" id="tuNgay"></label>
+      <label>Đến ngày <input type="date" id="denNgay"></label>
+      <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
+      <button id="btn">Xem</button>
+    </div>
+    <div id="result" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày rồi bấm Xem</div></div>
+    <div class="note" id="ghiChu">Trong kỳ = từ ngày đến ngày. Lũy kế = từ lúc PO bắt đầu trên tổ đến hết "đến ngày" (không phụ thuộc "từ ngày").
+      Vào chuyền: quét nhận BTP vải chính, tem thân chính, không tính tem trả. May ra: HiPro NSCL đạt + sửa đạt (gồm bảng lưu trữ tháng cũ).
+      Nhập kho: giao thành phẩm đã xác nhận.</div>
+  </div>
+</main>
+<script>
+  tuNgay.value = App.today();
+  denNgay.value = App.today();
+  let rows = [];
+
+  async function loadTo() {
+    const list = await App.api('to', { xn: App.xn });
+    to.innerHTML = '<option value="">Tất cả</option>' + list.map((t) => `<option value="${t.ma}">${t.ten}</option>`).join('');
+  }
+  const S = (rs, k) => rs.reduce((s, r) => s + Number(r[k] || 0), 0);
+  function draw() {
+    const data = to.value ? rows.filter((r) => r.maTo === to.value) : rows;
+    App.table(result, [
+      { key: 'maTo', label: 'Tổ' },
+      { key: 'po', label: 'PO' },
+      { key: 'maHang', label: 'Mã hàng' },
+      { key: 'soLuong', label: 'SL', type: 'num', sum: true },
+      { key: 'vaoKy', label: 'Vào chuyền kỳ', type: 'num', sum: true },
+      { key: 'vaoLK', label: 'Vào chuyền LK', type: 'num', sum: true },
+      { key: 'mayRaNgay', label: 'May ra ngày', type: 'num', sum: true },
+      { key: 'mayRaKy', label: 'May ra kỳ', type: 'num', sum: true },
+      { key: 'mayRaLK', label: 'May ra LK', type: 'num', sum: true },
+      { key: 'tonMayRa', label: 'Tồn trên chuyền', type: 'num', sum: true },
+      { key: 'nhapKy', label: 'Nhập kho kỳ', type: 'num', sum: true },
+      { key: 'nhapLK', label: 'Nhập kho LK', type: 'num', sum: true },
+      { key: 'tonDongGoi', label: 'Tồn đóng gói', type: 'num', sum: true },
+      { key: 'conLai', label: 'Còn lại', type: 'num', sum: true },
+      { key: 'tl', label: '% may ra', render: (r) => App.pctTag(r.mayRaLK, r.soLuong), total: (rs) => App.pctTag(S(rs, 'mayRaLK'), S(rs, 'soLuong')) },
+      { key: 'khachHang', label: 'Khách hàng' },
+      { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'ngayBatDau', label: 'Bắt đầu', type: 'date' },
+      { key: 'ngayXuat', label: 'Ngày xuất', type: 'date' },
+    ], data, { footer: true, chonCot: 'may-ra-1', coDinh: 2 });
+  }
+  async function load() {
+    App.loading(result);
+    try {
+      const kq = await App.api('may-ra', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value });
+      rows = kq.rows;
+      draw();
+    } catch (e) { App.error(result, e); }
+  }
+  btn.onclick = load;
+  to.onchange = () => rows.length && draw();
+  App.header([['Trang chính', '/'], ['Báo cáo may ra']], () => { rows = []; result.innerHTML = '<div class="empty">Chọn khoảng ngày rồi bấm Xem</div>'; loadTo(); })
+    .then(loadTo);
+</script>
+</body>
+</html>

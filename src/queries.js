@@ -18,6 +18,13 @@
 // Điều kiện khớp 1 lệnh SX trong cột dạng 'A;' hoặc 'A; B;'
 const matchLenh = (col) => `';' + REPLACE(${col}, ' ', '') + ';' LIKE '%;' + @lenhSX + ';%'`;
 
+// Chủng loại vải chính trong cột danh sách 'Vải chính, Keo' (như store báo cáo may ra; XN2 có thêm 'Vải chính B')
+const VAI_CHINH = ['Vải chính', 'Vải chính 1', 'Vải chính A', 'Vải chính G'];
+const vaiChinh = (col) => {
+  const ds = `',' + REPLACE(ISNULL(${col}, ''), ', ', ',') + ','`;
+  return VAI_CHINH.map((v) => `${ds} LIKE N'%,${v},%'`).concat(`(@xnCode = 'XN2' AND ${ds} LIKE N'%,Vải chính B,%')`).join(' OR ');
+};
+
 module.exports = {
   // Danh mục xí nghiệp. API tự suy ra mã 'XN1'.. từ số trong tên để lọc bảng CUTTING
   xiNghiep: {
@@ -426,5 +433,116 @@ module.exports = {
       LEFT JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.Id = q.idct
       GROUP BY q.SoPhieuCapBTP, q.loaiNL
       ORDER BY MIN(q.tu)`,
+  },
+  // ======================= Báo cáo may ra (viết lại từ Report_BaoCaoMayRa_GetData_TuNgay_DenNgay) =======================
+  // Đọc thẳng nguồn, không qua bảng snapshot Report_BaoCaoMayRa. Dòng = tổ x PO.
+  //   "Trong kỳ" = @tuNgay..@denNgay. "Lũy kế" = từ lúc bắt đầu (không chặn dưới) đến hết @denNgay.
+  //   Vào chuyền: quét nhận BTP (ThoiGianQuetNhan), không tính tem trả, chỉ vải chính, chỉ tem thân chính (TenChiTiet trống)
+  //     để mỗi bó tính 1 lần (store cũ dùng DISTINCT nên gộp nhầm các bó cùng SL trong 1 phiếu xuất).
+  //   Nhập kho: Lib_GiaoHangThanhPhamDetail đã xác nhận, phiếu không hủy, tổ theo Lib_XacNhanTemDongGoi.IdTo.
+  //   SL: tổng phân bổ OMM_KeHoachThang của tổ x PO (mọi tháng), không cắt trần lũy kế theo SL như store cũ.
+  // Dòng được lấy khi tổ x PO có kế hoạch vào chuyền / may giao với kỳ, hoặc có vào chuyền / nhập kho trong kỳ.
+  // Tham số: @xn (XNId), @xnCode ('XN1'), @tuNgay, @denNgay. May ra (HiPro) ghép ở API theo tổ x PO.
+  mayRa: {
+    db: 'egmf',
+    text: `
+      WITH kh AS (
+        SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, po.PONo AS po, MAX(dh.MaHang) AS maHang, SUM(k.SoLuong) AS soLuong,
+               MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayKH,
+               MAX(CASE WHEN k.NgayVaoChuyenKeHoachBatDau < DATEADD(day, 1, @denNgay)
+                         AND ISNULL(k.NgayMayKeHoachKetThuc, k.NgayVaoChuyenKeHoachKetThuc) >= @tuNgay THEN 1 ELSE 0 END) AS trongKy
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = ct.POId
+        JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND k.SoLuong > 0
+        GROUP BY LTRIM(RTRIM(e.TenCum)), po.PONo
+      ),
+      nhan AS (
+        SELECT LTRIM(RTRIM(pc.TenCum)) AS maTo, bc.PO AS po, pc.ProductCode AS maHang, pc.LenhSanXuat AS lenhSX,
+               bc.ThoiGianQuetNhan AS luc, ISNULL(bc.SoLuongDaNhan, 0) AS sl
+        FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
+        JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
+        JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Barcode = bc.TemBarcodeBTP
+        WHERE pc.TenPhanXuong = @xnCode AND ISNULL(bc.TraBTP, 0) = 0 AND ISNULL(t.TenChiTiet, '') = ''
+          AND bc.ThoiGianQuetNhan < DATEADD(day, 1, @denNgay)
+          AND (${vaiChinh('bc.ChungLoai')})
+      ),
+      giao AS (
+        SELECT DISTINCT LTRIM(RTRIM(cc.TenCum)) AS maTo, ct.PO AS po, ct.MaHang AS maHang, ct.Barcode AS barcode,
+               CASE WHEN isXacNhan = 1 THEN ISNULL(ct.SoLuong, 0) ELSE 0 END AS sl, CAST(ct.NgayTaoPhieu AS date) AS ngay
+        FROM dbo.Lib_GiaoHangThanhPhamDetail ct
+        JOIN dbo.Lib_GiaoHangThanhPham ph ON ph.id = ct.idPhieu AND ph.TrangThai <> 'HUYPHIEU'
+        JOIN dbo.Lib_XacNhanTemDongGoi dg ON dg.Barcode = ct.Barcode
+        JOIN dbo.Lib_CumChuyen cc ON cc.CumId = dg.IdTo
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = cc.PXId
+        WHERE px.XNId = @xn AND ct.NgayTaoPhieu < DATEADD(day, 1, @denNgay)
+      ),
+      keys AS (
+        SELECT maTo, po FROM kh WHERE trongKy = 1
+        UNION SELECT maTo, po FROM nhan WHERE luc >= @tuNgay
+        UNION SELECT maTo, po FROM giao WHERE ngay >= @tuNgay
+      ),
+      vc AS (
+        SELECT n.maTo, n.po, MAX(n.maHang) AS maHang, MAX(n.lenhSX) AS lenhSX, MIN(n.luc) AS ngayDau,
+               SUM(CASE WHEN n.luc >= @tuNgay THEN n.sl ELSE 0 END) AS vaoKy, SUM(n.sl) AS vaoLK
+        FROM nhan n JOIN keys k ON k.maTo = n.maTo AND k.po = n.po
+        GROUP BY n.maTo, n.po
+      ),
+      nk AS (
+        SELECT g.maTo, g.po, MAX(g.maHang) AS maHang,
+               SUM(CASE WHEN g.ngay >= @tuNgay THEN g.sl ELSE 0 END) AS nhapKy, SUM(g.sl) AS nhapLK
+        FROM giao g JOIN keys k ON k.maTo = g.maTo AND k.po = g.po
+        GROUP BY g.maTo, g.po
+      )
+      SELECT k.maTo, k.po, COALESCE(vc.maHang, kh.maHang, nk.maHang) AS maHang, vc.lenhSX, kh.soLuong,
+             vc.vaoKy, vc.vaoLK, nk.nhapKy, nk.nhapLK,
+             CASE WHEN vc.ngayDau IS NULL OR kh.ngayKH < vc.ngayDau THEN kh.ngayKH ELSE vc.ngayDau END AS ngayBatDau,
+             xh.ngayXuat, kc.khachHang
+      FROM keys k
+      LEFT JOIN kh ON kh.maTo = k.maTo AND kh.po = k.po
+      LEFT JOIN vc ON vc.maTo = k.maTo AND vc.po = k.po
+      LEFT JOIN nk ON nk.maTo = k.maTo AND nk.po = k.po
+      OUTER APPLY (SELECT MAX(CAST(x.EHD AS date)) AS ngayXuat FROM dbo.FG_LichXuatHangTuan_Imported x WHERE x.PO = k.po) xh
+      OUTER APPLY (
+        SELECT TOP 1 ISNULL(l.TenKhachHangNew, '') AS khachHang
+        FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+        JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+        JOIN dbo.Lib_KhachHang l ON l.MaKhachHang = a.CustomerCode
+        WHERE b.PO = k.po
+      ) kc
+      ORDER BY LEN(k.maTo), k.maTo, k.po`,
+  },
+
+  // Các bảng lưu trữ NSCL theo tháng của HiPro (pro_nscl_MM_YYYY): dữ liệu tháng cũ bị chuyển khỏi pro_nscl
+  nsclLuuTru: {
+    db: 'hipro',
+    text: `SELECT name FROM sys.tables WHERE name LIKE 'pro[_]nscl[_][0-9][0-9][_][0-9][0-9][0-9][0-9]'`,
+  },
+
+  // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ,
+  // đọc cả pro_nscl hiện hành lẫn các bảng lưu trữ truyền vào (tên đã kiểm ở API). Tham số: @tuLK, @tuNgay, @denNgay
+  mayRaHiPro: (bangLuuTru = []) => {
+    const qty = Array.from({ length: 14 }, (_, i) => `ISNULL(qty_${i + 1}_h, 0) + ISNULL(fix_${i + 1}_h, 0)`).join(' + ');
+    const nguon = [`SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${qty} + ISNULL(sua_po_luy_ke, 0) AS sl FROM dbo.pro_nscl`]
+      .concat(bangLuuTru.map((b) => `SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${qty} AS sl FROM dbo.${b}`));
+    return {
+      db: 'hipro',
+      text: `
+      SELECT nm.ten AS xn, c.ten AS line, sp.po AS po, MAX(sp.ma_san_pham) AS maHang,
+             SUM(CASE WHEN k.ngay_san_xuat >= @tuNgay THEN n.sl ELSE 0 END) AS mayRaKy,
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.sl ELSE 0 END) AS mayRaNgay,
+             SUM(n.sl) AS mayRaLK
+      FROM (${nguon.join('\n        UNION ALL ')}) n
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      WHERE k.ngay_san_xuat >= @tuLK AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      GROUP BY nm.ten, c.ten, sp.po`,
+    };
   },
 };

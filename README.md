@@ -49,6 +49,7 @@ Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `st
 | PO đang may | `Report_BaoCaoMayRa` (bản ghi mới nhất theo PO x chuyền trong ngày) |
 | Lao động | `LCD_Truc_Quan_ChuyenMay_LaoDong` |
 | Lỗi QC (HiPro NSCL) | `pro_nscl` (qty_N_h = đạt, reject_N_h = lỗi, fix_N_h = sửa), `pro_nscl_chi_tiet_loi` → `pro_loi` → `pro_cum_loi`. Chỉ đọc bảng hiện hành, chưa đọc bảng lưu trữ `pro_nscl_MM_YYYY` |
+| Báo cáo may ra | Viết lại `Report_BaoCaoMayRa_GetData_TuNgay_DenNgay`, đọc thẳng nguồn (không qua bảng snapshot `Report_BaoCaoMayRa`). Vào chuyền: `CUTTING_PhieuCapBTP_BarcodeChiTiet` (quét nhận, vải chính, tem thân chính, bỏ tem trả). May ra: `pro_nscl` + `pro_nscl_MM_YYYY` (qty + fix + sua_po_luy_ke). Nhập kho: `Lib_GiaoHangThanhPhamDetail` đã xác nhận. Lũy kế = từ đầu đến hết "đến ngày" |
 | Doanh thu XN | `LCD_Truc_Quan_XiNghiep_DoanhThu_Ngay` |
 
 Mọi truy vấn chạy `READ UNCOMMITTED` (đọc không khóa, tương đương `WITH (NOLOCK)`).

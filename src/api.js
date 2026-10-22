@@ -5,10 +5,11 @@ const mock = require('./mock');
 
 const router = express.Router();
 
-// Chạy truy vấn theo tên: dữ liệu mẫu hoặc SQL Server thật
-async function run(name, params) {
-  if (db.useMock()) return mock[name](params);
-  return db.query(queries[name], params);
+// Chạy truy vấn theo tên: dữ liệu mẫu hoặc SQL Server thật. Câu dựng động (hàm) nhận thêm `arg`.
+async function run(name, params, arg) {
+  if (db.useMock()) return mock[name](params, arg);
+  const q = queries[name];
+  return db.query(typeof q === 'function' ? q(arg) : q, params);
 }
 
 function handle(name, getParams) {
@@ -187,6 +188,57 @@ const ngay = (req) => req.query.d || today();
 router.get('/ke-hoach-ngay', handleXn('keHoachNgay', (req) => ({ xn: req.query.xn, d0: ngay(req) })));
 router.get('/san-luong-gio', handleXn('sanLuongGio', (req) => ({ d0: ngay(req) })));
 router.get('/po-may-ra', handleXn('poMayRa', async (req) => ({ xnNum: await xnNum(req.query.xn), d0: ngay(req) })));
+// Báo cáo may ra (viết lại store Report_BaoCaoMayRa_GetData_TuNgay_DenNgay, đọc thẳng nguồn):
+// eGMF cho SL, vào chuyền, nhập kho; HiPro cho may ra, ghép theo tổ x PO.
+// Trong kỳ = tuNgay..denNgay; lũy kế = từ lúc bắt đầu PO trên tổ đến hết denNgay (đọc cả bảng lưu trữ pro_nscl_MM_YYYY).
+const ymd = (v) => {
+  if (!v) return null;
+  if (!(v instanceof Date)) return String(v).slice(0, 10);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+};
+router.get('/may-ra', async (req, res) => {
+  try {
+    const tuNgay = req.query.tuNgay || today();
+    const denNgay = req.query.denNgay || today();
+    const n = await xnNum(req.query.xn);
+    const rows = await run('mayRa', { xn: req.query.xn, xnCode: n ? `XN${n}` : '', tuNgay, denNgay });
+    const tuLK = rows.reduce((m, r) => { const d = ymd(r.ngayBatDau); return d && d < m ? d : m; }, tuNgay);
+    const bang = (await run('nsclLuuTru', {})).map((x) => x.name).filter((b) => {
+      const m = /^pro_nscl_(\d{2})_(\d{4})$/.exec(b);
+      return m && `${m[2]}-${m[1]}` >= tuLK.slice(0, 7) && `${m[2]}-${m[1]}` <= denNgay.slice(0, 7);
+    });
+    const sx = await run('mayRaHiPro', { tuLK, tuNgay, denNgay }, bang);
+
+    const key = (line, po) => `${lineOf(line)}|${String(po ?? '').trim()}`;
+    const map = new Map();
+    rows.forEach((r) => map.set(key(r.maTo, r.po), { ...r, maTo: lineOf(r.maTo), po: String(r.po ?? '').trim(), mayRaKy: 0, mayRaNgay: 0, mayRaLK: 0 }));
+    sx.filter((r) => xnOf(r.xn) === n).forEach((r) => {
+      const k = key(r.line, r.po);
+      let x = map.get(k);
+      if (!x) {
+        if (!Number(r.mayRaKy)) return; // PO chỉ có may ra trước kỳ: bỏ
+        x = { maTo: lineOf(r.line), po: String(r.po ?? '').trim(), maHang: r.maHang, mayRaKy: 0, mayRaNgay: 0, mayRaLK: 0 };
+        map.set(k, x);
+      }
+      x.mayRaKy += Number(r.mayRaKy || 0);
+      x.mayRaNgay += Number(r.mayRaNgay || 0);
+      x.mayRaLK += Number(r.mayRaLK || 0);
+    });
+    const N = (v) => Number(v || 0);
+    res.json({
+      tuLK, bangLuuTru: bang,
+      rows: [...map.values()].map((r) => ({
+        ...r,
+        soLuong: N(r.soLuong), vaoKy: N(r.vaoKy), vaoLK: N(r.vaoLK), nhapKy: N(r.nhapKy), nhapLK: N(r.nhapLK),
+        tonMayRa: N(r.vaoLK) - r.mayRaLK, tonDongGoi: r.mayRaLK - N(r.nhapLK), conLai: N(r.soLuong) - r.mayRaLK,
+      })).sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.po.localeCompare(b.po)),
+    });
+  } catch (err) {
+    console.error('[mayRa]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
 const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
 router.get('/qc-nscl', handleXn('qcNscl', qcRange));

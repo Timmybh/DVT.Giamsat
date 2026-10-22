@@ -126,6 +126,13 @@ const hangCuaTo = (xn, line, d0) => {
   return k ? k.maHang : String(hInt(`${xn}${line}`, 330000, 380000));
 };
 
+// PO mẫu của tổ cho báo cáo may ra: bắt đầu rải từ 90 ngày trước, may trong 20-50 ngày
+const poMau = (xn, line) => Array.from({ length: hInt(`mpo${xn}${line}`, 1, 3) }, (_, i) => ({
+  po: String(hInt(`mp${xn}${line}${i}`, 4524000000, 4525999999)), maHang: String(hInt(`mh${xn}${line}${i}`, 330000, 380000)),
+  lenhSX: `TUNTT-${hInt(`ml${xn}${line}${i}`, 600, 700)}-2026;`, soLuong: hInt(`ms${xn}${line}${i}`, 2000, 9000), khachHang: khach[hInt(`mk${line}${i}`, 0, 2)],
+  batDau: new Date(Date.now() - hInt(`mb${xn}${line}${i}`, 5, 90) * 86400000).toISOString().slice(0, 10),
+  soNgay: hInt(`mn${xn}${line}${i}`, 20, 50), ngayXuat: day(hInt(`mx${line}${i}`, 3, 40)),
+}));
 const inRange = (d, tu, den) => d.slice(0, 10) >= tu && d.slice(0, 10) <= den;
 
 module.exports = {
@@ -299,4 +306,25 @@ module.exports = {
       ...g, soBo: bo.size, slSP: [...bo.entries()].reduce((s, [id, b]) => s + (b.n >= temMoiBo(id) ? b.min : 0), 0),
     }));
   },
+  // Báo cáo may ra: mỗi tổ 1-3 PO, số lũy kế tăng theo ngày từ ngày bắt đầu
+  mayRa: ({ xn, tuNgay, denNgay }) => (to[xn] || []).flatMap((t) => poMau(xn, t.ma).map((p) => {
+    const f = (d) => Math.max(0, Math.min(1, (new Date(d) - new Date(p.batDau)) / (p.soNgay * 86400000)));
+    const truoc = new Date(new Date(tuNgay) - 86400000).toISOString().slice(0, 10);
+    const vaoLK = Math.floor(p.soLuong * Math.min(1, f(denNgay) * 1.15));
+    const vaoTruoc = Math.floor(p.soLuong * Math.min(1, f(truoc) * 1.15));
+    const nhapLK = Math.floor(p.soLuong * Math.max(0, f(denNgay) - 0.08));
+    const nhapTruoc = Math.floor(p.soLuong * Math.max(0, f(truoc) - 0.08));
+    return {
+      maTo: t.ma, po: p.po, maHang: p.maHang, lenhSX: p.lenhSX, soLuong: p.soLuong, khachHang: p.khachHang,
+      vaoKy: vaoLK - vaoTruoc, vaoLK, nhapKy: nhapLK - nhapTruoc, nhapLK, ngayBatDau: p.batDau, ngayXuat: p.ngayXuat,
+    };
+  }).filter((r) => r.vaoKy > 0 || r.nhapKy > 0)),
+  nsclLuuTru: () => ['pro_nscl_03_2026', 'pro_nscl_04_2026'].map((name) => ({ name })),
+  mayRaHiPro: ({ tuNgay, denNgay }) => xiNghiep.flatMap((xn) => to[xn.ma].flatMap((t) => poMau(xn.ma, t.ma).map((p) => {
+    const f = (d) => Math.max(0, Math.min(1, (new Date(d) - new Date(p.batDau)) / (p.soNgay * 86400000)));
+    const lk = (d) => Math.floor(p.soLuong * Math.max(0, f(d) - 0.03));
+    const truoc = new Date(new Date(tuNgay) - 86400000).toISOString().slice(0, 10);
+    const homQua = new Date(new Date(denNgay) - 86400000).toISOString().slice(0, 10);
+    return { xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, po: p.po, maHang: p.maHang, mayRaKy: lk(denNgay) - lk(truoc), mayRaNgay: lk(denNgay) - lk(homQua), mayRaLK: lk(denNgay) };
+  }))),
 };
