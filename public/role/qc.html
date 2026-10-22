@@ -40,7 +40,7 @@
   denNgay.value = App.today();
   tuNgay.value = App.ymd(Date.now() - 13 * 86400000);
   const tyLe = (r) => (r.dat + r.loi ? `${((r.loi / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
-  const tyLeTong = (rs) => tyLe({ dat: rs.reduce((s, r) => s + r.dat, 0), loi: rs.reduce((s, r) => s + r.loi, 0) });
+  const tyLeTong = (rs) => tyLe({ dat: rs.reduce((s, r) => s + Number(r.dat || 0), 0), loi: rs.reduce((s, r) => s + Number(r.loi || 0), 0) });
 
   async function loadTo() {
     const list = await App.api('to', { xn: App.xn });
@@ -88,7 +88,7 @@
 
       const loiRows = gom(loi.filter(chon).map((r) => ({ ...r, dat: 0, loi: Number(r.soLan || 0), sua: 0 })), (r) => r.maLoi, (r) => ({ maLoi: r.maLoi, tenLoi: r.tenLoi, cumLoi: r.cumLoi }))
         .map((r) => ({ ...r, soLan: r.loi })).filter((r) => r.soLan > 0).sort((a, b) => b.soLan - a.soLan);
-      const tongLan = loiRows.reduce((s, r) => s + r.soLan, 0);
+      const tongLan = loiRows.reduce((s, r) => s + Number(r.soLan || 0), 0);
       App.table(theoLoi, [
         { key: 'maLoi', label: 'Mã lỗi' },
         { key: 'tenLoi', label: 'Tên lỗi' },

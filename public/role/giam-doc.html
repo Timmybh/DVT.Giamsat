@@ -75,7 +75,7 @@
       { key: 'maHang', label: 'Mã hàng', render: (r) => App.esc(r.maHang.join(', ')) },
       { key: 'keHoach', label: 'Kế hoạch', type: 'num', sum: true },
       { key: 'mayRa', label: 'May ra', type: 'num', sum: true },
-      { key: 'dat', label: 'Đạt', render: (r) => App.pctTag(r.mayRa, r.keHoach), total: (rs) => App.pctTag(rs.reduce((s, r) => s + r.mayRa, 0), rs.reduce((s, r) => s + r.keHoach, 0)) },
+      { key: 'dat', label: 'Đạt', render: (r) => App.pctTag(r.mayRa, r.keHoach), total: (rs) => App.pctTag(rs.reduce((s, r) => s + Number(r.mayRa || 0), 0), rs.reduce((s, r) => s + Number(r.keHoach || 0), 0)) },
       { key: 'loi', label: 'Lỗi QC', type: 'num', sum: true },
       { key: 'tong', label: 'LĐ tổng', type: 'num', sum: true },
       { key: 'hienDien', label: 'LĐ hiện diện', type: 'num', sum: true },

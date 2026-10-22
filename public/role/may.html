@@ -54,8 +54,8 @@
       r.tong = hours.reduce((s, h) => s + (r[`h${h}`] || 0), 0);
       r.loi = hours.reduce((s, h) => s + (r[`r${h}`] || 0), 0);
     });
-    const mayRa = gioRows.reduce((s, r) => s + r.tong, 0);
-    const loi = gioRows.reduce((s, r) => s + r.loi, 0);
+    const mayRa = gioRows.reduce((s, r) => s + Number(r.tong || 0), 0);
+    const loi = gioRows.reduce((s, r) => s + Number(r.loi || 0), 0);
     const keHoach = mine(kh).reduce((s, r) => s + Number(r.keHoach || 0), 0);
     const lao = mine(ld)[0];
 

@@ -88,3 +88,4 @@ thead tr th.co-dinh, .luoi-cao thead tr:first-child th.co-dinh { z-index: 5; }
 .luoi-cao thead tr.total-row th.co-dinh, tfoot th.co-dinh { z-index: 4; }
 .luoi-5 .table-wrap { max-height: 222px; margin-bottom: 14px; }
 [hidden] { display: none !important; }
+.luoi-10 .table-wrap { max-height: 420px; }

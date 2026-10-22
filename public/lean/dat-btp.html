@@ -25,7 +25,7 @@
   </div>
   <div class="panel">
     <h2>Phiếu cấp BTP <span id="toName"></span></h2>
-    <div id="phieuCap"><div class="empty">Chọn tổ để xem phiếu cấp BTP</div></div>
+    <div id="phieuCap" class="luoi-cao luoi-10"><div class="empty">Chọn tổ để xem phiếu cấp BTP</div></div>
   </div>
   <div class="panel">
     <h2>Chi tiết đặt <span class="pcName"></span></h2>
@@ -105,7 +105,7 @@
         { key: 'slXuat', label: 'SL cắt đã xuất', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL tổ đã nhận', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slXuat, 0), render: (r) => App.num(Math.max(r.slDat - r.slXuat, 0)) },
-        { key: 'tt', label: 'Đáp ứng', render: status, total: (rs) => status({ slDat: rs.reduce((s, r) => s + r.slDat, 0), slXuat: rs.reduce((s, r) => s + r.slXuat, 0) }) },
+        { key: 'tt', label: 'Đáp ứng', render: status, total: (rs) => status({ slDat: rs.reduce((s, r) => s + Number(r.slDat || 0), 0), slXuat: rs.reduce((s, r) => s + Number(r.slXuat || 0), 0) }) },
       ], rows, { onClick: loadDetail, footer: true, empty: 'Tổ chưa có phiếu cấp BTP trong khoảng ngày này' });
     } catch (e) { App.error(phieuCap, e); }
   }
@@ -172,7 +172,7 @@
         { key: 'slCap', label: 'SL đã cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slCap, 0), render: (r) => App.num(Math.max(r.slDat - r.slCap, 0)) },
-        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.slCap }), total: (rs) => status({ slDat: rs.reduce((s, r) => s + r.slDat, 0), slXuat: rs.reduce((s, r) => s + r.slCap, 0) }) },
+        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.slCap }), total: (rs) => status({ slDat: rs.reduce((s, r) => s + Number(r.slDat || 0), 0), slXuat: rs.reduce((s, r) => s + Number(r.slCap || 0), 0) }) },
       ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }
   }
