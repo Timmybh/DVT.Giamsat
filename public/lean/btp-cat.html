@@ -111,7 +111,7 @@
     if (v) loadDieuTiet(v);
   }
 
-  // Ô tổng hợp + bảng gọn theo loại NL x chi tiết, tính trên các dòng đang hiện của lưới tem
+  // Ô tổng hợp + bảng gọn theo lệnh x loại NL x chi tiết, tính trên các dòng đang hiện của lưới tem
   function veTomTat(data) {
     if (!data.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = ''; return; }
     const tem = new Set(data.map((r) => r.barcode));
@@ -128,12 +128,14 @@
     ]);
     const nhom = new Map();
     data.forEach((r) => {
-      const k = `${r.loaiNL}|${r.chiTiet}`;
-      const g = nhom.get(k) || { loaiNL: r.loaiNL, chiTiet: r.chiTiet, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 };
+      const k = `${r.lenhSX}|${r.loaiNL}|${r.chiTiet}`;
+      const g = nhom.get(k) || { lenhSX: r.lenhSX, maHang: r.maHang, loaiNL: r.loaiNL, chiTiet: r.chiTiet, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 };
       g.tem.add(r.barcode); g.slCat += Number(r.slCat || 0); g.slXuat += Number(r.slXuat || 0); g.slTon += Number(r.slTon || 0);
       nhom.set(k, g);
     });
     App.table(tongHop, [
+      { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'maHang', label: 'Mã hàng' },
       { key: 'loaiNL', label: 'Loại NL' },
       { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
       { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
@@ -141,7 +143,7 @@
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
       { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
       { key: 'tl', label: '% xuất', render: (r) => App.pctTag(r.slXuat, r.slCat) },
-    ], [...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })).sort((a, b) => b.slCat - a.slCat), { footer: true, filter: false });
+    ], [...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })).sort((a, b) => b.slCat - a.slCat), { footer: true });
   }
 
   // Khi chọn 1 lệnh: thêm bảng đồng bộ theo điều tiết (SL sản phẩm đủ mọi chi tiết, mọi loại NL)
