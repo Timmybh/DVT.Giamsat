@@ -21,6 +21,7 @@
     </div>
     <div class="cards" id="tomTat" hidden></div>
     <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
+    <div id="dangLoc" class="note" hidden></div>
     <div id="nxt" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày (và lệnh SX nếu cần) rồi bấm Xem</div></div>
     <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
   </div>
@@ -72,46 +73,61 @@
     pDT.hidden = pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = true;
     App.loading(nxt);
     try {
-      const rows = await App.api('btp-cat', { lenhSX: v, ...khoang });
-      App.table(nxt, [
-        { key: 'barcode', label: 'Tem barcode BTP' },
-        { key: 'soPhieuCap', label: 'Phiếu cấp BTP' },
-        { key: 'maHang', label: 'Mã hàng' },
-        { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
-        { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
-        { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
-        { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
-        { key: 'mau', label: 'Màu SP' },
-        { key: 'size', label: 'Size' },
-        { key: 'maTo', label: 'Tổ' },
-        { key: 'xn', label: 'XN' },
-        { key: 'po', label: 'PO' },
-        { key: 'sizeDat', label: 'Size đặt' },
-        { key: 'thoiGianXuat', label: 'Thời gian xuất', type: 'datetime' },
-        { key: 'lenhSX', label: 'Lệnh (tem)' },
-        { key: 'loaiNL', label: 'Loại NL' },
-        { key: 'banCat', label: 'Bàn cắt' },
-        { key: 'banMay', label: 'Bàn máy' },
-        { key: 'ngayTao', label: 'Ngày tạo tem', type: 'date' },
-        { key: 'ngayNhan', label: 'Ngày nhận BTP', type: 'date', an: true },
-        { key: 'thoiGianNhan', label: 'Quét nhận', type: 'datetime', an: true },
-        { key: 'temXuat', label: 'Tem xuất', an: true },
-        { key: 'lenhXuat', label: 'Lệnh xuất', an: true },
-        { key: 'mua', label: 'Mùa', an: true },
-        { key: 'mauVai', label: 'Màu vải', an: true },
-        { key: 'phieuHoachToan', label: 'Phiếu hoạch toán', an: true },
-        { key: 'idBanMay', label: 'ID bàn máy', an: true },
-        { key: 'nguoiXuat', label: 'Người xuất', an: true },
-      ], rows, {
-        footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-3', coDinh: 1, onData: veTomTat,
-        empty: 'Không có tem BTP cắt trong khoảng ngày này',
-      });
-      if (rows.length >= 30000) lenhInfo.textContent = 'Chỉ lấy 30.000 dòng đầu, hãy thu hẹp khoảng ngày hoặc nhập lệnh SX.';
+      tatCa = await App.api('btp-cat', { lenhSX: v, ...khoang });
+      chon = null;
+      veTomTat(tatCa);
+      veTem();
+      if (tatCa.length >= 30000) lenhInfo.textContent = 'Chỉ lấy 30.000 dòng đầu, hãy thu hẹp khoảng ngày hoặc nhập lệnh SX.';
     } catch (e) { App.error(nxt, e); }
     if (v) loadDieuTiet(v);
   }
 
-  // Ô tổng hợp + bảng gọn theo lệnh x loại NL x chi tiết, tính trên các dòng đang hiện của lưới tem
+  // Lưới tem (detail): lọc theo lệnh x loại NL của dòng tổng hợp đang chọn
+  let tatCa = [];
+  let chon = null;
+  function veTem() {
+    const rows = chon ? tatCa.filter((r) => r.lenhSX === chon.lenhSX && r.loaiNL === chon.loaiNL) : tatCa;
+    dangLoc.hidden = !chon;
+    if (chon) {
+      dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, loại NL <b>${App.esc(chon.loaiNL)}</b> <button id="boLoc">Bỏ lọc</button>`;
+      boLoc.onclick = () => { chon = null; veTem(); };
+    }
+    App.table(nxt, [
+      { key: 'barcode', label: 'Tem barcode BTP' },
+      { key: 'soPhieuCap', label: 'Phiếu cấp BTP' },
+      { key: 'maHang', label: 'Mã hàng' },
+      { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
+      { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
+      { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
+      { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
+      { key: 'mau', label: 'Màu SP' },
+      { key: 'size', label: 'Size' },
+      { key: 'maTo', label: 'Tổ' },
+      { key: 'xn', label: 'XN' },
+      { key: 'po', label: 'PO' },
+      { key: 'sizeDat', label: 'Size đặt' },
+      { key: 'thoiGianXuat', label: 'Thời gian xuất', type: 'datetime' },
+      { key: 'lenhSX', label: 'Lệnh (tem)' },
+      { key: 'loaiNL', label: 'Loại NL' },
+      { key: 'banCat', label: 'Bàn cắt' },
+      { key: 'banMay', label: 'Bàn máy' },
+      { key: 'ngayTao', label: 'Ngày tạo tem', type: 'date' },
+      { key: 'ngayNhan', label: 'Ngày nhận BTP', type: 'date', an: true },
+      { key: 'thoiGianNhan', label: 'Quét nhận', type: 'datetime', an: true },
+      { key: 'temXuat', label: 'Tem xuất', an: true },
+      { key: 'lenhXuat', label: 'Lệnh xuất', an: true },
+      { key: 'mua', label: 'Mùa', an: true },
+      { key: 'mauVai', label: 'Màu vải', an: true },
+      { key: 'phieuHoachToan', label: 'Phiếu hoạch toán', an: true },
+      { key: 'idBanMay', label: 'ID bàn máy', an: true },
+      { key: 'nguoiXuat', label: 'Người xuất', an: true },
+    ], rows, {
+      footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-3', coDinh: 1,
+      empty: 'Không có tem BTP cắt trong khoảng ngày này',
+    });
+  }
+
+  // Ô tổng hợp + bảng gọn theo lệnh x loại NL x chi tiết (tính trên mọi dòng đã tải). Bấm dòng để lọc lưới tem
   function veTomTat(data) {
     if (!data.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = ''; return; }
     const tem = new Set(data.map((r) => r.barcode));
@@ -143,7 +159,10 @@
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
       { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
       { key: 'tl', label: '% xuất', render: (r) => App.pctTag(r.slXuat, r.slCat) },
-    ], [...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })).sort((a, b) => b.slCat - a.slCat), { footer: true });
+    ], [...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })).sort((a, b) => b.slCat - a.slCat), {
+      footer: true,
+      onClick: (g) => { chon = chon && chon.lenhSX === g.lenhSX && chon.loaiNL === g.loaiNL ? null : { lenhSX: g.lenhSX, loaiNL: g.loaiNL }; veTem(); },
+    });
   }
 
   // Khi chọn 1 lệnh: thêm bảng đồng bộ theo điều tiết (SL sản phẩm đủ mọi chi tiết, mọi loại NL)
