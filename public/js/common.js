@@ -54,7 +54,7 @@ const App = {
   // Vẽ bảng. cols: [{ key, label, type: 'num'|'date'|'datetime', render(row), sum, value(row), total(rows) }]
   // sum: cộng cột (theo value(row) nếu có); total(rows): HTML tự tính cho ô tổng.
   // footer: dòng tổng hiện ngay dưới tiêu đề và ở cuối bảng (tính trên các dòng đang hiện).
-  // filter: mỗi cột có nút ▾ để lọc giá trị / sắp xếp như Excel. Bộ lọc giữ nguyên khi vẽ lại cùng bảng.
+  // filter (mặc định bật, filter: false để tắt): mỗi cột có nút ▾ để lọc giá trị / sắp xếp như Excel. Bộ lọc giữ nguyên khi vẽ lại cùng bảng.
   table(el, cols, rows, opts = {}) {
     el._tbl = { cols, rows, opts };
     if (!el._loc || el._loc.cols !== cols.map((c) => c.key).join('|')) el._loc = { cols: cols.map((c) => c.key).join('|'), an: {}, sort: null };
@@ -71,7 +71,7 @@ const App = {
   },
 
   _veBang(el) {
-    const { cols, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter, maxRows } } = el._tbl;
+    const { cols, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter = true, maxRows } } = el._tbl;
     if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
     const loc = el._loc;
     let data = rows.filter((r) => cols.every((c, i) => !loc.an[i] || !loc.an[i].has(App._chu(c, r))));
