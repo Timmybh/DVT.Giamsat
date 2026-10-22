@@ -2,17 +2,24 @@
 // TOÀN BỘ CÂU SQL NẰM Ở ĐÂY.
 // Mỗi câu phải trả về đúng các cột alias (AS ...) để giao diện hiển thị.
 // db: 'egmf' hoặc 'hipro' - chọn database chạy câu lệnh.
+// Viết cho SQL Server bản cũ: không dùng STRING_SPLIT, TRY_CAST, STRING_AGG.
 //
-// [ĐÃ XÁC NHẬN] lấy theo dự án DH-DVT (app/services/omm_plan.py, egmf_ops.py):
-//   Lib_XiNghiep (XNId, TenXiNghiep) -> Lib_PhanXuong (PXId, XNId) -> Lib_CumChuyen (CumId, TenCum, PXId)
-//   OMM_KeHoachThang (ChuyenId = CumId, CTPOId, SoLuong, NgayVaoChuyenKeHoachBatDau,
-//     NgayMayKeHoachBatDau, NgayMayKeHoachKetThuc) -> OMM_PO_ChiTiet -> OMM_PO -> OMM_DonHang (MaHang)
-// [TẠM] bảng BTP / lệnh sản xuất: chưa có trong DH-DVT. Chạy `npm run khao-sat` để liệt kê
-//   các bảng CUTTING_*, *BTP*, *LenhSanXuat* rồi sửa các câu đánh dấu [TẠM].
+// Xí nghiệp / tổ / kế hoạch (theo dự án DH-DVT):
+//   Lib_XiNghiep (XNId, TenXiNghiep) -> Lib_PhanXuong (PXId, XNId) -> Lib_CumChuyen (CumId, TenCum = số tổ)
+//   OMM_KeHoachThang -> OMM_PO_ChiTiet -> OMM_PO -> OMM_DonHang (MaHang)
+// BTP cắt (theo khảo sát eGMF 22/10/2026):
+//   Bravo_LenhSanXuat_Master (DocNo = lệnh SX) + _Detail (ProductCode); CUTTING_LenhSanXuat_SoLuongLenh
+//   CUTTING_PhieuCapBTP (phiếu cấp: TenPhanXuong = 'XN1', TenCum = số tổ) -> _ChiTiet (IdCapBTP: PO, màu, size, SL)
+//   CUTTING_PhieuHoachToan_TemBarCode (tem BTP cắt: Barcode, SoLuong, SoLuongThucXuat)
+//   CUTTING_PhieuCapBTP_BarcodeChiTiet (mỗi lần quét tem xuất cho phiếu cấp: TemBarcodeBTP = Barcode của tem)
+// Lệnh SX trong các bảng CUTTING lưu dạng 'TUNTT-0634-2026;' (có thể nhiều lệnh, ngăn bằng ';').
 // ============================================================================
 
+// Điều kiện khớp 1 lệnh SX trong cột dạng 'A;' hoặc 'A; B;'
+const matchLenh = (col) => `';' + REPLACE(${col}, ' ', '') + ';' LIKE '%;' + @lenhSX + ';%'`;
+
 module.exports = {
-  // Danh mục xí nghiệp [ĐÃ XÁC NHẬN]
+  // Danh mục xí nghiệp. API tự suy ra mã 'XN1'.. từ số trong tên để lọc bảng CUTTING
   xiNghiep: {
     db: 'egmf',
     text: `
@@ -21,24 +28,22 @@ module.exports = {
       ORDER BY XNId`,
   },
 
-  // Danh sách tổ (chuyền) theo xí nghiệp [ĐÃ XÁC NHẬN]. Tham số: @xn (XNId)
-  // TenCum là số chuyền; bỏ chuyền giả '0', '99' như DH-DVT
+  // Danh sách tổ theo xí nghiệp. Tham số: @xn (XNId). ma = số tổ (khớp CUTTING_PhieuCapBTP.TenCum)
   to: {
     db: 'egmf',
     text: `
-      SELECT CAST(e.CumId AS varchar(20)) AS ma, N'Tổ ' + LTRIM(RTRIM(e.TenCum)) AS ten
+      SELECT DISTINCT LTRIM(RTRIM(e.TenCum)) AS ma, N'Tổ ' + LTRIM(RTRIM(e.TenCum)) AS ten, LEN(LTRIM(RTRIM(e.TenCum))) AS len
       FROM dbo.Lib_CumChuyen e
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
-      WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) NOT IN ('0', '99')
-      ORDER BY LEN(e.TenCum), e.TenCum`,
+      WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) NOT IN ('', '0', '99')
+      ORDER BY len, ma`,
   },
 
-  // Kế hoạch phân bổ (kế hoạch tháng theo chuyền) [ĐÃ XÁC NHẬN]. Tham số: @xn, @tuNgay, @denNgay
-  // maTo = CumId để lọc theo tổ; tenTo để hiển thị
+  // Kế hoạch phân bổ theo tổ x mã hàng. Tham số: @xn, @tuNgay, @denNgay
   keHoachPhanBo: {
     db: 'egmf',
     text: `
-      SELECT CAST(e.CumId AS varchar(20)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
+      SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
              dh.MaHang AS maHang, SUM(k.SoLuong) AS soLuong,
              MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
              MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau,
@@ -51,71 +56,98 @@ module.exports = {
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND k.SoLuong > 0
         AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
-      GROUP BY e.CumId, e.TenCum, dh.MaHang
-      ORDER BY LEN(e.TenCum), e.TenCum, MIN(k.NgayMayKeHoachBatDau)`,
+      GROUP BY e.TenCum, dh.MaHang
+      ORDER BY LEN(LTRIM(RTRIM(e.TenCum))), LTRIM(RTRIM(e.TenCum)), MIN(k.NgayMayKeHoachBatDau)`,
   },
 
-  // [TẠM] Phiếu cấp BTP (tổ may đặt BTP). Tham số: @xn, @to
+  // Phiếu cấp BTP của 1 tổ. Tham số: @xnCode ('XN1'), @to (số tổ), @tuNgay, @denNgay (theo ngày nhận BTP)
   phieuCapBTP: {
     db: 'egmf',
     text: `
-      SELECT pc.SoPhieu AS soPhieu, pc.NgayDat AS ngayDat, pc.NgayCanHang AS ngayCan,
-             pc.LenhSX AS lenhSX, pc.MaHang AS maHang, pc.Mau AS mau,
-             pc.SLDat AS slDat,
-             ISNULL((SELECT SUM(px.SoLuong) FROM dbo.BTP_PhieuXuat px
-                     WHERE px.SoPhieuCap = pc.SoPhieu), 0) AS slDaCap
-      FROM dbo.BTP_PhieuCap pc
-      WHERE pc.MaXN = @xn AND pc.MaTo = @to
-      ORDER BY pc.NgayDat DESC`,
+      SELECT pc.SoPhieuCapBTP AS soPhieu, pc.NgayNhanBTP AS ngayNhan, pc.NgayTao AS ngayTao,
+             pc.LenhSanXuat AS lenhSX, pc.ProductCode AS maHang, pc.SeasonCode AS mua,
+             pc.TrangThai AS trangThai, pc.NguoiTao AS nguoiTao,
+             ISNULL(ct.slDat, 0) AS slDat, ISNULL(ct.slXuat, 0) AS slXuat, ISNULL(ct.slNhan, 0) AS slNhan
+      FROM dbo.CUTTING_PhieuCapBTP pc
+      LEFT JOIN (
+        SELECT IdCapBTP, SUM(SoLuong) AS slDat, SUM(SoLuongThucXuat) AS slXuat, SUM(SoLuongThucNhan) AS slNhan
+        FROM dbo.CUTTING_PhieuCapBTP_ChiTiet GROUP BY IdCapBTP
+      ) ct ON ct.IdCapBTP = pc.IdCapBTP
+      WHERE pc.TenPhanXuong = @xnCode AND LTRIM(RTRIM(pc.TenCum)) = @to
+        AND pc.NgayNhanBTP >= @tuNgay AND pc.NgayNhanBTP < DATEADD(day, 1, @denNgay)
+      ORDER BY pc.NgayNhanBTP DESC, pc.SoPhieuCapBTP DESC`,
   },
 
-  // [TẠM] Phiếu xuất BTP từ khâu cắt cho 1 phiếu cấp. Tham số: @soPhieu
+  // Chi tiết đặt (PO x màu x size) của 1 phiếu cấp. Tham số: @soPhieu
+  phieuCapChiTiet: {
+    db: 'egmf',
+    text: `
+      SELECT ct.PO AS po, ct.TenMau AS mau, ct.SizeCode AS size, ct.SoLuong AS slDat,
+             ISNULL(ct.SoLuongThucXuat, 0) AS slXuat, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
+      FROM dbo.CUTTING_PhieuCapBTP_ChiTiet ct
+      JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.IdCapBTP = ct.IdCapBTP
+      WHERE pc.SoPhieuCapBTP = @soPhieu
+      ORDER BY ct.PO, ct.TenMau, ct.Id`,
+  },
+
+  // Tem BTP khâu cắt đã quét xuất cho 1 phiếu cấp. Tham số: @soPhieu
   phieuXuatTheoPhieuCap: {
     db: 'egmf',
     text: `
-      SELECT px.SoPhieuXuat AS soPhieuXuat, px.NgayXuat AS ngayXuat,
-             px.LenhSX AS lenhSX, px.MaHang AS maHang, px.Mau AS mau, px.Size AS size,
-             px.SoBo AS soBo, px.SoLuong AS soLuong, px.NguoiXuat AS nguoiXuat
-      FROM dbo.BTP_PhieuXuat px
-      WHERE px.SoPhieuCap = @soPhieu
-      ORDER BY px.NgayXuat`,
+      SELECT bc.TemBarcodeBTP AS barcode, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
+             bc.PO AS po, bc.Mau AS mau, bc.Size AS size, bc.ChungLoai AS chungLoai,
+             bc.SoLuongDaXuat AS soLuong, bc.ThoiGianQuetNhan AS thoiGianNhan, bc.NguoiQuetNhan AS nguoiNhan,
+             bc.TraBTP AS traBTP
+      FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
+      WHERE bc.SoPhieuCapBTP = @soPhieu
+      ORDER BY bc.ThoiGianQuetXuat, bc.IdPhieuXuatKhoBTP`,
   },
 
-  // [TẠM] Tìm lệnh sản xuất. Tham số: @xn, @q
+  // Tìm lệnh sản xuất (lệnh gốc, không lấy phiếu điều chỉnh TypeCt = 1). Tham số: @q
   lenhSX: {
     db: 'egmf',
     text: `
-      SELECT TOP 50 LenhSX AS lenhSX, MaHang AS maHang, KhachHang AS khachHang, SoLuong AS soLuong
-      FROM dbo.SX_LenhSanXuat
-      WHERE MaXN = @xn AND (@q = '' OR LenhSX LIKE '%' + @q + '%' OR MaHang LIKE '%' + @q + '%')
-      ORDER BY NgayTao DESC`,
+      SELECT TOP 50 m.DocNo AS lenhSX, d.ProductCode AS maHang, d.SeasonCode AS mua,
+             m.CustomerCode AS khachHang, m.DocDate AS ngay, sl.SoLuongLenh AS soLuong
+      FROM dbo.Bravo_LenhSanXuat_Master m
+      OUTER APPLY (SELECT TOP 1 ProductCode, SeasonCode FROM dbo.Bravo_LenhSanXuat_Detail WHERE IdMaster = m.Id) d
+      OUTER APPLY (SELECT TOP 1 SoLuongLenh FROM dbo.CUTTING_LenhSanXuat_SoLuongLenh
+                   WHERE LenhSanXuat = m.DocNo + ';' OR LenhSanXuat = m.DocNo) sl
+      WHERE m.IsActive = 1 AND ISNULL(m.TypeCt, 0) = 0
+        AND (@q = '' OR m.DocNo LIKE '%' + @q + '%' OR d.ProductCode LIKE '%' + @q + '%')
+      ORDER BY m.DocDate DESC, m.Id DESC`,
   },
 
-  // [TẠM] Nhập - xuất - tồn BTP cắt theo lệnh SX. Tham số: @lenhSX
+  // Nhập - xuất - tồn BTP cắt theo lệnh SX, gom theo loại NL x chi tiết x màu x size. Tham số: @lenhSX
   btpCatNXT: {
     db: 'egmf',
     text: `
-      SELECT c.MaHang AS maHang, c.Mau AS mau, c.Size AS size,
-             SUM(c.SoLuong) AS slCat,
-             ISNULL(x.slXuat, 0) AS slXuat,
-             SUM(c.SoLuong) - ISNULL(x.slXuat, 0) AS slTon
-      FROM dbo.BTP_Cat c
-      OUTER APPLY (SELECT SUM(px.SoLuong) AS slXuat FROM dbo.BTP_PhieuXuat px
-                   WHERE px.LenhSX = c.LenhSX AND px.Mau = c.Mau AND px.Size = c.Size) x
-      WHERE c.LenhSX = @lenhSX
-      GROUP BY c.MaHang, c.Mau, c.Size, x.slXuat
-      ORDER BY c.Mau, c.Size`,
+      SELECT ISNULL(t.LoaiNguyenLieu, '') AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
+             ISNULL(t.MauSP, '') AS mau, ISNULL(t.TenSize, '') AS size,
+             MAX(t.MaHang) AS maHang, COUNT(*) AS soTem,
+             SUM(ISNULL(t.SoLuong, 0)) AS slCat,
+             SUM(ISNULL(t.SoLuongThucXuat, 0)) AS slXuat,
+             SUM(ISNULL(t.SoLuong, 0)) - SUM(ISNULL(t.SoLuongThucXuat, 0)) AS slTon
+      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+      WHERE ${matchLenh('t.LenhSanXuat')}
+      GROUP BY ISNULL(t.LoaiNguyenLieu, ''), ISNULL(t.TenChiTiet, ''), ISNULL(t.MauSP, ''), ISNULL(t.TenSize, '')
+      ORDER BY loaiNL, chiTiet, mau, size`,
   },
 
-  // [TẠM] Chi tiết xuất của 1 dòng BTP cắt. Tham số: @lenhSX, @mau, @size
+  // Một dòng BTP cắt đã xuất cho phiếu cấp nào. Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size
   btpCatXuat: {
     db: 'egmf',
     text: `
-      SELECT px.SoPhieuXuat AS soPhieuXuat, px.NgayXuat AS ngayXuat,
-             px.SoPhieuCap AS soPhieuCap, pc.MaTo AS maTo, px.SoBo AS soBo, px.SoLuong AS soLuong
-      FROM dbo.BTP_PhieuXuat px
-      LEFT JOIN dbo.BTP_PhieuCap pc ON pc.SoPhieu = px.SoPhieuCap
-      WHERE px.LenhSX = @lenhSX AND px.Mau = @mau AND px.Size = @size
-      ORDER BY px.NgayXuat`,
+      SELECT bc.SoPhieuCapBTP AS soPhieuCap, MAX(pc.TenPhanXuong) AS xn, MAX(LTRIM(RTRIM(pc.TenCum))) AS maTo,
+             COUNT(*) AS soTem, SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS soLuong,
+             MIN(bc.ThoiGianQuetXuat) AS tuLuc, MAX(bc.ThoiGianQuetXuat) AS denLuc
+      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+      JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
+      WHERE ${matchLenh('t.LenhSanXuat')}
+        AND ISNULL(t.LoaiNguyenLieu, '') = @loaiNL AND ISNULL(t.TenChiTiet, '') = @chiTiet
+        AND ISNULL(t.MauSP, '') = @mau AND ISNULL(t.TenSize, '') = @size
+      GROUP BY bc.SoPhieuCapBTP
+      ORDER BY MIN(bc.ThoiGianQuetXuat)`,
   },
 };

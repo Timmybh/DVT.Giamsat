@@ -34,16 +34,16 @@ npm run build:zip           # tạo dist\dvt-giamsat-<version>.zip, đã kèm no
 
 Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `start.bat` tự tạo từ `.env.example`), chạy `start.bat`.
 
-## Nguồn dữ liệu
+## Nguồn dữ liệu (eGMF)
 
-| Màn hình | Bảng | Trạng thái |
-|---|---|---|
-| Xí nghiệp | `Lib_XiNghiep` | Đã xác nhận (theo DH-DVT) |
-| Tổ / chuyền | `Lib_CumChuyen` → `Lib_PhanXuong` | Đã xác nhận |
-| Kế hoạch phân bổ | `OMM_KeHoachThang` → `OMM_PO_ChiTiet` → `OMM_PO` → `OMM_DonHang` | Đã xác nhận |
-| Phiếu cấp BTP | `CUTTING_PhieuCapBTP` + các bảng chi tiết `CUTTING_PhieuCapBTP*` | Đã biết tên bảng, chờ khảo sát cột |
-| Tem BTP cắt, SL xuất | `CUTTING_PhieuHoachToan_TemBarCode` | Đã biết tên bảng, chờ khảo sát cột |
-| Lệnh sản xuất | `Bravo_LenhSanXuat_Master` | Đã biết tên bảng, chờ khảo sát cột |
+| Màn hình | Bảng |
+|---|---|
+| Xí nghiệp, tổ | `Lib_XiNghiep` → `Lib_PhanXuong` → `Lib_CumChuyen` (TenCum = số tổ) |
+| Kế hoạch phân bổ | `OMM_KeHoachThang` → `OMM_PO_ChiTiet` → `OMM_PO` → `OMM_DonHang` |
+| Lệnh sản xuất | `Bravo_LenhSanXuat_Master` (DocNo) + `_Detail`, SL lệnh từ `CUTTING_LenhSanXuat_SoLuongLenh` |
+| Phiếu cấp BTP | `CUTTING_PhieuCapBTP` (TenPhanXuong = XN1.., TenCum = tổ) + `CUTTING_PhieuCapBTP_ChiTiet` |
+| Tem đã xuất cho phiếu cấp | `CUTTING_PhieuCapBTP_BarcodeChiTiet` |
+| Nhập xuất tồn BTP cắt | `CUTTING_PhieuHoachToan_TemBarCode` (SL cắt = SoLuong, xuất = SoLuongThucXuat) |
 
 ## Cấu trúc
 

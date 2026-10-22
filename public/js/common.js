@@ -35,6 +35,7 @@ const App = {
 
   num: (v) => (v == null ? '' : Number(v).toLocaleString('vi-VN')),
   date: (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : ''),
+  datetime: (v) => (v ? new Date(v).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''),
   esc: (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
 
   // Vẽ bảng. cols: [{ key, label, type: 'num'|'date', render(row) }]
@@ -44,6 +45,7 @@ const App = {
       if (c.render) return c.render(r);
       if (c.type === 'num') return App.num(r[c.key]);
       if (c.type === 'date') return App.date(r[c.key]);
+      if (c.type === 'datetime') return App.datetime(r[c.key]);
       return App.esc(r[c.key]);
     };
     let foot = '';

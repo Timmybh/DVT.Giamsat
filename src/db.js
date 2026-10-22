@@ -19,6 +19,7 @@ async function getPool(dbKey) {
       options: {
         encrypt: process.env.DB_ENCRYPT === 'true',
         trustServerCertificate: process.env.DB_TRUST_CERT !== 'false',
+        useUTC: false, // giờ trong eGMF là giờ Việt Nam
       },
       pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
     }).connect();
