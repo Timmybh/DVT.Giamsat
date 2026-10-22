@@ -20,7 +20,7 @@
       <span id="lenhInfo" style="color:var(--muted)"></span>
     </div>
     <div class="cards" id="tomTat"></div>
-    <div id="tongHop"></div>
+    <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
     <div id="nxt" class="luoi-cao luoi-gon"></div>
     <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
   </div>
@@ -141,7 +141,7 @@
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
       { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
       { key: 'tl', label: '% xuất', render: (r) => App.pctTag(r.slXuat, r.slCat) },
-    ], [...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })), { footer: true, filter: false });
+    ], [...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })).sort((a, b) => b.slCat - a.slCat), { footer: true, filter: false });
   }
 
   // Khi chọn 1 lệnh: thêm bảng đồng bộ theo điều tiết (SL sản phẩm đủ mọi chi tiết, mọi loại NL)
