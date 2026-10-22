@@ -89,3 +89,6 @@ thead tr th.co-dinh, .luoi-cao thead tr:first-child th.co-dinh { z-index: 5; }
 .luoi-5 .table-wrap { max-height: 222px; margin-bottom: 14px; }
 [hidden] { display: none !important; }
 .luoi-10 .table-wrap { max-height: 420px; }
+/* Thanh chân trang */
+body { padding-bottom: 30px; }
+footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: var(--primary); color: #fff; font-size: 12px; text-align: center; padding: 5px 10px; z-index: 20; }

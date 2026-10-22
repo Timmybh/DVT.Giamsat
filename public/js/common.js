@@ -22,6 +22,10 @@ const App = {
       <span id="mock"></span>
       <label>Xí nghiệp: <select id="xnSelect"></select></label>`;
     document.body.prepend(h);
+    const f = document.createElement('footer');
+    f.className = 'chan-trang';
+    f.textContent = 'Author Nguyễn Vĩnh Thịnh - 2026';
+    document.body.appendChild(f);
     const sel = h.querySelector('#xnSelect');
     const [list, status] = await Promise.all([App.api('xi-nghiep'), App.api('status')]);
     if (status.mock) h.querySelector('#mock').innerHTML = '<span class="mock-badge">Dữ liệu mẫu</span>';
