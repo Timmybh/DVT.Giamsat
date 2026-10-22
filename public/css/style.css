@@ -44,3 +44,5 @@ tr.selected td { background: var(--primary-soft); font-weight: 600; }
 .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 16px; }
 .tabs button { background: none; color: var(--muted); border-radius: 6px 6px 0 0; padding: 9px 18px; margin-bottom: -2px; border-bottom: 2px solid transparent; }
 .tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+tr.total-row th { background: #eef3fb; color: var(--text); font-size: 13px; text-transform: none; font-weight: 700; }
+thead tr.total-row th { border-bottom: 2px solid var(--primary); }

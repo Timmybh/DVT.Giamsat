@@ -38,7 +38,9 @@ const App = {
   datetime: (v) => (v ? new Date(v).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''),
   esc: (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
 
-  // Vẽ bảng. cols: [{ key, label, type: 'num'|'date', render(row) }]
+  // Vẽ bảng. cols: [{ key, label, type: 'num'|'date'|'datetime', render(row), sum, value(row), total(rows) }]
+  // sum: cộng cột (theo value(row) nếu có); total(rows): HTML tự tính cho ô tổng.
+  // footer: dòng tổng hiện ngay dưới tiêu đề và ở cuối bảng.
   table(el, cols, rows, { onClick, empty = 'Không có dữ liệu', footer } = {}) {
     if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
     const cell = (c, r) => {
@@ -48,17 +50,18 @@ const App = {
       if (c.type === 'datetime') return App.datetime(r[c.key]);
       return App.esc(r[c.key]);
     };
-    let foot = '';
+    let totalRow = '';
     if (footer) {
-      foot = `<tfoot><tr>${cols.map((c, i) => {
-        if (i === 0) return '<th>Tổng</th>';
-        return c.sum ? `<th class="num">${App.num(rows.reduce((s, r) => s + Number(r[c.key] || 0), 0))}</th>` : '<th></th>';
-      }).join('')}</tr></tfoot>`;
+      totalRow = `<tr class="total-row">${cols.map((c, i) => {
+        if (c.total) return `<th>${c.total(rows)}</th>`;
+        if (c.sum) return `<th class="num">${App.num(rows.reduce((s, r) => s + Number((c.value ? c.value(r) : r[c.key]) || 0), 0))}</th>`;
+        return i === 0 ? `<th title="${App.num(rows.length)} dòng">Tổng</th>` : '<th></th>';
+      }).join('')}</tr>`;
     }
     el.innerHTML = `<div class="table-wrap"><table>
-      <thead><tr>${cols.map((c) => `<th class="${c.type === 'num' ? 'num' : ''}">${c.label}</th>`).join('')}</tr></thead>
+      <thead><tr>${cols.map((c) => `<th class="${c.type === 'num' ? 'num' : ''}">${c.label}</th>`).join('')}</tr>${totalRow}</thead>
       <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')}</tbody>
-      ${foot}</table></div>`;
+      ${totalRow ? `<tfoot>${totalRow}</tfoot>` : ''}</table></div>`;
     if (onClick) {
       el.querySelectorAll('tbody tr').forEach((tr) => tr.addEventListener('click', () => {
         el.querySelectorAll('tr.selected').forEach((x) => x.classList.remove('selected'));

@@ -100,8 +100,8 @@
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slXuat', label: 'SL cắt đã xuất', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL tổ đã nhận', type: 'num', sum: true },
-        { key: 'conLai', label: 'Còn thiếu', type: 'num', render: (r) => App.num(Math.max(r.slDat - r.slXuat, 0)) },
-        { key: 'tt', label: 'Đáp ứng', render: status },
+        { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slXuat, 0), render: (r) => App.num(Math.max(r.slDat - r.slXuat, 0)) },
+        { key: 'tt', label: 'Đáp ứng', render: status, total: (rs) => status({ slDat: rs.reduce((s, r) => s + r.slDat, 0), slXuat: rs.reduce((s, r) => s + r.slXuat, 0) }) },
       ], rows, { onClick: loadDetail, footer: true, empty: 'Tổ chưa có phiếu cấp BTP trong khoảng ngày này' });
     } catch (e) { App.error(phieuCap, e); }
   }
@@ -167,8 +167,8 @@
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slCap', label: 'SL đã cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
-        { key: 'conLai', label: 'Còn thiếu', type: 'num', render: (r) => App.num(Math.max(r.slDat - r.slCap, 0)) },
-        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.slCap }) },
+        { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slCap, 0), render: (r) => App.num(Math.max(r.slDat - r.slCap, 0)) },
+        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.slCap }), total: (rs) => status({ slDat: rs.reduce((s, r) => s + r.slDat, 0), slXuat: rs.reduce((s, r) => s + r.slCap, 0) }) },
       ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }
   }
