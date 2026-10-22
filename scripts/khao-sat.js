@@ -1,6 +1,7 @@
 // Khảo sát (CHỈ ĐỌC) các bảng BTP cắt, phiếu cấp BTP, lệnh sản xuất trên eGMF.
 // Chạy: npm run khao-sat   -> ghi ra khao-sat/ket-qua.txt để gửi lại cho người phát triển.
 // Khảo sát nhóm bảng khác: npm run khao-sat -- "%DieuTiet%" "%GiacSoDo%"  (mẫu LIKE theo tên bảng)
+// Database khác eGMF: npm run khao-sat -- --db=HiPro "pro[_]nscl%"
 // Gồm: cột của từng bảng, khóa ngoại, số dòng và 5 dòng mẫu mới nhất.
 require('dotenv').config();
 const fs = require('fs');
@@ -11,7 +12,10 @@ const DEFAULT_PATTERNS = [
   'CUTTING[_]PhieuCapBTP%', 'CUTTING[_]PhieuHoachToan%', 'CUTTING[_]%Xuat%',
   'Bravo[_]LenhSanXuat%', '%LenhSanXuat%', '%ProductionOrder%',
 ];
-const PATTERNS = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_PATTERNS;
+const ARGS = process.argv.slice(2);
+const DB_ARG = (ARGS.find((a) => a.startsWith('--db=')) || '').slice(5);
+const PATTERN_ARGS = ARGS.filter((a) => !a.startsWith('--db='));
+const PATTERNS = PATTERN_ARGS.length ? PATTERN_ARGS : DEFAULT_PATTERNS;
 const SAMPLE_ROWS = 5;
 
 const TABLES_SQL = `
@@ -47,7 +51,7 @@ const fmt = (v) => {
 };
 
 async function main() {
-  const database = process.env.DB_EGMF || 'eGMF';
+  const database = DB_ARG || process.env.DB_EGMF || 'eGMF';
   const pool = await new sql.ConnectionPool({
     server: process.env.DB_SERVER,
     port: Number(process.env.DB_PORT || 1433),
