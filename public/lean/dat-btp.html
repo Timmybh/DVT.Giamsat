@@ -160,7 +160,7 @@
         lenhSX: ctLenh.value.trim(), po: ctPO.value.trim(),
       });
       // SL KH (SBD) là kế hoạch của tổ x PO x màu x size, các phiếu cấp cùng nhóm đều mang cùng số đó.
-      // Còn thiếu = SL KH - lũy kế SL nhận (cộng dồn theo ngày nhận); dòng tổng tính SL KH 1 lần mỗi nhóm.
+      // Còn thiếu = SL KH - lũy kế SL nhận (cộng dồn theo ngày nhận); dòng tổng: SL KH lấy trung bình các dòng, còn thiếu / đáp ứng tính SL KH 1 lần mỗi nhóm.
       const khoa = (r) => [r.maTo, r.po, r.mau, r.size].join('|');
       const nhom = new Map();
       rows.forEach((r) => {
@@ -187,7 +187,7 @@
         { key: 'po', label: 'PO' },
         { key: 'mau', label: 'Màu' },
         { key: 'size', label: 'Size' },
-        { key: 'slKH', label: 'SL KH', type: 'num', total: (rs) => App.num(tong(rs).kh) },
+        { key: 'slKH', label: 'SL KH', type: 'num', total: (rs) => { const v = rs.filter((r) => r.slKH != null); return v.length ? App.num(Math.round(v.reduce((s, r) => s + Number(r.slKH), 0) / v.length)) : ''; } },
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slCap', label: 'SL cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
