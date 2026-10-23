@@ -109,11 +109,38 @@ router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,
   tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
 })));
-router.get('/chi-tiet-dat-btp', handle('chiTietDatBTP', async (req) => ({
-  xnCode: await xnCode(req.query.xn), to: req.query.to || '',
-  tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
-  lenhSX: (req.query.lenhSX || '').trim(), po: (req.query.po || '').trim(),
-})));
+// Chi tiết đặt BTP + SL KH (SBD) theo tổ x PO x màu x size.
+// Màu / size giữa phiếu cấp và SBD ghi khác kiểu ('UK6-8/EUS(L31)' vs 'UK 6-8 / EU S'): bỏ khoảng trắng, bỏ '(...)' cuối, so chữ hoa;
+// màu không khớp nguyên văn thì so mã màu đầu (chữ đầu tiên).
+const chuanSize = (v) => String(v ?? '').toUpperCase().replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, '');
+const chuanMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, '');
+const maMau = (v) => String(v ?? '').trim().toUpperCase().split(/[\s/]+/)[0];
+router.get('/chi-tiet-dat-btp', async (req, res) => {
+  try {
+    const p = {
+      xn: req.query.xn, xnCode: await xnCode(req.query.xn), to: req.query.to || '',
+      tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
+      lenhSX: (req.query.lenhSX || '').trim(), po: (req.query.po || '').trim(),
+    };
+    const [rows, kh] = await Promise.all([run('chiTietDatBTP', p), run('khSBDTheoPhieuCap', p)]);
+    const day = new Map();
+    const theoMa = new Map();
+    const cong = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
+    kh.forEach((k) => {
+      const g = `${lineOf(k.maTo)}|${String(k.po).trim()}|${chuanSize(k.size)}`;
+      cong(day, `${g}|${chuanMau(k.mau)}`, Number(k.soLuong || 0));
+      cong(theoMa, `${g}|${maMau(k.mau)}`, Number(k.soLuong || 0));
+    });
+    res.json(rows.map((r) => {
+      const g = `${lineOf(r.maTo)}|${String(r.po).trim()}|${chuanSize(r.size)}`;
+      const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${maMau(r.mau)}`);
+      return { ...r, slKH: slKH ?? null };
+    }));
+  } catch (err) {
+    console.error('[chiTietDatBTP]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.get('/phieu-cap-btp/:soPhieu/chi-tiet', handle('phieuCapChiTiet', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/phieu-cap-btp/:soPhieu/phieu-xuat', handle('phieuXuatTheoPhieuCap', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/lenh-sx', handle('lenhSX', (req) => ({ q: (req.query.q || '').trim() })));

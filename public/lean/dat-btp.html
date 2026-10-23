@@ -159,21 +159,24 @@
         xn: App.xn, to: ctTo.value, tuNgay: ctTuNgay.value, denNgay: ctDenNgay.value,
         lenhSX: ctLenh.value.trim(), po: ctPO.value.trim(),
       });
-      // SL đặt là nhu cầu của tổ x lệnh x PO x màu x size, các phiếu cấp sau ghi lặp lại cùng số đó.
-      // Nên: cộng dồn SL cấp theo thứ tự ngày nhận, còn thiếu = SL đặt - lũy kế cấp; dòng tổng chỉ tính SL đặt 1 lần mỗi nhóm.
-      const khoa = (r) => [r.maTo, r.lenhSX, r.po, r.mau, r.size].join('|');
+      // SL KH (SBD) là kế hoạch của tổ x PO x màu x size, các phiếu cấp cùng nhóm đều mang cùng số đó.
+      // Còn thiếu = SL KH - lũy kế SL nhận (cộng dồn theo ngày nhận); dòng tổng tính SL KH 1 lần mỗi nhóm.
+      const khoa = (r) => [r.maTo, r.po, r.mau, r.size].join('|');
       const nhom = new Map();
-      rows.forEach((r) => { r.slDat = Number(r.slDat || 0); r.slCap = Number(r.slCap || 0); r.slNhan = Number(r.slNhan || 0); (nhom.get(khoa(r)) || nhom.set(khoa(r), []).get(khoa(r))).push(r); });
+      rows.forEach((r) => {
+        ['slDat', 'slCap', 'slNhan'].forEach((k) => (r[k] = Number(r[k] || 0)));
+        (nhom.get(khoa(r)) || nhom.set(khoa(r), []).get(khoa(r))).push(r);
+      });
       nhom.forEach((ds) => {
         let lk = 0;
         ds.slice().sort((a, b) => String(a.ngayNhan).localeCompare(String(b.ngayNhan)) || String(a.soPhieu).localeCompare(String(b.soPhieu)))
-          .forEach((r) => { lk += r.slCap; r.lkCap = lk; r.conLai = Math.max(r.slDat - lk, 0); });
+          .forEach((r) => { lk += r.slNhan; r.lkNhan = lk; r.conLai = r.slKH == null ? null : Math.max(r.slKH - lk, 0); });
       });
       const tong = (rs) => {
         const g = new Map();
-        rs.forEach((r) => { const x = g.get(khoa(r)) || { dat: 0, cap: 0 }; x.dat = Math.max(x.dat, r.slDat); x.cap += r.slCap; g.set(khoa(r), x); });
+        rs.forEach((r) => { const x = g.get(khoa(r)) || { kh: 0, nhan: 0 }; x.kh = Math.max(x.kh, Number(r.slKH || 0)); x.nhan += r.slNhan; g.set(khoa(r), x); });
         const v = [...g.values()];
-        return { dat: v.reduce((s, x) => s + x.dat, 0), cap: v.reduce((s, x) => s + x.cap, 0), thieu: v.reduce((s, x) => s + Math.max(x.dat - x.cap, 0), 0) };
+        return { kh: v.reduce((s, x) => s + x.kh, 0), nhan: v.reduce((s, x) => s + x.nhan, 0), thieu: v.reduce((s, x) => s + Math.max(x.kh - x.nhan, 0), 0) };
       };
       App.table(ctResult, [
         { key: 'maTo', label: 'Tổ' },
@@ -184,12 +187,12 @@
         { key: 'po', label: 'PO' },
         { key: 'mau', label: 'Màu' },
         { key: 'size', label: 'Size' },
-        { key: 'slDat', label: 'SL đặt', type: 'num', total: (rs) => App.num(tong(rs).dat) },
-        { key: 'slCap', label: 'SL cấp phiếu này', type: 'num', sum: true },
-        { key: 'lkCap', label: 'Lũy kế cấp', type: 'num', total: (rs) => App.num(tong(rs).cap) },
-        { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
+        { key: 'slKH', label: 'SL KH', type: 'num', total: (rs) => App.num(tong(rs).kh) },
+        { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
+        { key: 'slCap', label: 'SL cấp', type: 'num', sum: true },
+        { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', total: (rs) => App.num(tong(rs).thieu) },
-        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.lkCap }), total: (rs) => { const t = tong(rs); return status({ slDat: t.dat, slXuat: t.cap }); } },
+        { key: 'tt', label: 'Đáp ứng', render: (r) => (r.slKH == null ? '' : status({ slDat: r.slKH, slXuat: r.lkNhan })), total: (rs) => { const t = tong(rs); return status({ slDat: t.kh, slXuat: t.nhan }); } },
       ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }
   }

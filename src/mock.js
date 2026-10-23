@@ -166,6 +166,14 @@ module.exports = {
         maTo: p.to, soPhieu: p.soPhieu, ngayNhan: p.ngayNhan, lenhSX: p.lenhSX, maHang: p.maHang,
         po: c.po, mau: c.mau, size: c.size, slDat: c.slDat, slCap: c.slXuat, slNhan: c.slNhan,
       }))),
+  khSBDTheoPhieuCap: ({ xnCode, to: maTo }) => {
+    const m = new Map();
+    phieuCap.filter((p) => p.xnCode === xnCode && (!maTo || p.to === maTo)).forEach((p) => phieuCapCT.filter((c) => c.soPhieu === p.soPhieu).forEach((c) => {
+      const k = `${p.to}|${c.po}|${c.mau}|${c.size}`;
+      m.set(k, { maTo: p.to, po: c.po, mau: c.mau, size: c.size, soLuong: Math.max((m.get(k) || {}).soLuong || 0, Math.round(c.slDat * 1.1)) });
+    }));
+    return [...m.values()];
+  },
   phieuCapChiTiet: ({ soPhieu }) => phieuCapCT.filter((c) => c.soPhieu === soPhieu),
   phieuXuatTheoPhieuCap: ({ soPhieu }) => quetXuat.filter((x) => x.soPhieu === soPhieu)
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),

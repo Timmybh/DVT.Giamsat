@@ -91,6 +91,32 @@ module.exports = {
   },
 
   // Phiếu cấp BTP của 1 tổ. Tham số: @xnCode ('XN1'), @to (số tổ), @tuNgay, @denNgay (theo ngày nhận BTP)
+  // SL kế hoạch phân bổ (OMM_KeHoachThang_SBD) theo tổ x PO x màu x size, cho các PO có trong phiếu cấp khớp điều kiện
+  // của chiTietDatBTP. Màu / size ghi khác kiểu với phiếu cấp, API tự chuẩn hóa để ghép. Tham số như chiTietDatBTP + @xn
+  khSBDTheoPhieuCap: {
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, po.PONo AS po, ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size,
+             SUM(ISNULL(s.SoLuong, 0)) AS soLuong
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+      JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = pct.POId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND (@to = '' OR LTRIM(RTRIM(e.TenCum)) = @to)
+        AND po.PONo IN (
+          SELECT ct.PO
+          FROM dbo.CUTTING_PhieuCapBTP pc
+          JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
+          WHERE pc.TenPhanXuong = @xnCode
+            AND (@to = '' OR LTRIM(RTRIM(pc.TenCum)) = @to)
+            AND pc.NgayNhanBTP >= @tuNgay AND pc.NgayNhanBTP < DATEADD(day, 1, @denNgay)
+            AND (@lenhSX = '' OR pc.LenhSanXuat LIKE '%' + @lenhSX + '%' OR ct.LenhSanXuat LIKE '%' + @lenhSX + '%')
+            AND (@po = '' OR ct.PO LIKE '%' + @po + '%'))
+      GROUP BY LTRIM(RTRIM(e.TenCum)), po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+  },
+
   phieuCapBTP: {
     db: 'egmf',
     text: `
