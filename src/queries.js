@@ -81,7 +81,7 @@ module.exports = {
   },
 
   // Kế hoạch phân bổ theo size: tổ x mã hàng x PO x màu x size (OMM_KeHoachThang_SBD), cùng điều kiện ngày với keHoachPhanBo.
-  // thuTuSize: STT size trên phiếu điều tiết của mã hàng; lenhSX: các lệnh của PO (Bravo) ngăn bằng ', '. Tham số: @xn, @tuNgay, @denNgay
+  // thuTuSize: STT size trên phiếu điều tiết của mã hàng; PO có nhiều lệnh (Bravo) thì mỗi lệnh x size 1 dòng. Tham số: @xn, @tuNgay, @denNgay
   keHoachTheoSize: {
     db: 'egmf',
     text: `
@@ -112,12 +112,10 @@ module.exports = {
              l.lenhSX
       FROM sbd x
       LEFT JOIN (
-        SELECT d.po, STUFF((SELECT DISTINCT ', ' + a.DocNo
-                            FROM dbo.Bravo_LenhSanXuat_Detail_PO b
-                            JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-                            WHERE b.PO = d.po
-                            FOR XML PATH('')), 1, 2, '') AS lenhSX
-        FROM dsPO d
+        SELECT DISTINCT b.PO AS po, a.DocNo AS lenhSX
+        FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+        JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+        WHERE b.PO IN (SELECT po FROM dsPO)
       ) l ON l.po = x.po`,
   },
 
