@@ -148,13 +148,15 @@ module.exports = {
 
   // Chi tiết đặt BTP theo size, lọc nhiều phiếu. Tham số: @xnCode, @to ('' = tất cả tổ),
   // @tuNgay, @denNgay (ngày nhận BTP), @lenhSX, @po ('' = bỏ qua, có thì tìm gần đúng). Tối đa 3000 dòng.
+  // slDat = SoLuongCanCap (SL tổ đặt trên phiếu); ct.SoLuong là SL kế hoạch chép từ SBD (slKHPhieu, dự phòng khi không ghép được SBD)
   chiTietDatBTP: {
     db: 'egmf',
     text: `
       SELECT TOP 3000 LTRIM(RTRIM(pc.TenCum)) AS maTo, pc.SoPhieuCapBTP AS soPhieu, pc.NgayNhanBTP AS ngayNhan,
              ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, pc.ProductCode AS maHang,
              ct.PO AS po, ct.TenMau AS mau, ct.SizeCode AS size,
-             ISNULL(ct.SoLuong, 0) AS slDat, ISNULL(ct.SoLuongThucXuat, 0) AS slCap, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
+             ISNULL(ct.SoLuongCanCap, 0) AS slDat, ISNULL(ct.SoLuong, 0) AS slKHPhieu,
+             ISNULL(ct.SoLuongThucXuat, 0) AS slCap, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
       FROM dbo.CUTTING_PhieuCapBTP pc
       JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
       WHERE pc.TenPhanXuong = @xnCode

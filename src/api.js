@@ -134,7 +134,7 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     res.json(rows.map((r) => {
       const g = `${lineOf(r.maTo)}|${String(r.po).trim()}|${chuanSize(r.size)}`;
       const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${maMau(r.mau)}`);
-      return { ...r, slKH: slKH ?? null };
+      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null) };
     }));
   } catch (err) {
     console.error('[chiTietDatBTP]', err.message);
