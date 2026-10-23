@@ -103,9 +103,35 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-router.get('/ke-hoach-phan-bo/theo-size', handle('keHoachTheoSize', (req) => ({
-  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(),
-})));
+// Kế hoạch theo size: SL phân bổ (SBD, theo tổ) ghép với SL kế hoạch của lệnh (Bravo, theo PO x màu x size).
+// Ghép theo PO + mã màu (chữ đầu của tên màu SBD) + size chuẩn hóa; mỗi lệnh 1 dòng. Dòng lệnh không ghép được SBD vẫn hiện (tổ trống).
+router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
+  try {
+    const p = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
+    const [sbd, lenh] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p)]);
+    const khoa = (po, mau, size) => `${String(po ?? '').trim()}|${maMau(mau)}|${chuanSize(size)}`;
+    const theoKhoa = new Map();
+    lenh.forEach((l) => { const k = khoa(l.po, l.mau, l.size); (theoKhoa.get(k) || theoKhoa.set(k, []).get(k)).push(l); });
+    const daGhep = new Set();
+    const out = [];
+    sbd.forEach((r) => {
+      const ls = theoKhoa.get(khoa(r.po, r.mau, r.size)) || [];
+      ls.forEach((l) => daGhep.add(l));
+      if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });
+      ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: Number(r.soLuong || 0) }));
+    });
+    // thứ tự size cho dòng lệnh lẻ: lấy theo size cùng mã hàng nếu có
+    const tts = new Map(sbd.map((r) => [`${r.maHang}|${chuanSize(r.size)}`, r.thuTuSize]));
+    lenh.filter((l) => !daGhep.has(l)).forEach((l) => out.push({
+      maTo: '', maHang: l.maHang, po: l.po, mau: l.mau, size: l.size, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: null,
+      thuTuSize: tts.get(`${l.maHang}|${chuanSize(l.size)}`) ?? null,
+    }));
+    res.json(out);
+  } catch (err) {
+    console.error('[keHoachTheoSize]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', (req) => ({
   xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));

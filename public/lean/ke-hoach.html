@@ -97,7 +97,7 @@
   let sizeRows = null;
   function drawSize() {
     const data = (to.value ? sizeRows.filter((r) => r.maTo === to.value) : sizeRows).slice().sort((a, b) =>
-      Number(a.maTo) - Number(b.maTo) || String(a.maHang).localeCompare(String(b.maHang)) || String(a.po).localeCompare(String(b.po))
+      (Number(a.maTo) || 999) - (Number(b.maTo) || 999) || String(a.maHang).localeCompare(String(b.maHang)) || String(a.po).localeCompare(String(b.po))
       || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b));
     App.table(theoSize, [
       { key: 'maTo', label: 'Tổ' },
@@ -106,7 +106,8 @@
       { key: 'lenhSX', label: 'Lệnh SX' },
       { key: 'mau', label: 'Màu' },
       { key: 'size', label: 'Size' },
-      { key: 'soLuong', label: 'SL', type: 'num', sum: true },
+      { key: 'slLenh', label: 'SL KH theo lệnh', type: 'num', sum: true },
+      { key: 'slPhanBo', label: 'SL phân bổ (SBD)', type: 'num', sum: true },
     ], data, { footer: true, maxRows: 2000, empty: 'Không có kế hoạch theo size trong khoảng ngày này' });
   }
   async function loadSizeTab() {

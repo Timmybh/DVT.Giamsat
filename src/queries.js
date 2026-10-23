@@ -81,7 +81,7 @@ module.exports = {
   },
 
   // Kế hoạch phân bổ theo size: tổ x mã hàng x PO x màu x size (OMM_KeHoachThang_SBD), cùng điều kiện ngày với keHoachPhanBo.
-  // thuTuSize: STT size trên phiếu điều tiết của mã hàng; PO có nhiều lệnh (Bravo) thì mỗi lệnh x size 1 dòng. Tham số: @xn, @tuNgay, @denNgay
+  // thuTuSize: STT size trên phiếu điều tiết của mã hàng. Lệnh ghép ở API từ lenhTheoSize. Tham số: @xn, @tuNgay, @denNgay
   keHoachTheoSize: {
     db: 'egmf',
     text: `
@@ -105,18 +105,37 @@ module.exports = {
         JOIN dbo.Cutting_PhieuDieuTietGiacSoDo p ON p.Id = ts.PhieuDieuTietId
         WHERE p.MaHang IN (SELECT maHang FROM sbd)
         GROUP BY p.MaHang, ts.SizeName, ts.SizeCode
-      ),
-      dsPO AS (SELECT DISTINCT po FROM sbd)
+      )
       SELECT x.*,
-             (SELECT MIN(t.stt) FROM tt t WHERE t.MaHang = x.maHang AND (t.SizeName = x.size OR t.SizeCode = REPLACE(x.size, ' ', ''))) AS thuTuSize,
-             l.lenhSX
-      FROM sbd x
-      LEFT JOIN (
-        SELECT DISTINCT b.PO AS po, a.DocNo AS lenhSX
-        FROM dbo.Bravo_LenhSanXuat_Detail_PO b
-        JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-        WHERE b.PO IN (SELECT po FROM dsPO)
-      ) l ON l.po = x.po`,
+             (SELECT MIN(t.stt) FROM tt t WHERE t.MaHang = x.maHang AND (t.SizeName = x.size OR t.SizeCode = REPLACE(x.size, ' ', ''))) AS thuTuSize
+      FROM sbd x`,
+  },
+
+  // SL kế hoạch theo lệnh SX x PO x màu x size (Bravo_LenhSanXuat_Detail_PO) cho các PO của keHoachTheoSize.
+  // Lệnh điều chỉnh (TypeCt = 1, ProductionOrderAdjNo = lệnh gốc) cộng vào lệnh gốc; bỏ lệnh IsActive = 0. Tham số như keHoachTheoSize
+  lenhTheoSize: {
+    db: 'egmf',
+    text: `
+      WITH dsPO AS (
+        SELECT DISTINCT po.PONo AS po
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+        JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = ct.POId
+        JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND k.SoLuong > 0
+          AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
+      )
+      SELECT CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+             b.PO AS po, MAX(b.ProductCode) AS maHang, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size,
+             SUM(ISNULL(b.Quantity, 0)) AS slLenh
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0
+      GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+               b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
 
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.

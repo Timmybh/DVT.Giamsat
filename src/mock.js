@@ -146,9 +146,13 @@ module.exports = {
     .flatMap((k) => {
       const maus = mauList.slice(0, 1 + (Number(k.maHang) % 2));
       return maus.flatMap((mau) => ['M', 'S', 'L', 'XL', 'XS'].map((size) => ({
-        maTo: k.maTo, maHang: k.maHang, po: k.po, lenhSX: k.lenhSX, mau, size, soLuong: Math.round(k.soLuong / maus.length / 5), thuTuSize: null,
+        maTo: k.maTo, maHang: k.maHang, po: k.po, mau, size, soLuong: Math.round(k.soLuong / maus.length / 5), thuTuSize: null,
       })));
     }),
+  lenhTheoSize: (p) => module.exports.keHoachTheoSize(p).filter((r) => r.size !== 'XS').map((r) => ({
+    lenhSX: keHoach.find((k) => k.po === r.po).lenhSX, po: r.po, maHang: r.maHang, mau: r.mau.split(' ')[0], size: r.size,
+    slLenh: r.soLuong + (r.size === 'M' ? 10 : 0),
+  })),
   keHoachSize: ({ xn, to: maTo, maHang, po }) => {
     const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang && (!po || x.po === po));
     if (!k) return [];
