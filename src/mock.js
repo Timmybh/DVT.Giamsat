@@ -77,7 +77,7 @@ xiNghiep.forEach((xn) => {
     }));
     lenhSX.push({ lenhSX: lenh, maHang, mua: 'SS27', khachHang: kh, ngay: day(bd - 15), soLuong: tong });
     keHoach.push({
-      xn: xn.ma, maTo: toObj.ma, tenTo: toObj.ma, maHang, lenhSX: lenh, po: String(4524000000 + (soPC * 7919) % 1999999), soLuong: tong,
+      xn: xn.ma, maTo: toObj.ma, tenTo: toObj.ma, maHang, lenhSX: lenh, slLenh: tong, po: String(4524000000 + (soPC * 7919) % 1999999), soLuong: tong,
       ngayVaoChuyen: day(bd - 1), ngayBatDau: day(bd), ngayKetThuc: day(bd + int(5, 15)),
     });
 

@@ -46,17 +46,15 @@ module.exports = {
       ORDER BY len, ma`,
   },
 
-  // Kế hoạch phân bổ theo tổ x mã hàng x PO; lệnh SX lấy theo PO từ Bravo_LenhSanXuat_Detail_PO (nhiều lệnh ngăn bằng ', ').
+  // Kế hoạch phân bổ theo tổ x mã hàng x PO x lệnh SX (Bravo_LenhSanXuat_Detail_PO, slLenh = SL của PO trong lệnh).
+  // PO có nhiều lệnh thành nhiều dòng; SL kế hoạch (của tổ x PO) chỉ ghi ở dòng đầu để tổng không bị lặp.
   // Tham số: @xn, @tuNgay, @denNgay
   keHoachPhanBo: {
     db: 'egmf',
     text: `
-      SELECT x.*,
-             STUFF((SELECT DISTINCT ', ' + a.DocNo
-                    FROM dbo.Bravo_LenhSanXuat_Detail_PO b
-                    JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-                    WHERE b.PO = x.po
-                    FOR XML PATH('')), 1, 2, '') AS lenhSX
+      SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.slLenh,
+             CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
+             x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc
       FROM (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
                dh.MaHang AS maHang, po.PONo AS po, SUM(k.SoLuong) AS soLuong,
@@ -73,7 +71,13 @@ module.exports = {
           AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
         GROUP BY e.TenCum, dh.MaHang, po.PONo
       ) x
-      ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau`,
+      LEFT JOIN (
+        SELECT b.PO, a.DocNo AS lenhSX, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+        FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+        JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+        GROUP BY b.PO, a.DocNo
+      ) l ON l.PO = x.po
+      ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
   },
 
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.

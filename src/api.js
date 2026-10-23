@@ -90,10 +90,11 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       cong(theoHang, `${lineOf(r.line)}|${up(r.maHang)}`, Number(r.slSX || 0));
     });
     const soPO = new Map();
-    rows.forEach((r) => cong(soPO, `${lineOf(r.maTo)}|${up(r.maHang)}`, 1));
+    rows.filter((r) => r.soLuong != null).forEach((r) => cong(soPO, `${lineOf(r.maTo)}|${up(r.maHang)}`, 1));
     res.json(rows.map((r) => {
       const kHang = `${lineOf(r.maTo)}|${up(r.maHang)}`;
       const kPO = `${lineOf(r.maTo)}|${up(r.po)}`;
+      if (r.soLuong == null) return r; // dòng lệnh thứ 2 trở đi của cùng tổ x PO: SL kế hoạch / SX đã ghi ở dòng đầu
       const slSX = theoPO.has(kPO) ? theoPO.get(kPO) : (soPO.get(kHang) === 1 ? theoHang.get(kHang) || 0 : 0);
       return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
     }));
