@@ -80,6 +80,47 @@ module.exports = {
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
   },
 
+  // Kế hoạch phân bổ theo size: tổ x mã hàng x PO x màu x size (OMM_KeHoachThang_SBD), cùng điều kiện ngày với keHoachPhanBo.
+  // thuTuSize: STT size trên phiếu điều tiết của mã hàng; lenhSX: các lệnh của PO (Bravo) ngăn bằng ', '. Tham số: @xn, @tuNgay, @denNgay
+  keHoachTheoSize: {
+    db: 'egmf',
+    text: `
+      WITH sbd AS (
+        SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, dh.MaHang AS maHang, po.PONo AS po,
+               ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+        JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = ct.POId
+        JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND k.SoLuong > 0
+          AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
+        GROUP BY LTRIM(RTRIM(e.TenCum)), dh.MaHang, po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')
+      ),
+      tt AS (
+        SELECT p.MaHang, ts.SizeName, ts.SizeCode, MIN(ts.STT) AS stt
+        FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ThuTuSize ts
+        JOIN dbo.Cutting_PhieuDieuTietGiacSoDo p ON p.Id = ts.PhieuDieuTietId
+        WHERE p.MaHang IN (SELECT maHang FROM sbd)
+        GROUP BY p.MaHang, ts.SizeName, ts.SizeCode
+      ),
+      dsPO AS (SELECT DISTINCT po FROM sbd)
+      SELECT x.*,
+             (SELECT MIN(t.stt) FROM tt t WHERE t.MaHang = x.maHang AND (t.SizeName = x.size OR t.SizeCode = REPLACE(x.size, ' ', ''))) AS thuTuSize,
+             l.lenhSX
+      FROM sbd x
+      LEFT JOIN (
+        SELECT d.po, STUFF((SELECT DISTINCT ', ' + a.DocNo
+                            FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+                            JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+                            WHERE b.PO = d.po
+                            FOR XML PATH('')), 1, 2, '') AS lenhSX
+        FROM dsPO d
+      ) l ON l.po = x.po`,
+  },
+
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.
   // thuTuSize = STT size trên phiếu điều tiết của mã hàng (Cutting_PhieuDieuTietGiacSoDo_ThuTuSize), null nếu chưa có điều tiết.
   // Cùng điều kiện với keHoachPhanBo. Tham số: @xn, @tuNgay, @denNgay, @to, @maHang, @po ('' = mọi PO)

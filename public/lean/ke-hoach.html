@@ -10,6 +10,10 @@
 <body>
 <main>
   <h1>Kế hoạch phân bổ</h1>
+  <div class="tabs">
+    <button data-tab="tabPO" class="active">Theo PO</button>
+    <button data-tab="tabSize">Theo size</button>
+  </div>
   <div class="panel">
     <div class="filters">
       <label>Từ ngày <input type="date" id="tuNgay"></label>
@@ -17,9 +21,10 @@
       <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <button id="btn">Xem</button>
     </div>
-    <div id="result" class="luoi-cao luoi-10"></div>
+    <div id="result" class="luoi-cao luoi-10 tab-noi" data-tab="tabPO"></div>
+    <div id="theoSize" class="luoi-cao luoi-gon tab-noi" data-tab="tabSize" hidden><div class="empty">Bấm Xem để tải kế hoạch theo size</div></div>
   </div>
-  <div class="panel">
+  <div class="panel tab-noi" data-tab="tabPO">
     <h2>Size breakdown <span id="tenDong"></span></h2>
     <div id="size"><div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div></div>
     <div class="note">SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD. Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
@@ -87,9 +92,40 @@
       draw();
     } catch (e) { App.error(result, e); }
   }
-  btn.onclick = load;
-  to.onchange = draw;
-  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Kế hoạch phân bổ']], () => loadTo().then(load))
+  // ---- Tab Theo size: tổ x mã hàng x PO x màu x size, SL từ SBD ----
+  let tab = 'tabPO';
+  let sizeRows = null;
+  function drawSize() {
+    const data = (to.value ? sizeRows.filter((r) => r.maTo === to.value) : sizeRows).slice().sort((a, b) =>
+      Number(a.maTo) - Number(b.maTo) || String(a.maHang).localeCompare(String(b.maHang)) || String(a.po).localeCompare(String(b.po))
+      || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b));
+    App.table(theoSize, [
+      { key: 'maTo', label: 'Tổ' },
+      { key: 'maHang', label: 'Mã hàng' },
+      { key: 'po', label: 'PO' },
+      { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'mau', label: 'Màu' },
+      { key: 'size', label: 'Size' },
+      { key: 'soLuong', label: 'SL', type: 'num', sum: true },
+    ], data, { footer: true, maxRows: 2000, empty: 'Không có kế hoạch theo size trong khoảng ngày này' });
+  }
+  async function loadSizeTab() {
+    App.loading(theoSize);
+    try {
+      sizeRows = await App.api('ke-hoach-phan-bo/theo-size', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value });
+      drawSize();
+    } catch (e) { App.error(theoSize, e); }
+  }
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+    tab = b.dataset.tab;
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.tab-noi').forEach((el) => (el.hidden = el.dataset.tab !== tab));
+    if (tab === 'tabSize' && !sizeRows) loadSizeTab();
+  });
+
+  btn.onclick = () => { sizeRows = null; load(); if (tab === 'tabSize') loadSizeTab(); };
+  to.onchange = () => { draw(); if (sizeRows) drawSize(); };
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Kế hoạch phân bổ']], () => loadTo().then(btn.onclick))
     .then(() => loadTo()).then(load);
 </script>
 </body>

@@ -141,6 +141,14 @@ module.exports = {
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau)),
+  keHoachTheoSize: ({ xn, tuNgay, denNgay }) => keHoach
+    .filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
+    .flatMap((k) => {
+      const maus = mauList.slice(0, 1 + (Number(k.maHang) % 2));
+      return maus.flatMap((mau) => ['M', 'S', 'L', 'XL', 'XS'].map((size) => ({
+        maTo: k.maTo, maHang: k.maHang, po: k.po, lenhSX: k.lenhSX, mau, size, soLuong: Math.round(k.soLuong / maus.length / 5), thuTuSize: null,
+      })));
+    }),
   keHoachSize: ({ xn, to: maTo, maHang, po }) => {
     const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang && (!po || x.po === po));
     if (!k) return [];

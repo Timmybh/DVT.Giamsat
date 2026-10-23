@@ -103,6 +103,9 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router.get('/ke-hoach-phan-bo/theo-size', handle('keHoachTheoSize', (req) => ({
+  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(),
+})));
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', (req) => ({
   xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));
