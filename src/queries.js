@@ -46,25 +46,34 @@ module.exports = {
       ORDER BY len, ma`,
   },
 
-  // Kế hoạch phân bổ theo tổ x mã hàng x PO. Tham số: @xn, @tuNgay, @denNgay
+  // Kế hoạch phân bổ theo tổ x mã hàng x PO; lệnh SX lấy theo PO từ Bravo_LenhSanXuat_Detail_PO (nhiều lệnh ngăn bằng ', ').
+  // Tham số: @xn, @tuNgay, @denNgay
   keHoachPhanBo: {
     db: 'egmf',
     text: `
-      SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
-             dh.MaHang AS maHang, po.PONo AS po, SUM(k.SoLuong) AS soLuong,
-             MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
-             MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau,
-             MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
-      FROM dbo.OMM_KeHoachThang k
-      JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
-      JOIN dbo.OMM_PO po ON po.POId = ct.POId
-      JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
-      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
-      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
-      WHERE px.XNId = @xn AND k.SoLuong > 0
-        AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
-      GROUP BY e.TenCum, dh.MaHang, po.PONo
-      ORDER BY LEN(LTRIM(RTRIM(e.TenCum))), LTRIM(RTRIM(e.TenCum)), MIN(k.NgayMayKeHoachBatDau)`,
+      SELECT x.*,
+             STUFF((SELECT DISTINCT ', ' + a.DocNo
+                    FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+                    JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+                    WHERE b.PO = x.po
+                    FOR XML PATH('')), 1, 2, '') AS lenhSX
+      FROM (
+        SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
+               dh.MaHang AS maHang, po.PONo AS po, SUM(k.SoLuong) AS soLuong,
+               MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
+               MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau,
+               MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = ct.POId
+        JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND k.SoLuong > 0
+          AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
+        GROUP BY e.TenCum, dh.MaHang, po.PONo
+      ) x
+      ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau`,
   },
 
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.
