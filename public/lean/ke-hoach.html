@@ -106,7 +106,12 @@
       { key: 'lenhSX', label: 'Lệnh SX' },
       { key: 'mau', label: 'Màu' },
       { key: 'size', label: 'Size' },
-      { key: 'slLenh', label: 'SL KH theo lệnh', type: 'num', sum: true },
+      { key: 'slLenh', label: 'SL KH theo lệnh', type: 'num', total: (rs) => {
+        // PO chia nhiều tổ thì SL lệnh lặp ở mỗi tổ: cộng 1 lần mỗi lệnh x mã hàng x PO x màu x size
+        const m = new Map();
+        rs.forEach((r) => { if (r.slLenh != null) m.set([r.lenhSX, r.maHang, r.po, r.mau, r.size].join('|'), Number(r.slLenh)); });
+        return App.num([...m.values()].reduce((s, v) => s + v, 0));
+      } },
       { key: 'slPhanBo', label: 'SL phân bổ (SBD)', type: 'num', sum: true },
     ], data, { footer: true, maxRows: 2000, empty: 'Không có kế hoạch theo size trong khoảng ngày này' });
   }

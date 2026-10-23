@@ -160,7 +160,7 @@
         lenhSX: ctLenh.value.trim(), po: ctPO.value.trim(),
       });
       // SL KH (SBD) là kế hoạch của tổ x PO x màu x size, các phiếu cấp cùng nhóm đều mang cùng số đó.
-      // Còn thiếu = SL KH - lũy kế SL nhận (cộng dồn theo ngày nhận); dòng tổng: SL KH lấy trung bình các dòng, còn thiếu / đáp ứng tính SL KH 1 lần mỗi nhóm.
+      // Còn thiếu = SL KH - lũy kế SL nhận (cộng dồn theo ngày nhận); dòng tổng: SL KH cộng 1 lần mỗi lệnh x mã hàng x PO x màu x size, còn thiếu / đáp ứng tính SL KH 1 lần mỗi nhóm.
       const khoa = (r) => [r.maTo, r.po, r.mau, r.size].join('|');
       const nhom = new Map();
       rows.forEach((r) => {
@@ -172,6 +172,12 @@
         ds.slice().sort((a, b) => String(a.ngayNhan).localeCompare(String(b.ngayNhan)) || String(a.soPhieu).localeCompare(String(b.soPhieu)))
           .forEach((r) => { lk += r.slNhan; r.lkNhan = lk; r.conLai = r.slKH == null ? null : Math.max(r.slKH - lk, 0); });
       });
+      // Cộng mỗi nhóm lệnh x mã hàng x PO x màu x size 1 lần (các phiếu cùng nhóm lặp lại cùng SL KH)
+      const sumDistinct = (rs, k) => {
+        const m = new Map();
+        rs.forEach((r) => { if (r[k] != null) m.set([r.lenhSX, r.maHang, r.po, r.mau, r.size].join('|'), Number(r[k])); });
+        return [...m.values()].reduce((s, v) => s + v, 0);
+      };
       const tong = (rs) => {
         const g = new Map();
         rs.forEach((r) => { const x = g.get(khoa(r)) || { kh: 0, nhan: 0 }; x.kh = Math.max(x.kh, Number(r.slKH || 0)); x.nhan += r.slNhan; g.set(khoa(r), x); });
@@ -187,7 +193,7 @@
         { key: 'po', label: 'PO' },
         { key: 'mau', label: 'Màu' },
         { key: 'size', label: 'Size' },
-        { key: 'slKH', label: 'SL KH', type: 'num', total: (rs) => { const v = rs.filter((r) => r.slKH != null); return v.length ? App.num(Math.round(v.reduce((s, r) => s + Number(r.slKH), 0) / v.length)) : ''; } },
+        { key: 'slKH', label: 'SL KH', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'slKH')) },
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slCap', label: 'SL cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
