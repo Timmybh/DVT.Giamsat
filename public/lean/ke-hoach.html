@@ -41,6 +41,7 @@
     App.table(result, [
       { key: 'tenTo', label: 'Tổ' },
       { key: 'maHang', label: 'Mã hàng' },
+      { key: 'po', label: 'PO' },
       { key: 'soLuong', label: 'SL kế hoạch', type: 'num', sum: true },
       { key: 'slSX', label: 'SL SX', type: 'num', sum: true },
       { key: 'conLai', label: 'Còn lại', type: 'num', sum: true },
@@ -52,10 +53,10 @@
   }
   // Bảng ma trận màu x size của dòng kế hoạch
   async function loadSize(r) {
-    tenDong.textContent = `- Tổ ${r.tenTo} / ${r.maHang}`;
+    tenDong.textContent = `- Tổ ${r.tenTo} / ${r.maHang} / PO ${r.po || ''}`;
     App.loading(size);
     try {
-      const data = await App.api('ke-hoach-phan-bo/size', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value, to: r.maTo, maHang: r.maHang });
+      const data = await App.api('ke-hoach-phan-bo/size', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value, to: r.maTo, maHang: r.maHang, po: r.po || '' });
       // Mỗi size 1 đại diện (STT điều tiết nhỏ nhất), rồi xếp theo App.sizeCmp
       const dsSize = new Map();
       data.forEach((x) => { const c = dsSize.get(x.size); if (!c || (x.thuTuSize != null && (c.thuTuSize == null || x.thuTuSize < c.thuTuSize))) dsSize.set(x.size, x); });

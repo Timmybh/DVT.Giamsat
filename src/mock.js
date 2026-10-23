@@ -77,7 +77,7 @@ xiNghiep.forEach((xn) => {
     }));
     lenhSX.push({ lenhSX: lenh, maHang, mua: 'SS27', khachHang: kh, ngay: day(bd - 15), soLuong: tong });
     keHoach.push({
-      xn: xn.ma, maTo: toObj.ma, tenTo: toObj.ma, maHang, soLuong: tong,
+      xn: xn.ma, maTo: toObj.ma, tenTo: toObj.ma, maHang, po: String(4524000000 + (soPC * 7919) % 1999999), soLuong: tong,
       ngayVaoChuyen: day(bd - 1), ngayBatDau: day(bd), ngayKetThuc: day(bd + int(5, 15)),
     });
 
@@ -141,15 +141,15 @@ module.exports = {
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau)),
-  keHoachSize: ({ xn, to: maTo, maHang }) => {
-    const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang);
+  keHoachSize: ({ xn, to: maTo, maHang, po }) => {
+    const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang && (!po || x.po === po));
     if (!k) return [];
     const maus = mauList.slice(0, 1 + (Number(maHang) % 2));
     let n = 0;
     return maus.flatMap((mau) => ['M', 'S', 'L', 'XL', 'XS'].map((size) => ({ mau, size, soLuong: Math.round(k.soLuong / maus.length / sizeList.length), thuTu: n++, thuTuSize: null })));
   },
   sanLuongTheoHang: () => keHoach.map((k) => ({
-    xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, maHang: k.maHang,
+    xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, maHang: k.maHang, po: k.po,
     slSX: Math.floor(k.soLuong * Math.min(1, Math.max(0, (Date.now() - new Date(k.ngayBatDau)) / (new Date(k.ngayKetThuc) - new Date(k.ngayBatDau))))),
   })),
   phieuCapBTP: ({ xnCode, to: maTo, tuNgay, denNgay }) =>

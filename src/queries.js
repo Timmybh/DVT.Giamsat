@@ -46,12 +46,12 @@ module.exports = {
       ORDER BY len, ma`,
   },
 
-  // Kế hoạch phân bổ theo tổ x mã hàng. Tham số: @xn, @tuNgay, @denNgay
+  // Kế hoạch phân bổ theo tổ x mã hàng x PO. Tham số: @xn, @tuNgay, @denNgay
   keHoachPhanBo: {
     db: 'egmf',
     text: `
       SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
-             dh.MaHang AS maHang, SUM(k.SoLuong) AS soLuong,
+             dh.MaHang AS maHang, po.PONo AS po, SUM(k.SoLuong) AS soLuong,
              MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
              MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau,
              MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
@@ -63,13 +63,13 @@ module.exports = {
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND k.SoLuong > 0
         AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
-      GROUP BY e.TenCum, dh.MaHang
+      GROUP BY e.TenCum, dh.MaHang, po.PONo
       ORDER BY LEN(LTRIM(RTRIM(e.TenCum))), LTRIM(RTRIM(e.TenCum)), MIN(k.NgayMayKeHoachBatDau)`,
   },
 
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.
   // thuTuSize = STT size trên phiếu điều tiết của mã hàng (Cutting_PhieuDieuTietGiacSoDo_ThuTuSize), null nếu chưa có điều tiết.
-  // Cùng điều kiện với keHoachPhanBo. Tham số: @xn, @tuNgay, @denNgay, @to, @maHang
+  // Cùng điều kiện với keHoachPhanBo. Tham số: @xn, @tuNgay, @denNgay, @to, @maHang, @po ('' = mọi PO)
   keHoachSize: {
     db: 'egmf',
     text: `
@@ -85,7 +85,7 @@ module.exports = {
       JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
       JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
-      WHERE px.XNId = @xn AND k.SoLuong > 0 AND LTRIM(RTRIM(e.TenCum)) = @to AND dh.MaHang = @maHang
+      WHERE px.XNId = @xn AND k.SoLuong > 0 AND LTRIM(RTRIM(e.TenCum)) = @to AND dh.MaHang = @maHang AND (@po = '' OR po.PONo = @po)
         AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
       GROUP BY ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
   },
@@ -251,11 +251,11 @@ module.exports = {
       GROUP BY nm.ten, c.ten, sp.ma_san_pham`,
   },
 
-  // Sản lượng đạt (qty) lũy kế theo xí nghiệp x chuyền x mã hàng trong khoảng ngày (pro_nscl hiện hành). Tham số: @tuNgay, @denNgay
+  // Sản lượng đạt (qty) lũy kế theo xí nghiệp x chuyền x mã hàng x PO trong khoảng ngày (pro_nscl hiện hành). Tham số: @tuNgay, @denNgay
   sanLuongTheoHang: {
     db: 'hipro',
     text: `
-      SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang,
+      SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang, sp.po AS po,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS slSX
       FROM dbo.pro_nscl n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
@@ -264,7 +264,7 @@ module.exports = {
       JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
-      GROUP BY nm.ten, c.ten, sp.ma_san_pham`,
+      GROUP BY nm.ten, c.ten, sp.ma_san_pham, sp.po`,
   },
 
   // Tình hình may theo PO (Report_BaoCaoMayRa là nhật ký snapshot ~10 phút: lấy bản mới nhất theo PO x chuyền trong ngày).

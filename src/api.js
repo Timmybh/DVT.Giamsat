@@ -80,11 +80,21 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     const n = await xnNum(req.query.xn);
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
     const sx = await run('sanLuongTheoHang', { tuNgay: tu.toISOString().slice(0, 10), denNgay: today() });
-    const key = (line, maHang) => `${lineOf(line)}|${String(maHang || '').trim().toUpperCase()}`;
-    const map = new Map();
-    sx.filter((r) => xnOf(r.xn) === n).forEach((r) => map.set(key(r.line, r.maHang), (map.get(key(r.line, r.maHang)) || 0) + Number(r.slSX || 0)));
+    // Khớp HiPro theo tổ x PO; nếu tổ x mã hàng chỉ có 1 PO kế hoạch mà không khớp PO thì lấy tổng theo tổ x mã hàng
+    const up = (v) => String(v ?? '').trim().toUpperCase();
+    const theoPO = new Map();
+    const theoHang = new Map();
+    const cong = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
+    sx.filter((r) => xnOf(r.xn) === n).forEach((r) => {
+      cong(theoPO, `${lineOf(r.line)}|${up(r.po)}`, Number(r.slSX || 0));
+      cong(theoHang, `${lineOf(r.line)}|${up(r.maHang)}`, Number(r.slSX || 0));
+    });
+    const soPO = new Map();
+    rows.forEach((r) => cong(soPO, `${lineOf(r.maTo)}|${up(r.maHang)}`, 1));
     res.json(rows.map((r) => {
-      const slSX = map.get(key(r.maTo, r.maHang)) || 0;
+      const kHang = `${lineOf(r.maTo)}|${up(r.maHang)}`;
+      const kPO = `${lineOf(r.maTo)}|${up(r.po)}`;
+      const slSX = theoPO.has(kPO) ? theoPO.get(kPO) : (soPO.get(kHang) === 1 ? theoHang.get(kHang) || 0 : 0);
       return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
     }));
   } catch (err) {
@@ -93,7 +103,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
   }
 });
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', (req) => ({
-  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '',
+  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));
 router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,
