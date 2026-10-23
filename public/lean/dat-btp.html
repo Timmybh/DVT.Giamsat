@@ -159,6 +159,22 @@
         xn: App.xn, to: ctTo.value, tuNgay: ctTuNgay.value, denNgay: ctDenNgay.value,
         lenhSX: ctLenh.value.trim(), po: ctPO.value.trim(),
       });
+      // SL đặt là nhu cầu của tổ x lệnh x PO x màu x size, các phiếu cấp sau ghi lặp lại cùng số đó.
+      // Nên: cộng dồn SL cấp theo thứ tự ngày nhận, còn thiếu = SL đặt - lũy kế cấp; dòng tổng chỉ tính SL đặt 1 lần mỗi nhóm.
+      const khoa = (r) => [r.maTo, r.lenhSX, r.po, r.mau, r.size].join('|');
+      const nhom = new Map();
+      rows.forEach((r) => { r.slDat = Number(r.slDat || 0); r.slCap = Number(r.slCap || 0); r.slNhan = Number(r.slNhan || 0); (nhom.get(khoa(r)) || nhom.set(khoa(r), []).get(khoa(r))).push(r); });
+      nhom.forEach((ds) => {
+        let lk = 0;
+        ds.slice().sort((a, b) => String(a.ngayNhan).localeCompare(String(b.ngayNhan)) || String(a.soPhieu).localeCompare(String(b.soPhieu)))
+          .forEach((r) => { lk += r.slCap; r.lkCap = lk; r.conLai = Math.max(r.slDat - lk, 0); });
+      });
+      const tong = (rs) => {
+        const g = new Map();
+        rs.forEach((r) => { const x = g.get(khoa(r)) || { dat: 0, cap: 0 }; x.dat = Math.max(x.dat, r.slDat); x.cap += r.slCap; g.set(khoa(r), x); });
+        const v = [...g.values()];
+        return { dat: v.reduce((s, x) => s + x.dat, 0), cap: v.reduce((s, x) => s + x.cap, 0), thieu: v.reduce((s, x) => s + Math.max(x.dat - x.cap, 0), 0) };
+      };
       App.table(ctResult, [
         { key: 'maTo', label: 'Tổ' },
         { key: 'soPhieu', label: 'Số phiếu cấp' },
@@ -168,11 +184,12 @@
         { key: 'po', label: 'PO' },
         { key: 'mau', label: 'Màu' },
         { key: 'size', label: 'Size' },
-        { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
-        { key: 'slCap', label: 'SL đã cấp', type: 'num', sum: true },
+        { key: 'slDat', label: 'SL đặt', type: 'num', total: (rs) => App.num(tong(rs).dat) },
+        { key: 'slCap', label: 'SL cấp phiếu này', type: 'num', sum: true },
+        { key: 'lkCap', label: 'Lũy kế cấp', type: 'num', total: (rs) => App.num(tong(rs).cap) },
         { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
-        { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slCap, 0), render: (r) => App.num(Math.max(r.slDat - r.slCap, 0)) },
-        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.slCap }), total: (rs) => status({ slDat: rs.reduce((s, r) => s + Number(r.slDat || 0), 0), slXuat: rs.reduce((s, r) => s + Number(r.slCap || 0), 0) }) },
+        { key: 'conLai', label: 'Còn thiếu', type: 'num', total: (rs) => App.num(tong(rs).thieu) },
+        { key: 'tt', label: 'Đáp ứng', render: (r) => status({ slDat: r.slDat, slXuat: r.lkCap }), total: (rs) => { const t = tong(rs); return status({ slDat: t.dat, slXuat: t.cap }); } },
       ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }
   }
