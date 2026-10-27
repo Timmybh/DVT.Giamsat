@@ -6,6 +6,7 @@
 <title>Tổ trưởng chuyền may - DVT Giám sát</title>
 <link rel="stylesheet" href="/css/style.css">
 <script src="/js/common.js"></script>
+<script src="/js/vendor/qrcode.js"></script>
 </head>
 <body>
 <main>
@@ -32,6 +33,10 @@
     <div id="po"></div>
     <div class="note">Tự tính như trang Báo cáo may ra (kỳ = ngày đang chọn): SL PO từ kế hoạch tháng, vào chuyền từ quét nhận BTP, may ra từ HiPro NSCL (có đọc bảng lưu trữ các tháng).</div>
   </div>
+  <div class="panel qr-trang">
+    <div id="qrAnh"></div>
+    <div><b>Quét để mở trang này trên điện thoại</b><div id="qrLink" class="note"></div></div>
+  </div>
 </main>
 <div id="hopCanhBao" class="hop-canh-bao" hidden>
   <div class="hcb-dau"><b>Cảnh báo <span id="soCB"></span></b><button type="button" id="dongCB" title="Đóng">✕</button></div>
@@ -53,7 +58,19 @@
     try { localStorage.setItem('toMay', to.value); } catch (e) { /* bỏ qua */ }
     const u = new URL(location.href);
     if (u.searchParams.get('to') !== to.value) { u.searchParams.set('to', to.value); history.replaceState(null, '', u); }
+    veQR();
   }
+  // QR cuối trang: mở đúng trang / xí nghiệp / tổ đang xem qua địa chỉ máy chủ trong LAN
+  const QR_HOST = '10.8.0.94';
+  function veQR() {
+    const url = `http://${QR_HOST}${location.port ? `:${location.port}` : ''}${location.pathname}?xn=${encodeURIComponent(App.xn)}&to=${encodeURIComponent(to.value)}`;
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    qrAnh.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    qrLink.textContent = url;
+  }
+
 
   const so = (label, v, cls = '') => `<div><span>${label}</span><b class="${cls}">${App.num(v)}</b></div>`;
   // Mỗi tổ hợp lệnh x PO x màu x size là 1 thẻ. SX chỉ có theo PO (HiPro không ghi size) nên ghi số của cả PO.

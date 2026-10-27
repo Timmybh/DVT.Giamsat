@@ -178,3 +178,6 @@ header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overf
   .bo-loc-may .canh-bao { width: 100%; }
   .hop-canh-bao { top: 8px; right: 8px; left: 8px; width: auto; max-height: calc(100vh - 60px); }
 }
+.qr-trang { display: flex; align-items: center; gap: 16px; }
+.qr-trang #qrAnh svg { width: 140px; height: 140px; display: block; }
+.qr-trang #qrLink { word-break: break-all; margin-top: 4px; }
