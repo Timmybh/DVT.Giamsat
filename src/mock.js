@@ -362,7 +362,7 @@ module.exports = {
     const rows = sizeToMau(k).flatMap((x, j) => {
       const dat = Math.round(x.kh * (j === 1 && i === 0 ? 0.7 : 0.45));
       return [
-        { soPhieu: `26${1000 + i}${j}1`, lenhSX: `${k.lenhSX};`, ngayTao: `${d}T02:00:00.000Z`, ngayNhan: `${d}T01:00:00.000Z`, po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: 0 },
+        { soPhieu: `26${1000 + i}${j}1`, lenhSX: `${k.lenhSX};`, ngayTao: `${d}T02:00:00.000Z`, ngayNhan: `${d}T01:00:00.000Z`, po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: Math.floor(dat * 0.8) },
         { soPhieu: `26${1000 + i}${j}0`, ngayTao: new Date(new Date(d) - 3 * 86400000).toISOString(), po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: dat },
       ];
     });

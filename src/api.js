@@ -333,7 +333,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     });
 
     // Dòng size kế hoạch, khóa đầy đủ và khóa theo mã màu
-    const sizes = sbd.map((r) => ({ ...r, po: poKey(r.po), kh: N(r.soLuong), datNgay: 0, datLK: 0, phieu: [], tatCaPhieu: [] }));
+    const sizes = sbd.map((r) => ({ ...r, po: poKey(r.po), kh: N(r.soLuong), datNgay: 0, nhanNgay: 0, datLK: 0, phieu: [], tatCaPhieu: [] }));
     const day = new Map();
     const theoMa = new Map();
     sizes.forEach((r) => {
@@ -346,14 +346,14 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     dat.forEach((x) => {
       const po = poKey(x.po);
       const ngay = ymd(x.ngayTao);
-      const dong = { soPhieu: x.soPhieu, ngayTao: x.ngayTao, ngayNhan: x.ngayNhan, lenhSX: x.lenhSX, po, maHang: x.maHang, mau: x.mau, size: x.size, slDat: N(x.slDat) };
+      const dong = { soPhieu: x.soPhieu, ngayTao: x.ngayTao, ngayNhan: x.ngayNhan, lenhSX: x.lenhSX, po, maHang: x.maHang, mau: x.mau, size: x.size, slDat: N(x.slDat), slNhan: N(x.slNhan) };
       const r = day.get(`${po}|${chuanMau(x.mau)}|${chuanSize(x.size)}`) || theoMa.get(`${po}|${maMau(x.mau)}|${chuanSize(x.size)}`);
       if (!r) {
         if (ngay >= tu30) sai.push({ ...dong, lyDo: coPO.has(po) ? 'Màu / size không có trong kế hoạch phân bổ của tổ' : 'PO không có kế hoạch phân bổ ở tổ' });
         return;
       }
       r.datLK += dong.slDat;
-      if (ngay === d) r.datNgay += dong.slDat;
+      if (ngay === d) { r.datNgay += dong.slDat; r.nhanNgay += dong.slNhan; }
       r.phieu.push({ ...dong, ngay });
       r.tatCaPhieu.push({ ...dong, ngay });
     });
@@ -387,11 +387,11 @@ router.get('/to-may/ke-hoach', async (req, res) => {
         sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
           const ls = lenhTheoKhoa.get(`${po}|${maMau(r.mau)}|${chuanSize(r.size)}`) || [];
           const goc = { mau: r.mau, size: r.size, kh: r.kh };
-          if (ls.length <= 1) return [{ ...goc, lenhSX: ls[0] ? ls[0].lenhSX : null, slLenh: ls[0] ? N(ls[0].slLenh) : null, datNgay: r.datNgay, datLK: r.datLK }];
+          if (ls.length <= 1) return [{ ...goc, lenhSX: ls[0] ? ls[0].lenhSX : null, slLenh: ls[0] ? N(ls[0].slLenh) : null, datNgay: r.datNgay, nhanNgay: r.nhanNgay, datLK: r.datLK }];
           // PO có nhiều lệnh: tách đặt theo lệnh ghi trên phiếu cấp
           return ls.map((l) => {
             const ps = r.tatCaPhieu.filter((q) => cuaLenh(q.lenhSX, l.lenhSX));
-            return { ...goc, lenhSX: l.lenhSX, slLenh: N(l.slLenh), datNgay: ps.filter((q) => q.ngay === d).reduce((t, q) => t + q.slDat, 0), datLK: ps.reduce((t, q) => t + q.slDat, 0) };
+            return { ...goc, lenhSX: l.lenhSX, slLenh: N(l.slLenh), datNgay: ps.filter((q) => q.ngay === d).reduce((t, q) => t + q.slDat, 0), nhanNgay: ps.filter((q) => q.ngay === d).reduce((t, q) => t + q.slNhan, 0), datLK: ps.reduce((t, q) => t + q.slDat, 0) };
           });
         }),
       };

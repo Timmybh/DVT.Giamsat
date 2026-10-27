@@ -86,7 +86,7 @@
           ${so('SX hôm nay (PO)', t.sxNgay)}${so('SX lũy kế (PO)', t.sxLK)}
           ${so('Còn lại hôm nay (PO)', t.conLaiNgay)}${so('SX còn lại (PO)', t.conLai)}
         </div></div>`,
-    // Kiểu 2: đầu thẻ mã hàng / size / màu / lệnh / PO; thanh tiến độ đặt & SX; ô hôm nay: đặt, đã kiểm, còn lại; RFT, hiệu suất
+    // Kiểu 2: đầu thẻ mã hàng / size / màu / lệnh / PO; thanh tiến độ đặt & SX; ô hôm nay: đặt / nhận, đã kiểm, SX, còn lại; RFT, hiệu suất
     //   Đã kiểm = đạt lần đầu + lỗi (HiPro, cả PO); RFT = đạt lần đầu / đã kiểm; Hiệu suất = SX hôm nay / KH hôm nay (cả PO)
     2: (t, x) => {
       const kh = x.slLenh ?? x.kh;
@@ -104,12 +104,12 @@
           ${thanh('SX / KH', t.sxLK, t.soLuong, ' <small>(PO)</small>')}
         </div>
         <div class="o3 nut">
-          <div><span>Đặt hôm nay</span><b>${App.num(x.datNgay)}</b></div>
+          <div><span>Đặt / nhận hôm nay</span><b>${App.num(x.datNgay)} / ${App.num(x.nhanNgay)}</b></div>
           <div><span>Đã kiểm <small>(PO)</small></span><b>${App.num(t.kiemNgay)}</b></div>
+          <div><span>SX hôm nay <small>(PO)</small></span><b>${App.num(t.sxNgay)}</b></div>
           <div class="${t.conLaiNgay ? 'con' : 'xong'}"><span>Còn lại <small>(PO)</small></span><b>${App.num(t.conLaiNgay)}</b></div>
           <div class="${mau(rft, 95, 90)}"><span>RFT</span><b>${rft == null ? '-' : `${rft}%`}</b></div>
           <div class="${mau(hs, 100, 85)}"><span>Hiệu suất</span><b>${hs == null ? '-' : `${hs}%`}</b></div>
-          <div><span>SX hôm nay</span><b>${App.num(t.sxNgay)}</b></div>
         </div>
         <div class="chan">KH hôm nay (PO) <b>${App.num(t.khNgay)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
       </div>`;
