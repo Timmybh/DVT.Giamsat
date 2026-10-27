@@ -644,19 +644,23 @@ module.exports = {
     text: `SELECT name FROM sys.tables WHERE name LIKE 'pro[_]nscl[_][0-9][0-9][_][0-9][0-9][0-9][0-9]'`,
   },
 
-  // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ,
+  // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ;
+  // thêm đạt lần đầu (qty) và lỗi (reject) của ngày @denNgay để tính đã kiểm / RFT,
   // đọc cả pro_nscl hiện hành lẫn các bảng lưu trữ truyền vào (tên đã kiểm ở API). Tham số: @tuLK, @tuNgay, @denNgay
   mayRaHiPro: (bangLuuTru = []) => {
-    const qty = Array.from({ length: 14 }, (_, i) => `ISNULL(qty_${i + 1}_h, 0) + ISNULL(fix_${i + 1}_h, 0)`).join(' + ');
-    const nguon = [`SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${qty} + ISNULL(sua_po_luy_ke, 0) AS sl FROM dbo.pro_nscl`]
-      .concat(bangLuuTru.map((b) => `SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${qty} AS sl FROM dbo.${b}`));
+    const cong = (cot) => Array.from({ length: 14 }, (_, i) => `ISNULL(${cot}_${i + 1}_h, 0)`).join(' + ');
+    const cot = `${cong('qty')} AS dat, ${cong('fix')} AS sua, ${cong('reject')} AS loi`;
+    const nguon = [`SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${cot}, ISNULL(sua_po_luy_ke, 0) AS dc FROM dbo.pro_nscl`]
+      .concat(bangLuuTru.map((b) => `SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${cot}, 0 AS dc FROM dbo.${b}`));
     return {
       db: 'hipro',
       text: `
       SELECT nm.ten AS xn, c.ten AS line, sp.po AS po, MAX(sp.ma_san_pham) AS maHang,
-             SUM(CASE WHEN k.ngay_san_xuat >= @tuNgay THEN n.sl ELSE 0 END) AS mayRaKy,
-             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.sl ELSE 0 END) AS mayRaNgay,
-             SUM(n.sl) AS mayRaLK
+             SUM(CASE WHEN k.ngay_san_xuat >= @tuNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaKy,
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaNgay,
+             SUM(n.dat + n.sua + n.dc) AS mayRaLK,
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat ELSE 0 END) AS datNgay,
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.loi ELSE 0 END) AS loiNgay
       FROM (${nguon.join('\n        UNION ALL ')}) n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id

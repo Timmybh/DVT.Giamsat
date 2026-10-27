@@ -86,19 +86,29 @@
           ${so('SX hôm nay (PO)', t.sxNgay)}${so('SX lũy kế (PO)', t.sxLK)}
           ${so('Còn lại hôm nay (PO)', t.conLaiNgay)}${so('SX còn lại (PO)', t.conLai)}
         </div></div>`,
-    // Kiểu 2: thanh tiến độ cho đặt / SX, 3 ô số hôm nay
+    // Kiểu 2: đầu thẻ mã hàng / size / màu / lệnh / PO; thanh tiến độ đặt & SX; ô hôm nay: đặt, đã kiểm, còn lại; RFT, hiệu suất
+    //   Đã kiểm = đạt lần đầu + lỗi (HiPro, cả PO); RFT = đạt lần đầu / đã kiểm; Hiệu suất = SX hôm nay / KH hôm nay (cả PO)
     2: (t, x) => {
       const kh = x.slLenh ?? x.kh;
+      const rft = t.kiemNgay ? Math.round((t.datLanDau / t.kiemNgay) * 1000) / 10 : null;
+      const hs = t.khNgay ? Math.round((t.sxNgay / t.khNgay) * 100) : null;
+      const mau = (v, tot, kha) => (v == null ? '' : v >= tot ? 'xong' : v >= kha ? '' : 'con');
       return `<div class="the-po k2">
-        <div class="k2-dau"><span class="size">${App.esc(x.size || '?')}</span><div>${dauThe(t, x).replace('class="dau"', 'class="dau nho"')}</div></div>
+        <div class="k2-dau"><span class="size">${App.esc(x.size || '?')}</span><div>
+          <div class="dau nho">${App.esc(t.maHang || '')} · Size ${App.esc(x.size || '?')} · ${App.esc(x.mau || '')}</div>
+          <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b> · PO ${App.esc(t.po)}</div>
+        </div></div>
         ${thanh('Đặt lũy kế / KH lệnh', x.datLK, kh)}
         ${thanh('SX lũy kế / KH', t.sxLK, t.soLuong, ' <small>(PO)</small>')}
         <div class="o3">
-          <div><span>KH hôm nay</span><b>${App.num(t.khNgay)}</b></div>
+          <div><span>Đặt hôm nay</span><b>${App.num(x.datNgay)}</b></div>
+          <div><span>Đã kiểm <small>(PO)</small></span><b>${App.num(t.kiemNgay)}</b></div>
+          <div class="${t.conLaiNgay ? 'con' : 'xong'}"><span>Còn lại <small>(PO)</small></span><b>${App.num(t.conLaiNgay)}</b></div>
+          <div class="${mau(rft, 95, 90)}"><span>RFT</span><b>${rft == null ? '-' : `${rft}%`}</b></div>
+          <div class="${mau(hs, 100, 85)}"><span>Hiệu suất</span><b>${hs == null ? '-' : `${hs}%`}</b></div>
           <div><span>SX hôm nay</span><b>${App.num(t.sxNgay)}</b></div>
-          <div class="${t.conLaiNgay ? 'con' : 'xong'}"><span>Còn lại hôm nay</span><b>${App.num(t.conLaiNgay)}</b></div>
         </div>
-        <div class="chan">Đặt hôm nay <b>${App.num(x.datNgay)}</b> · Phân bổ SBD <b>${App.num(x.kh)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
+        <div class="chan">Phân bổ SBD <b>${App.num(x.kh)}</b> · KH hôm nay (PO) <b>${App.num(t.khNgay)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
       </div>`;
     },
     // Kiểu 3: ma trận Kế hoạch / Đặt / SX x Hôm nay / Lũy kế / Còn lại

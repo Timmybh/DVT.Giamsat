@@ -351,7 +351,7 @@ module.exports = {
     return { xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, po: p.po, maHang: p.maHang, mayRaKy: lk(denNgay) - lk(truoc), mayRaNgay: lk(denNgay) - lk(homQua), mayRaLK: lk(denNgay) };
   }))).concat(keHoach.filter((k) => k.ngayBatDau.slice(0, 10) <= denNgay).map((k) => {
     const f = Math.min(1, (new Date(denNgay) - new Date(k.ngayBatDau)) / (new Date(k.ngayKetThuc) - new Date(k.ngayBatDau)));
-    return { xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, po: k.po, maHang: k.maHang, mayRaKy: 0, mayRaNgay: hInt(`sxn${k.po}${denNgay}`, 40, 160), mayRaLK: Math.floor(k.soLuong * Math.max(0, f) * 0.9) };
+    return { xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, po: k.po, maHang: k.maHang, mayRaKy: 0, mayRaNgay: hInt(`sxn${k.po}${denNgay}`, 40, 160), mayRaLK: Math.floor(k.soLuong * Math.max(0, f) * 0.9), datNgay: hInt(`sxn${k.po}${denNgay}`, 40, 160) - 6, loiNgay: hInt(`lo${k.po}`, 3, 15) };
   })),
   // Tổ trưởng may: kế hoạch tổ (PO đang chạy tại ngày d), size theo SBD, phiếu đặt có 1 dòng sai size và 1 size đặt vượt KH
   khToPO: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).map((k) => ({

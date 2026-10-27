@@ -327,8 +327,8 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     const poKey = (v) => String(v ?? '').trim();
     const sxPO = new Map();
     sx.filter((r) => xnOf(r.xn) === n && lineOf(r.line) === lineOf(maTo)).forEach((r) => {
-      const x = sxPO.get(poKey(r.po)) || { ngay: 0, lk: 0 };
-      x.ngay += N(r.mayRaNgay); x.lk += N(r.mayRaLK);
+      const x = sxPO.get(poKey(r.po)) || { ngay: 0, lk: 0, dat: 0, loi: 0 };
+      x.ngay += N(r.mayRaNgay); x.lk += N(r.mayRaLK); x.dat += N(r.datNgay); x.loi += N(r.loiNgay);
       sxPO.set(poKey(r.po), x);
     });
 
@@ -379,11 +379,11 @@ router.get('/to-may/ke-hoach', async (req, res) => {
 
     const the = pos.map((x) => {
       const po = poKey(x.po);
-      const m = sxPO.get(po) || { ngay: 0, lk: 0 };
+      const m = sxPO.get(po) || { ngay: 0, lk: 0, dat: 0, loi: 0 };
       const khNgay = Math.round(N(x.khNgay));
       return {
         po, maHang: x.maHang, lenhSX: x.lenhSX, soLuong: N(x.soLuong), khNgay, ngayVaoChuyen: x.ngayVaoChuyen, ngayKetThuc: x.ngayKetThuc,
-        sxNgay: m.ngay, sxLK: m.lk, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
+        sxNgay: m.ngay, sxLK: m.lk, kiemNgay: m.dat + m.loi, datLanDau: m.dat, loiNgay: m.loi, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
         sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
           const ls = lenhTheoKhoa.get(`${po}|${maMau(r.mau)}|${chuanSize(r.size)}`) || [];
           const goc = { mau: r.mau, size: r.size, kh: r.kh };
