@@ -151,3 +151,14 @@ footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: v
 .the-po .lk .ray i.vuot ~ em { color: #fff; }
 .the-po .o3.nut div:nth-child(-n+4) span { min-height: 26px; line-height: 13px; }
 .the-po .po-dong { font-weight: 700; font-size: 13px; color: var(--text); margin-top: 1px; }
+header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bo-loc-may .mot-dong { display: flex; gap: 8px; align-items: end; }
+.bo-loc-may .mot-dong label { min-width: 0; }
+@media (max-width: 640px) {
+  header { padding: 8px 12px; gap: 10px; flex-wrap: nowrap; }
+  header a.brand { font-size: 15px; white-space: nowrap; }
+  header .crumbs { font-size: 13px; }
+  .bo-loc-may .mot-dong { width: 100%; }
+  .bo-loc-may .mot-dong label { flex: 1; }
+  .bo-loc-may .mot-dong select, .bo-loc-may .mot-dong input { min-width: 0; width: 100%; padding: 6px 4px; font-size: 13px; }
+}

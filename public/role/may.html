@@ -11,9 +11,9 @@
 <main>
   <h1>Tổ trưởng chuyền may</h1>
   <div class="panel">
-    <div class="filters">
-      <label>Tổ <select id="to"></select></label>
-      <label>Ngày <input type="date" id="ngay"></label>
+    <div class="filters bo-loc-may">
+      <div class="mot-dong"><label>Tổ <select id="to"></select></label>
+      <label>Ngày <input type="date" id="ngay"></label></div>
       <a class="btn" id="linkBTP" href="/lean/dat-btp.html">Phiếu cấp BTP của tổ →</a>
     </div>
   </div>
@@ -226,7 +226,12 @@
   }
 
   to.onchange = ngay.onchange = load;
-  App.header([['Trang chính', '/'], ['Tổ trưởng chuyền may']], loadTo).then(loadTo);
+  // Xí nghiệp, tổ, ngày chung 1 dòng: chuyển ô chọn xí nghiệp từ header xuống bộ lọc
+  const pHeader = App.header([['Trang chính', '/'], ['Tổ trưởng chuyền may']], loadTo);
+  const xnNhan = document.getElementById('xnSelect').parentElement;
+  xnNhan.firstChild.textContent = 'Xí nghiệp ';
+  document.querySelector('.bo-loc-may .mot-dong').prepend(xnNhan);
+  pHeader.then(loadTo);
 </script>
 </body>
 </html>
