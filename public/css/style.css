@@ -150,3 +150,4 @@ footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: v
 .the-po .lk .ray { border: 1px solid #b9c3d3; box-sizing: border-box; }
 .the-po .lk .ray i.vuot ~ em { color: #fff; }
 .the-po .o3.nut div:nth-child(-n+4) span { min-height: 26px; line-height: 13px; }
+.the-po .po-dong { font-weight: 700; font-size: 13px; color: var(--text); margin-top: 1px; }

@@ -89,18 +89,17 @@
     // Kiểu 2: đầu thẻ mã hàng / size / màu / lệnh / PO; thanh tiến độ đặt & SX; ô hôm nay: đặt / nhận, đã kiểm, SX, còn lại; RFT, hiệu suất
     //   Đã kiểm = đạt lần đầu + lỗi (HiPro, cả PO); RFT = đạt lần đầu / đã kiểm; Hiệu suất = SX hôm nay / KH hôm nay (cả PO)
     2: (t, x) => {
-      const kh = x.slLenh ?? x.kh;
       const rft = t.kiemNgay ? Math.round((t.datLanDau / t.kiemNgay) * 1000) / 10 : null;
       const hs = t.khNgay ? Math.round((t.sxNgay / t.khNgay) * 100) : null;
       const mau = (v, tot, kha) => (v == null ? '' : v >= tot ? 'xong' : v >= kha ? '' : 'con');
       return `<div class="the-po k2">
         <div class="k2-dau"><span class="size">${App.esc(x.size || '?')}</span><div>
           <div class="dau nho">${App.esc(t.maHang || '')} · Size ${App.esc(x.size || '?')} · ${App.esc(x.mau || '')}</div>
-          <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b> · PO ${App.esc(t.po)}</div>
+          <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b></div>
+          <div class="po-dong">PO ${App.esc(t.po)}</div>
         </div></div>
         <div class="lk"><div class="lk-tieu">Lũy kế</div>
-          ${thanh('Đặt / KH lệnh', x.datLK, kh)}
-          ${thanh('Đặt / Phân bổ SBD', x.datLK, x.kh)}
+          ${thanh(`Lũy kế đặt / KH tổ ${App.esc(to.value)}`, x.datLK, x.kh)}
           ${thanh('SX / KH', t.sxLK, t.soLuong, ' <small>(PO)</small>')}
         </div>
         <div class="o3 nut">
