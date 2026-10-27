@@ -18,10 +18,10 @@
     </div>
   </div>
   <div class="panel">
-    <h2>Kế hoạch tổ theo PO <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
+    <h2>Kế hoạch tổ theo PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
     <div id="theKH" class="the-ngang"></div>
-    <div class="note">Vuốt ngang để xem từng PO. SL KH: kế hoạch phân bổ (size theo SBD). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
-      SL SX: HiPro theo PO (HiPro không ghi size nên không có SX theo size). Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
+    <div class="note">Vuốt ngang để xem từng tổ hợp PO x màu x size. SL KH, đặt: theo size (SBD, phiếu cấp). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
+      Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
   </div>
   <div class="panel" id="pSai" hidden>
     <h2 style="color:var(--bad)">Phiếu đặt không đúng kế hoạch <span id="soSai"></span></h2>
@@ -58,25 +58,22 @@
   }
 
   const so = (label, v, cls = '') => `<div><span>${label}</span><b class="${cls}">${App.num(v)}</b></div>`;
+  // Mỗi tổ hợp PO x mã hàng x màu x size là 1 thẻ. SX chỉ có theo PO (HiPro không ghi size) nên ghi số của cả PO.
   function veThe(kq) {
-    soThe.textContent = kq.the.length ? `(${kq.the.length} PO)` : '';
-    theKH.innerHTML = kq.the.length ? kq.the.map((t) => {
-      const sizes = t.sizes.slice().sort((a, b) => String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b));
-      return `<div class="the-po">
-        <div class="dau">PO ${App.esc(t.po)}</div>
-        <div class="phu">${App.esc(t.maHang || '')}${t.lenhSX ? ` · ${App.esc(t.lenhSX)}` : ''} · vào chuyền ${App.date(t.ngayVaoChuyen)} → ${App.date(t.ngayKetThuc)}</div>
+    const ds = kq.the.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: t.datNgay, datLK: t.datLK }])
+      .slice().sort((a, b) => String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
+    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${kq.the.length} PO)` : '';
+    theKH.innerHTML = ds.length ? ds.map(({ t, x }) => `<div class="the-po">
+        <div class="dau">${App.esc(x.size || '(chưa có size)')} · ${App.esc(x.mau || '')}</div>
+        <div class="phu">PO ${App.esc(t.po)} · ${App.esc(t.maHang || '')}${t.lenhSX ? ` · ${App.esc(t.lenhSX)}` : ''}<br>
+          vào chuyền ${App.date(t.ngayVaoChuyen)} → ${App.date(t.ngayKetThuc)}</div>
         <div class="so">
-          ${so('SL kế hoạch', t.soLuong)}${so('KH hôm nay', t.khNgay)}
-          ${so('Đặt hôm nay', t.datNgay)}${so('Đặt lũy kế', t.datLK, t.datLK > t.soLuong ? 'vuot' : '')}
-          ${so('SX hôm nay', t.sxNgay)}${so('SX lũy kế', t.sxLK)}
-          ${so('Còn lại hôm nay', t.conLaiNgay)}${so('SX còn lại', t.conLai)}
+          ${so('SL kế hoạch', x.kh)}${so('KH hôm nay (PO)', t.khNgay)}
+          ${so('Đặt hôm nay', x.datNgay)}${so('Đặt lũy kế', x.datLK, x.datLK > x.kh ? 'vuot' : '')}
+          ${so('SX hôm nay (PO)', t.sxNgay)}${so('SX lũy kế (PO)', t.sxLK)}
+          ${so('Còn lại hôm nay (PO)', t.conLaiNgay)}${so('SX còn lại (PO)', t.conLai)}
         </div>
-        <table><thead><tr><th>Màu</th><th>Size</th><th>SL KH</th><th>Đặt hôm nay</th><th>Đặt LK</th></tr></thead><tbody>
-          ${sizes.map((x) => `<tr><td>${App.esc(x.mau)}</td><td>${App.esc(x.size)}</td><td>${App.num(x.kh)}</td><td>${App.num(x.datNgay)}</td>
-            <td class="${x.datLK > x.kh ? 'vuot' : ''}">${App.num(x.datLK)}</td></tr>`).join('') || '<tr><td colspan="5">Chưa có size breakdown (SBD)</td></tr>'}
-        </tbody></table>
-      </div>`;
-    }).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
+      </div>`).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
     pSai.hidden = !kq.sai.length;
     soSai.textContent = kq.sai.length ? `(${kq.sai.length})` : '';
     theSai.innerHTML = kq.sai.map((x) => `<div class="the-po do">
