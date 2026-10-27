@@ -194,12 +194,20 @@
     ]);
 
     if (sl.error) App.error(gio, sl.error);
-    else App.table(gio, [
-      { key: 'maHang', label: 'Mã hàng' },
-      ...hours.slice(0, Math.max(lastH, 1)).map((h) => ({ key: `h${h}`, label: `Giờ ${h}`, type: 'num', sum: true })),
-      { key: 'tong', label: 'Tổng đạt', type: 'num', sum: true },
-      { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
-    ], gioRows, { footer: true, empty: 'Chưa có sản lượng HiPro cho tổ trong ngày' });
+    else {
+      // Hàng dọc: mỗi giờ 1 dòng, mỗi mã hàng 1 cột
+      const dongGio = hours.slice(0, Math.max(lastH, 1)).map((h) => {
+        const d = { gio: `Giờ ${h}`, tong: 0, loi: 0 };
+        gioRows.forEach((r, i) => { d[`m${i}`] = r[`h${h}`] || 0; d.tong += r[`h${h}`] || 0; d.loi += r[`r${h}`] || 0; });
+        return d;
+      });
+      App.table(gio, [
+        { key: 'gio', label: 'Giờ' },
+        ...gioRows.map((r, i) => ({ key: `m${i}`, label: r.maHang || '(không mã)', type: 'num', sum: true })),
+        { key: 'tong', label: 'Tổng đạt', type: 'num', sum: true },
+        { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
+      ], gioRows.length ? dongGio : [], { footer: true, empty: 'Chưa có sản lượng HiPro cho tổ trong ngày' });
+    }
 
     if (pos.error) App.error(po, pos.error);
     else App.table(po, [
