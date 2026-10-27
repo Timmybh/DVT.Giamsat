@@ -154,3 +154,27 @@ header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overf
   .bo-loc-may .mot-dong select, .bo-loc-may .mot-dong input { min-width: 0; width: 100%; padding: 6px 4px; font-size: 13px; }
 }
 .filters.bo-loc-may { margin-bottom: 0; }
+/* Nút cảnh báo + panel nổi (tổ trưởng may) */
+.bo-loc-may { align-items: end; }
+.canh-bao { border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; font-size: 14px; color: #fff; cursor: pointer; }
+.canh-bao.xanh { background: var(--ok); }
+.canh-bao.do { background: var(--bad); animation: nhap-nhay 1s ease-in-out infinite; }
+@keyframes nhap-nhay { 0%, 100% { background: var(--bad); box-shadow: 0 0 0 0 rgba(192,54,44,.6); } 50% { background: #f0675c; box-shadow: 0 0 0 6px rgba(192,54,44,0); } }
+.hop-canh-bao { position: fixed; z-index: 60; top: 64px; right: 16px; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 110px); display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.hop-canh-bao[hidden] { display: none; }
+.hcb-dau { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--bad); font-size: 16px; }
+.hcb-dau button { background: var(--bg); color: var(--text); border: 0; border-radius: 6px; width: 32px; height: 32px; font-size: 16px; cursor: pointer; }
+.hcb-than { overflow: auto; padding: 10px 14px; }
+.hcb-than section { margin-bottom: 14px; }
+.hcb-than h3 { font-size: 14px; margin: 0 0 6px; }
+.hcb-than section.co h3 { color: var(--bad); }
+.hcb-than section.khong h3 { color: var(--muted); }
+.hcb-than .ok { font-size: 13px; color: var(--ok); }
+.hcb-than .the-ngang .the-po { min-width: 260px; }
+.bang-cb { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bang-cb th, .bang-cb td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; }
+.bang-cb th { color: var(--muted); font-weight: 500; }
+@media (max-width: 640px) {
+  .bo-loc-may .canh-bao { width: 100%; }
+  .hop-canh-bao { top: 8px; right: 8px; left: 8px; width: auto; max-height: calc(100vh - 60px); }
+}

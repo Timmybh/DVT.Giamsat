@@ -14,6 +14,7 @@
     <div class="filters bo-loc-may">
       <div class="mot-dong"><label>Tổ <select id="to"></select></label>
       <label>Ngày <input type="date" id="ngay"></label></div>
+      <button type="button" id="nutCanhBao" class="canh-bao xanh">Cảnh báo (0)</button>
     </div>
   </div>
   <div class="panel">
@@ -21,11 +22,6 @@
     <div id="theKH" class="the-ngang"></div>
     <div class="note">Vuốt ngang để xem từng tổ hợp lệnh x PO x màu x size. KH tổ: SL phân bổ SBD của tổ; đặt: phiếu cấp (PO nhiều lệnh thì tách theo lệnh ghi trên phiếu). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
       Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
-  </div>
-  <div class="panel" id="pSai" hidden>
-    <h2 style="color:var(--bad)">Phiếu đặt không đúng kế hoạch <span id="soSai"></span></h2>
-    <div id="theSai" class="the-ngang"></div>
-    <div class="note">Phiếu cấp BTP của tổ tạo trong 30 ngày: PO không có kế hoạch ở tổ, màu / size không có trong SBD của tổ, hoặc đặt lũy kế vượt SL KH của size.</div>
   </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
@@ -38,6 +34,10 @@
     <div class="note">Tự tính như trang Báo cáo may ra (kỳ = ngày đang chọn): SL PO từ kế hoạch tháng, vào chuyền từ quét nhận BTP, may ra từ HiPro NSCL (có đọc bảng lưu trữ các tháng).</div>
   </div>
 </main>
+<div id="hopCanhBao" class="hop-canh-bao" hidden>
+  <div class="hcb-dau"><b>Cảnh báo <span id="soCB"></span></b><button type="button" id="dongCB" title="Đóng">✕</button></div>
+  <div id="noiDungCB" class="hcb-than"></div>
+</div>
 <script>
   ngay.value = App.today();
 
@@ -96,11 +96,10 @@
     soThe.textContent = ds.length ? `(${ds.length} thẻ · ${kq.the.length} PO)` : '';
     theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veMotThe(t, x)).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
   }
-  function veThe(kq) {
-    veKH(kq);
-    pSai.hidden = !kq.sai.length;
-    soSai.textContent = kq.sai.length ? `(${kq.sai.length})` : '';
-    theSai.innerHTML = kq.sai.map((x) => `<div class="the-po do">
+  // Cảnh báo: gom từ thẻ kế hoạch (phiếu đặt sai) và sản lượng HiPro (mã không bấm, lỗi cao). Ngưỡng lỗi: > 5 sản phẩm / ngày.
+  const NGUONG_LOI = 5;
+  const cb = { sai: [], khongBam: [], loiQC: null, loiKT: null };
+  const theSai = (x) => `<div class="the-po do">
       <div class="dau">Phiếu ${App.esc(x.soPhieu)}</div>
       <div class="phu">${x.lenhSX ? `<b>Lệnh ${App.esc(String(x.lenhSX).replace(/;\s*$/, ''))}</b> · ` : ''}Tạo ${App.datetime(x.ngayTao)}${x.ngayNhan ? ` · nhận ${App.date(x.ngayNhan)}` : ''}</div>
       <div class="so">
@@ -109,7 +108,33 @@
         ${so('SL đặt', x.slDat)}
       </div>
       <div class="ly-do">${App.esc(x.lyDo)}</div>
-    </div>`).join('');
+    </div>`;
+  const nhomCB = (tieu, n, html, ghi = '') => `<section class="${n ? 'co' : 'khong'}"><h3>${tieu} <span>(${n})</span></h3>${n ? html : `<div class="ok">Không có</div>`}${ghi ? `<div class="note">${ghi}</div>` : ''}</section>`;
+  const dongLoi = (l) => `<table class="bang-cb"><thead><tr><th>Mã hàng</th><th>Lỗi</th><th>Giờ nhiều lỗi nhất</th></tr></thead><tbody>${l.theoMa.map((m) => `<tr><td>${App.esc(m.maHang)}</td><td>${App.num(m.loi)}</td><td>${m.gio ? `Giờ ${m.gio} (${App.num(m.loiGio)})` : ''}</td></tr>`).join('')}</tbody></table>`;
+  function veCanhBao() {
+    const coQC = cb.loiQC && cb.loiQC.tong > NGUONG_LOI;
+    const coKT = cb.loiKT && cb.loiKT.tong > NGUONG_LOI;
+    const x = cb.sai.length + cb.khongBam.length + (coQC ? 1 : 0) + (coKT ? 1 : 0);
+    nutCanhBao.textContent = `Cảnh báo (${x})`;
+    nutCanhBao.className = `canh-bao ${x ? 'do' : 'xanh'}`;
+    soCB.textContent = `(${x})`;
+    noiDungCB.innerHTML = [
+      nhomCB('Đặt BTP sai kế hoạch', cb.sai.length, `<div class="the-ngang">${cb.sai.map(theSai).join('')}</div>`,
+        'Phiếu cấp BTP của tổ tạo trong 30 ngày: PO không có kế hoạch ở tổ, màu / size không có trong SBD của tổ, hoặc đặt lũy kế vượt KH tổ.'),
+      nhomCB('Không bấm năng suất mã hàng vào chuyền', cb.khongBam.length,
+        `<table class="bang-cb"><thead><tr><th>Mã hàng</th><th>PO</th><th>Vào chuyền LK</th><th>May ra LK</th></tr></thead><tbody>${cb.khongBam.map((m) => `<tr><td>${App.esc(m.maHang)}</td><td>${m.pos.map(App.esc).join('<br>')}</td><td>${App.num(m.vao)}</td><td>${App.num(m.ra)}</td></tr>`).join('')}</tbody></table>`,
+        'Mã hàng đã nhận BTP vào chuyền, còn hàng trên chuyền (vào chuyền LK > may ra LK) nhưng hôm nay chưa có sản lượng HiPro.'),
+      nhomCB('Lỗi kỹ thuật cao', coKT ? 1 : 0, coKT ? dongLoi(cb.loiKT) : '', cb.loiKT ? `Tổng lỗi kỹ thuật hôm nay ${App.num(cb.loiKT.tong)}, cảnh báo khi vượt ${NGUONG_LOI} sản phẩm.` : 'Chưa có nguồn số liệu lỗi kỹ thuật.'),
+      nhomCB('Lỗi QC cao', coQC ? 1 : 0, coQC ? dongLoi(cb.loiQC) : '', cb.loiQC ? `Tổng lỗi QC (HiPro NSCL) hôm nay ${App.num(cb.loiQC.tong)}, cảnh báo khi vượt ${NGUONG_LOI} sản phẩm.` : ''),
+    ].join('');
+  }
+  nutCanhBao.onclick = () => { hopCanhBao.hidden = false; };
+  dongCB.onclick = () => { hopCanhBao.hidden = true; };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hopCanhBao.hidden = true; });
+  function veThe(kq) {
+    veKH(kq);
+    cb.sai = kq.sai;
+    veCanhBao();
   }
   async function loadKeHoachTo() {
     App.loading(theKH);
@@ -136,6 +161,23 @@
     const loi = gioRows.reduce((s, r) => s + Number(r.loi || 0), 0);
     const keHoach = mine(kh).reduce((s, r) => s + Number(r.keHoach || 0), 0);
     const lao = mine(ld)[0];
+
+    // Cảnh báo lỗi QC (HiPro reject) theo mã hàng, kèm giờ nhiều lỗi nhất
+    const theoMa = gioRows.filter((r) => r.loi > 0).map((r) => {
+      const g = hours.reduce((m, h) => ((r[`r${h}`] || 0) > (r[`r${m}`] || 0) ? h : m), 1);
+      return { maHang: r.maHang, loi: r.loi, gio: r[`r${g}`] ? g : null, loiGio: r[`r${g}`] || 0 };
+    }).sort((a, b) => b.loi - a.loi);
+    cb.loiQC = sl.error ? null : { tong: loi, theoMa };
+    // Mã hàng còn hàng trên chuyền nhưng hôm nay không bấm HiPro
+    const coBam = new Set(gioRows.filter((r) => r.tong + r.loi > 0).map((r) => String(r.maHang).trim()));
+    const kb = new Map();
+    mine(pos).filter((r) => Number(r.vaoChuyenLK) > Number(r.mayRaLK || 0) && !Number(r.mayRaNgay) && !coBam.has(String(r.maHang).trim()))
+      .forEach((r) => {
+        const m = kb.get(r.maHang) || kb.set(r.maHang, { maHang: r.maHang, pos: [], vao: 0, ra: 0 }).get(r.maHang);
+        m.pos.push(r.po); m.vao += Number(r.vaoChuyenLK || 0); m.ra += Number(r.mayRaLK || 0);
+      });
+    cb.khongBam = [...kb.values()];
+    veCanhBao();
 
     App.cards(cards, [
       { label: 'Kế hoạch ngày', value: App.num(Math.round(keHoach)) },
