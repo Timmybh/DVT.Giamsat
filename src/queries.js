@@ -384,25 +384,6 @@ module.exports = {
       GROUP BY nm.ten, c.ten, sp.ma_san_pham, sp.po`,
   },
 
-  // Tình hình may theo PO (Report_BaoCaoMayRa là nhật ký snapshot ~10 phút: lấy bản mới nhất theo PO x chuyền trong ngày).
-  // Tham số: @xnNum ('1'), @d0
-  poMayRa: {
-    db: 'egmf',
-    text: `
-      WITH latest AS (
-        SELECT TenChuyen, PO, LenhSanXuat, MaHang, KhachHang, SoLuong, VaoChuyenLuyKe, MayRaSoLuong, MayRaLuyKe, NgayXuatHang,
-               ROW_NUMBER() OVER (PARTITION BY PO, TenChuyen ORDER BY ThoiGianTao DESC) AS rn
-        FROM dbo.Report_BaoCaoMayRa
-        WHERE PO IS NOT NULL AND CAST(XiNghiep AS nvarchar(20)) = @xnNum
-          AND NgaySanXuat >= @d0 AND NgaySanXuat < DATEADD(day, 1, @d0)
-      )
-      SELECT TenChuyen AS line, PO AS po, LenhSanXuat AS lenhSX, MaHang AS maHang, KhachHang AS khachHang,
-             SoLuong AS soLuong, VaoChuyenLuyKe AS vaoChuyenLK, MayRaSoLuong AS mayRaNgay, MayRaLuyKe AS mayRaLK,
-             NgayXuatHang AS ngayXuat
-      FROM latest WHERE rn = 1
-      ORDER BY LEN(TenChuyen), TenChuyen, PO`,
-  },
-
   // Lao động theo chuyền trong ngày. Tham số: @d0. API lọc xí nghiệp theo tên.
   laoDong: {
     db: 'egmf',

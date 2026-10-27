@@ -244,15 +244,6 @@ module.exports = {
     }
     return row;
   })),
-  poMayRa: ({ xnNum, d0 }) => (to[xnNum] || []).flatMap((t) => Array.from({ length: hInt(`npo${xnNum}${t.ma}`, 1, 2) }, (_, i) => {
-    const soLuong = hInt(`sl${xnNum}${t.ma}${i}`, 2000, 9000);
-    const mayRaLK = Math.floor(soLuong * hash(`lk${xnNum}${t.ma}${i}${d0}`));
-    return {
-      line: t.ma, po: String(hInt(`po${xnNum}${t.ma}${i}`, 4524000000, 4525999999)), lenhSX: `TUNTT-${hInt(`l${xnNum}${t.ma}${i}`, 600, 700)}-2026`,
-      maHang: hangCuaTo(xnNum, t.ma, d0), khachHang: pick(khach), soLuong, vaoChuyenLK: Math.min(soLuong, mayRaLK + hInt(`v${t.ma}${i}`, 200, 900)),
-      mayRaNgay: hInt(`mn${xnNum}${t.ma}${i}${d0}`, 100, 600), mayRaLK, ngayXuat: day(hInt(`nx${t.ma}${i}`, 3, 30)),
-    };
-  })),
   laoDong: ({ d0 }) => xiNghiep.flatMap((xn) => to[xn.ma].map((t) => {
     const tong = hInt(`ld${xn.ma}${t.ma}`, 28, 42);
     return { xn: `XÍ NGHIỆP MAY ${xn.ma}`, line: t.ma, tong, hienDien: tong - hInt(`vm${xn.ma}${t.ma}${d0}`, 0, 5) };
