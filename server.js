@@ -6,7 +6,7 @@ const api = require('./src/api');
 const app = express();
 app.use(express.json());
 app.use('/api', api);
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
