@@ -18,9 +18,9 @@
     </div>
   </div>
   <div class="panel">
-    <h2>Kế hoạch tổ theo PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
+    <h2>Kế hoạch tổ theo lệnh x PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
     <div id="theKH" class="the-ngang"></div>
-    <div class="note">Vuốt ngang để xem từng tổ hợp PO x màu x size. SL KH, đặt: theo size (SBD, phiếu cấp). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
+    <div class="note">Vuốt ngang để xem từng tổ hợp lệnh x PO x màu x size. SL KH lệnh: Bravo theo lệnh x PO x màu x size; SL phân bổ: SBD của tổ; đặt: phiếu cấp (PO nhiều lệnh thì tách theo lệnh ghi trên phiếu). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
       Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
   </div>
   <div class="panel" id="pSai" hidden>
@@ -60,16 +60,17 @@
   const so = (label, v, cls = '') => `<div><span>${label}</span><b class="${cls}">${App.num(v)}</b></div>`;
   // Mỗi tổ hợp PO x mã hàng x màu x size là 1 thẻ. SX chỉ có theo PO (HiPro không ghi size) nên ghi số của cả PO.
   function veThe(kq) {
-    const ds = kq.the.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: t.datNgay, datLK: t.datLK }])
-      .slice().sort((a, b) => String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
+    const ds = kq.the.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: 0, datLK: 0 }])
+      .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
     soThe.textContent = ds.length ? `(${ds.length} thẻ · ${kq.the.length} PO)` : '';
     theKH.innerHTML = ds.length ? ds.map(({ t, x }) => `<div class="the-po">
         <div class="dau">${App.esc(x.size || '(chưa có size)')} · ${App.esc(x.mau || '')}</div>
-        <div class="phu">PO ${App.esc(t.po)} · ${App.esc(t.maHang || '')}${t.lenhSX ? ` · ${App.esc(t.lenhSX)}` : ''}<br>
+        <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b> · PO ${App.esc(t.po)} · ${App.esc(t.maHang || '')}<br>
           vào chuyền ${App.date(t.ngayVaoChuyen)} → ${App.date(t.ngayKetThuc)}</div>
         <div class="so">
-          ${so('SL kế hoạch', x.kh)}${so('KH hôm nay (PO)', t.khNgay)}
-          ${so('Đặt hôm nay', x.datNgay)}${so('Đặt lũy kế', x.datLK, x.datLK > x.kh ? 'vuot' : '')}
+          ${so('SL KH lệnh', x.slLenh)}${so('SL phân bổ (SBD)', x.kh)}
+          ${so('KH hôm nay (PO)', t.khNgay)}<div></div>
+          ${so('Đặt hôm nay', x.datNgay)}${so('Đặt lũy kế', x.datLK, x.datLK > (x.slLenh ?? x.kh) ? 'vuot' : '')}
           ${so('SX hôm nay (PO)', t.sxNgay)}${so('SX lũy kế (PO)', t.sxLK)}
           ${so('Còn lại hôm nay (PO)', t.conLaiNgay)}${so('SX còn lại (PO)', t.conLai)}
         </div>
@@ -78,7 +79,7 @@
     soSai.textContent = kq.sai.length ? `(${kq.sai.length})` : '';
     theSai.innerHTML = kq.sai.map((x) => `<div class="the-po do">
       <div class="dau">Phiếu ${App.esc(x.soPhieu)}</div>
-      <div class="phu">Tạo ${App.datetime(x.ngayTao)}${x.ngayNhan ? ` · nhận ${App.date(x.ngayNhan)}` : ''}</div>
+      <div class="phu">${x.lenhSX ? `<b>Lệnh ${App.esc(String(x.lenhSX).replace(/;\s*$/, ''))}</b> · ` : ''}Tạo ${App.datetime(x.ngayTao)}${x.ngayNhan ? ` · nhận ${App.date(x.ngayNhan)}` : ''}</div>
       <div class="so">
         <div><span>PO</span><b>${App.esc(x.po)}</b></div><div><span>Mã hàng</span><b>${App.esc(x.maHang || '')}</b></div>
         <div><span>Màu</span><b>${App.esc(x.mau)}</b></div><div><span>Size</span><b>${App.esc(x.size)}</b></div>

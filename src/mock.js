@@ -362,11 +362,14 @@ module.exports = {
     const rows = sizeToMau(k).flatMap((x, j) => {
       const dat = Math.round(x.kh * (j === 1 && i === 0 ? 0.7 : 0.45));
       return [
-        { soPhieu: `26${1000 + i}${j}1`, ngayTao: `${d}T02:00:00.000Z`, ngayNhan: `${d}T01:00:00.000Z`, po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: 0 },
+        { soPhieu: `26${1000 + i}${j}1`, lenhSX: `${k.lenhSX};`, ngayTao: `${d}T02:00:00.000Z`, ngayNhan: `${d}T01:00:00.000Z`, po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: 0 },
         { soPhieu: `26${1000 + i}${j}0`, ngayTao: new Date(new Date(d) - 3 * 86400000).toISOString(), po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: dat },
       ];
     });
     if (i === 0) rows.push({ soPhieu: `26${1000 + i}99`, ngayTao: `${d}T03:00:00.000Z`, po: k.po, maHang: k.maHang, mau: mauList[0], size: 'XXL', slDat: 40, slNhan: 0 });
     return rows;
   }),
+  lenhToSize: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).flatMap((k) => sizeToMau(k).map((x) => ({
+    lenhSX: k.lenhSX, po: k.po, mau: x.mau.split(' ')[0], size: x.size, slLenh: x.kh + (x.size === 'M' ? 12 : 0),
+  }))),
 };

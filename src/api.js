@@ -320,7 +320,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     const maTo = String(req.query.to || '').trim();
     const n = await xnNum(req.query.xn);
     const p = { xn: req.query.xn, xnCode: n ? `XN${n}` : '', to: maTo, d };
-    const [sbd, pos, dat] = await Promise.all([run('khToSize', p), run('khToPO', p), run('datToSize', p)]);
+    const [sbd, pos, dat, lenhs] = await Promise.all([run('khToSize', p), run('khToPO', p), run('datToSize', p), run('lenhToSize', p)]);
     const tuLK = pos.reduce((m, r) => { const x = ymd(r.ngayVaoChuyen); return x && x < m ? x : m; }, d);
     const { sx } = await docMayRa(tuLK, d, d);
     const N = (v) => Number(v || 0);
@@ -333,7 +333,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     });
 
     // Dòng size kế hoạch, khóa đầy đủ và khóa theo mã màu
-    const sizes = sbd.map((r) => ({ ...r, po: poKey(r.po), kh: N(r.soLuong), datNgay: 0, datLK: 0, phieu: [] }));
+    const sizes = sbd.map((r) => ({ ...r, po: poKey(r.po), kh: N(r.soLuong), datNgay: 0, datLK: 0, phieu: [], tatCaPhieu: [] }));
     const day = new Map();
     const theoMa = new Map();
     sizes.forEach((r) => {
@@ -346,7 +346,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     dat.forEach((x) => {
       const po = poKey(x.po);
       const ngay = ymd(x.ngayTao);
-      const dong = { soPhieu: x.soPhieu, ngayTao: x.ngayTao, ngayNhan: x.ngayNhan, po, maHang: x.maHang, mau: x.mau, size: x.size, slDat: N(x.slDat) };
+      const dong = { soPhieu: x.soPhieu, ngayTao: x.ngayTao, ngayNhan: x.ngayNhan, lenhSX: x.lenhSX, po, maHang: x.maHang, mau: x.mau, size: x.size, slDat: N(x.slDat) };
       const r = day.get(`${po}|${chuanMau(x.mau)}|${chuanSize(x.size)}`) || theoMa.get(`${po}|${maMau(x.mau)}|${chuanSize(x.size)}`);
       if (!r) {
         if (ngay >= tu30) sai.push({ ...dong, lyDo: coPO.has(po) ? 'Màu / size không có trong kế hoạch phân bổ của tổ' : 'PO không có kế hoạch phân bổ ở tổ' });
@@ -355,6 +355,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
       r.datLK += dong.slDat;
       if (ngay === d) r.datNgay += dong.slDat;
       r.phieu.push({ ...dong, ngay });
+      r.tatCaPhieu.push({ ...dong, ngay });
     });
     // Đặt lũy kế vượt SL KH của size: đánh dấu các phiếu từ lúc vượt
     sizes.forEach((r) => {
@@ -367,18 +368,35 @@ router.get('/to-may/ke-hoach', async (req, res) => {
       delete r.phieu;
     });
 
+    // Lệnh của từng tổ hợp PO x màu x size (Bravo, ghép theo mã màu + size chuẩn hóa)
+    const lenhTheoKhoa = new Map();
+    lenhs.forEach((l) => {
+      const k = `${poKey(l.po)}|${maMau(l.mau)}|${chuanSize(l.size)}`;
+      (lenhTheoKhoa.get(k) || lenhTheoKhoa.set(k, []).get(k)).push(l);
+    });
+    const goLenh = (v) => String(v ?? '').toUpperCase().replace(/[\s;]+/g, '');
+    const cuaLenh = (phieuLenh, lenh) => String(phieuLenh ?? '').toUpperCase().replace(/\s+/g, '').split(';').some((x) => x && x === goLenh(lenh));
+
     const the = pos.map((x) => {
       const po = poKey(x.po);
-      const s2 = sizes.filter((r) => r.po === po);
       const m = sxPO.get(po) || { ngay: 0, lk: 0 };
       const khNgay = Math.round(N(x.khNgay));
       return {
         po, maHang: x.maHang, lenhSX: x.lenhSX, soLuong: N(x.soLuong), khNgay, ngayVaoChuyen: x.ngayVaoChuyen, ngayKetThuc: x.ngayKetThuc,
-        datNgay: s2.reduce((t, r) => t + r.datNgay, 0), datLK: s2.reduce((t, r) => t + r.datLK, 0),
         sxNgay: m.ngay, sxLK: m.lk, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
-        sizes: s2.map(({ mau, size, kh, datNgay, datLK }) => ({ mau, size, kh, datNgay, datLK })),
+        sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
+          const ls = lenhTheoKhoa.get(`${po}|${maMau(r.mau)}|${chuanSize(r.size)}`) || [];
+          const goc = { mau: r.mau, size: r.size, kh: r.kh };
+          if (ls.length <= 1) return [{ ...goc, lenhSX: ls[0] ? ls[0].lenhSX : null, slLenh: ls[0] ? N(ls[0].slLenh) : null, datNgay: r.datNgay, datLK: r.datLK }];
+          // PO có nhiều lệnh: tách đặt theo lệnh ghi trên phiếu cấp
+          return ls.map((l) => {
+            const ps = r.tatCaPhieu.filter((q) => cuaLenh(q.lenhSX, l.lenhSX));
+            return { ...goc, lenhSX: l.lenhSX, slLenh: N(l.slLenh), datNgay: ps.filter((q) => q.ngay === d).reduce((t, q) => t + q.slDat, 0), datLK: ps.reduce((t, q) => t + q.slDat, 0) };
+          });
+        }),
       };
     }).sort((a, b) => String(a.ngayVaoChuyen).localeCompare(String(b.ngayVaoChuyen)));
+    sizes.forEach((r) => delete r.tatCaPhieu);
     res.json({ the, sai: sai.sort((a, b) => String(b.ngayTao).localeCompare(String(a.ngayTao))) });
   } catch (err) {
     console.error('[toMayKeHoach]', err.message);

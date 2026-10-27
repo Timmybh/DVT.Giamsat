@@ -726,11 +726,26 @@ module.exports = {
     text: `
       WITH poChay AS (${poChayToSQL})
       SELECT pc.SoPhieuCapBTP AS soPhieu, pc.NgayTao AS ngayTao, pc.NgayNhanBTP AS ngayNhan,
-             ct.PO AS po, pc.ProductCode AS maHang, ISNULL(ct.TenMau, '') AS mau, ISNULL(ct.SizeCode, '') AS size,
+             ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, ct.PO AS po, pc.ProductCode AS maHang, ISNULL(ct.TenMau, '') AS mau, ISNULL(ct.SizeCode, '') AS size,
              ISNULL(ct.SoLuongCanCap, 0) AS slDat, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
       FROM dbo.CUTTING_PhieuCapBTP pc
       JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
       WHERE pc.TenPhanXuong = @xnCode AND LTRIM(RTRIM(pc.TenCum)) = @to AND pc.NgayTao < DATEADD(day, 1, @d)
         AND (pc.NgayTao >= DATEADD(day, -30, @d) OR ct.PO IN (SELECT po FROM poChay))`,
+  },
+
+  // SL kế hoạch theo lệnh x PO x màu x size (Bravo) cho PO đang chạy / có phiếu đặt gần đây của tổ (như lenhTheoSize)
+  lenhToSize: {
+    db: 'egmf',
+    text: `
+      WITH poChay AS (${poChayToSQL}),
+      poDat AS (${poDatToSQL})
+      SELECT CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+             b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE (b.PO IN (SELECT po FROM poChay) OR b.PO IN (SELECT po FROM poDat)) AND ISNULL(a.IsActive, 1) <> 0
+      GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+               b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
 };
