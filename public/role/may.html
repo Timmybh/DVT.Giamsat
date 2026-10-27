@@ -14,7 +14,6 @@
     <div class="filters bo-loc-may">
       <div class="mot-dong"><label>Tổ <select id="to"></select></label>
       <label>Ngày <input type="date" id="ngay"></label></div>
-      <a class="btn" id="linkBTP" href="/lean/dat-btp.html">Phiếu cấp BTP của tổ →</a>
     </div>
   </div>
   <div class="panel">
@@ -167,7 +166,6 @@
     ghiTo();
     loadKeHoachTo();
     const q = { xn: App.xn, d: ngay.value };
-    linkBTP.href = `/lean/dat-btp.html?xn=${App.xn}&to=${encodeURIComponent(to.value)}`;
     [gio, po].forEach(App.loading);
     const safe = (p) => p.catch((e) => ({ error: e }));
     const [kh, sl, ld, pos] = await Promise.all(['ke-hoach-ngay', 'san-luong-gio', 'lao-dong', 'po-may-ra'].map((u) => safe(App.api(u, q))));
