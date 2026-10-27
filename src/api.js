@@ -318,11 +318,12 @@ router.get('/may-ra', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// PO đang may của tổ trưởng: tự tính như báo cáo may ra với kỳ = ngày d (không đọc bảng Report_BaoCaoMayRa)
+// PO đang may của tổ trưởng: tự tính như báo cáo may ra với kỳ = ngày d (không đọc bảng Report_BaoCaoMayRa), bỏ PO đã may xong
 router.get('/po-may-ra', async (req, res) => {
   try {
     const { rows } = await tinhMayRa(req.query.xn, ngay(req), ngay(req));
-    res.json(rows.map((r) => ({
+    // Bỏ PO đã may xong (may ra LK >= SL PO) mà hôm nay không may thêm: không còn "đang may"
+    res.json(rows.filter((r) => !(r.soLuong > 0 && r.mayRaLK >= r.soLuong && !r.mayRaNgay)).map((r) => ({
       line: r.maTo, po: r.po, lenhSX: r.lenhSX, maHang: r.maHang, khachHang: r.khachHang, soLuong: r.soLuong,
       vaoChuyenLK: r.vaoLK, mayRaNgay: r.mayRaNgay, mayRaLK: r.mayRaLK, ngayXuat: r.ngayXuat,
     })));
