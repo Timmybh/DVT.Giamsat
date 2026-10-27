@@ -17,6 +17,17 @@
       <a class="btn" id="linkBTP" href="/lean/dat-btp.html">Phiếu cấp BTP của tổ →</a>
     </div>
   </div>
+  <div class="panel">
+    <h2>Kế hoạch tổ theo PO <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
+    <div id="theKH" class="the-ngang"></div>
+    <div class="note">Vuốt ngang để xem từng PO. SL KH: kế hoạch phân bổ (size theo SBD). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
+      SL SX: HiPro theo PO (HiPro không ghi size nên không có SX theo size). Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
+  </div>
+  <div class="panel" id="pSai" hidden>
+    <h2 style="color:var(--bad)">Phiếu đặt không đúng kế hoạch <span id="soSai"></span></h2>
+    <div id="theSai" class="the-ngang"></div>
+    <div class="note">Phiếu cấp BTP của tổ tạo trong 30 ngày: PO không có kế hoạch ở tổ, màu / size không có trong SBD của tổ, hoặc đặt lũy kế vượt SL KH của size.</div>
+  </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
     <h2>Sản lượng theo giờ (HiPro)</h2>
@@ -33,13 +44,60 @@
 
   async function loadTo() {
     const list = await App.api('to', { xn: App.xn });
-    const want = new URLSearchParams(location.search).get('to');
+    const want = new URLSearchParams(location.search).get('to') || localStorage.getItem('toMay');
     to.innerHTML = list.map((t) => `<option value="${App.esc(t.ma)}">${App.esc(t.ten)}</option>`).join('');
     if (want && list.some((t) => t.ma === want)) to.value = want;
     load();
   }
 
+  // Ghi tổ đang chọn lên URL (?to=) để mở lại / gửi link đúng tổ
+  function ghiTo() {
+    try { localStorage.setItem('toMay', to.value); } catch (e) { /* bỏ qua */ }
+    const u = new URL(location.href);
+    if (u.searchParams.get('to') !== to.value) { u.searchParams.set('to', to.value); history.replaceState(null, '', u); }
+  }
+
+  const so = (label, v, cls = '') => `<div><span>${label}</span><b class="${cls}">${App.num(v)}</b></div>`;
+  function veThe(kq) {
+    soThe.textContent = kq.the.length ? `(${kq.the.length} PO)` : '';
+    theKH.innerHTML = kq.the.length ? kq.the.map((t) => {
+      const sizes = t.sizes.slice().sort((a, b) => String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b));
+      return `<div class="the-po">
+        <div class="dau">PO ${App.esc(t.po)}</div>
+        <div class="phu">${App.esc(t.maHang || '')}${t.lenhSX ? ` · ${App.esc(t.lenhSX)}` : ''} · vào chuyền ${App.date(t.ngayVaoChuyen)} → ${App.date(t.ngayKetThuc)}</div>
+        <div class="so">
+          ${so('SL kế hoạch', t.soLuong)}${so('KH hôm nay', t.khNgay)}
+          ${so('Đặt hôm nay', t.datNgay)}${so('Đặt lũy kế', t.datLK, t.datLK > t.soLuong ? 'vuot' : '')}
+          ${so('SX hôm nay', t.sxNgay)}${so('SX lũy kế', t.sxLK)}
+          ${so('Còn lại hôm nay', t.conLaiNgay)}${so('SX còn lại', t.conLai)}
+        </div>
+        <table><thead><tr><th>Màu</th><th>Size</th><th>SL KH</th><th>Đặt hôm nay</th><th>Đặt LK</th></tr></thead><tbody>
+          ${sizes.map((x) => `<tr><td>${App.esc(x.mau)}</td><td>${App.esc(x.size)}</td><td>${App.num(x.kh)}</td><td>${App.num(x.datNgay)}</td>
+            <td class="${x.datLK > x.kh ? 'vuot' : ''}">${App.num(x.datLK)}</td></tr>`).join('') || '<tr><td colspan="5">Chưa có size breakdown (SBD)</td></tr>'}
+        </tbody></table>
+      </div>`;
+    }).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
+    pSai.hidden = !kq.sai.length;
+    soSai.textContent = kq.sai.length ? `(${kq.sai.length})` : '';
+    theSai.innerHTML = kq.sai.map((x) => `<div class="the-po do">
+      <div class="dau">Phiếu ${App.esc(x.soPhieu)}</div>
+      <div class="phu">Tạo ${App.datetime(x.ngayTao)}${x.ngayNhan ? ` · nhận ${App.date(x.ngayNhan)}` : ''}</div>
+      <div class="so">
+        <div><span>PO</span><b>${App.esc(x.po)}</b></div><div><span>Mã hàng</span><b>${App.esc(x.maHang || '')}</b></div>
+        <div><span>Màu</span><b>${App.esc(x.mau)}</b></div><div><span>Size</span><b>${App.esc(x.size)}</b></div>
+        ${so('SL đặt', x.slDat)}
+      </div>
+      <div class="ly-do">${App.esc(x.lyDo)}</div>
+    </div>`).join('');
+  }
+  async function loadKeHoachTo() {
+    App.loading(theKH);
+    try { veThe(await App.api('to-may/ke-hoach', { xn: App.xn, to: to.value, d: ngay.value })); } catch (e) { App.error(theKH, e); }
+  }
+
   async function load() {
+    ghiTo();
+    loadKeHoachTo();
     const q = { xn: App.xn, d: ngay.value };
     linkBTP.href = `/lean/dat-btp.html?xn=${App.xn}&to=${encodeURIComponent(to.value)}`;
     [gio, po].forEach(App.loading);

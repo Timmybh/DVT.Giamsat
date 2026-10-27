@@ -264,6 +264,14 @@ const ymd = (v) => {
   const p = (x) => String(x).padStart(2, '0');
   return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
 };
+// May ra HiPro (nhà máy x chuyền x PO) từ tuLK, đọc cả bảng lưu trữ pro_nscl_MM_YYYY của các tháng tuLK..denNgay
+async function docMayRa(tuLK, tuNgay, denNgay) {
+  const bang = (await run('nsclLuuTru', {})).map((x) => x.name).filter((b) => {
+    const m = /^pro_nscl_(\d{2})_(\d{4})$/.exec(b);
+    return m && `${m[2]}-${m[1]}` >= tuLK.slice(0, 7) && `${m[2]}-${m[1]}` <= denNgay.slice(0, 7);
+  });
+  return { bang, sx: await run('mayRaHiPro', { tuLK, tuNgay, denNgay }, bang) };
+}
 router.get('/may-ra', async (req, res) => {
   try {
     const tuNgay = req.query.tuNgay || today();
@@ -271,11 +279,7 @@ router.get('/may-ra', async (req, res) => {
     const n = await xnNum(req.query.xn);
     const rows = await run('mayRa', { xn: req.query.xn, xnCode: n ? `XN${n}` : '', tuNgay, denNgay });
     const tuLK = rows.reduce((m, r) => { const d = ymd(r.ngayBatDau); return d && d < m ? d : m; }, tuNgay);
-    const bang = (await run('nsclLuuTru', {})).map((x) => x.name).filter((b) => {
-      const m = /^pro_nscl_(\d{2})_(\d{4})$/.exec(b);
-      return m && `${m[2]}-${m[1]}` >= tuLK.slice(0, 7) && `${m[2]}-${m[1]}` <= denNgay.slice(0, 7);
-    });
-    const sx = await run('mayRaHiPro', { tuLK, tuNgay, denNgay }, bang);
+    const { bang, sx } = await docMayRa(tuLK, tuNgay, denNgay);
 
     const key = (line, po) => `${lineOf(line)}|${String(po ?? '').trim()}`;
     const map = new Map();
@@ -303,6 +307,81 @@ router.get('/may-ra', async (req, res) => {
     });
   } catch (err) {
     console.error('[mayRa]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+// Tổ trưởng may: kế hoạch tổ theo PO (thẻ) x màu x size tại ngày d.
+//   SL KH: OMM_KeHoachThang (PO) / SBD (size). SL đặt: SoLuongCanCap phiếu cấp BTP của tổ (hôm nay = phiếu tạo ngày d; lũy kế đến hết d).
+//   SL SX: HiPro theo chuyền x PO (HiPro không ghi size). Còn lại hôm nay = KH ngày - SX hôm nay; còn lại = SL KH - SX lũy kế.
+//   Phiếu đặt sai kế hoạch (tạo trong 30 ngày): PO không có kế hoạch ở tổ, màu/size không có trong SBD, hoặc đặt lũy kế vượt SL KH size.
+router.get('/to-may/ke-hoach', async (req, res) => {
+  try {
+    const d = req.query.d || today();
+    const maTo = String(req.query.to || '').trim();
+    const n = await xnNum(req.query.xn);
+    const p = { xn: req.query.xn, xnCode: n ? `XN${n}` : '', to: maTo, d };
+    const [sbd, pos, dat] = await Promise.all([run('khToSize', p), run('khToPO', p), run('datToSize', p)]);
+    const tuLK = pos.reduce((m, r) => { const x = ymd(r.ngayVaoChuyen); return x && x < m ? x : m; }, d);
+    const { sx } = await docMayRa(tuLK, d, d);
+    const N = (v) => Number(v || 0);
+    const poKey = (v) => String(v ?? '').trim();
+    const sxPO = new Map();
+    sx.filter((r) => xnOf(r.xn) === n && lineOf(r.line) === lineOf(maTo)).forEach((r) => {
+      const x = sxPO.get(poKey(r.po)) || { ngay: 0, lk: 0 };
+      x.ngay += N(r.mayRaNgay); x.lk += N(r.mayRaLK);
+      sxPO.set(poKey(r.po), x);
+    });
+
+    // Dòng size kế hoạch, khóa đầy đủ và khóa theo mã màu
+    const sizes = sbd.map((r) => ({ ...r, po: poKey(r.po), kh: N(r.soLuong), datNgay: 0, datLK: 0, phieu: [] }));
+    const day = new Map();
+    const theoMa = new Map();
+    sizes.forEach((r) => {
+      day.set(`${r.po}|${chuanMau(r.mau)}|${chuanSize(r.size)}`, r);
+      if (!theoMa.has(`${r.po}|${maMau(r.mau)}|${chuanSize(r.size)}`)) theoMa.set(`${r.po}|${maMau(r.mau)}|${chuanSize(r.size)}`, r);
+    });
+    const coPO = new Set(sizes.map((r) => r.po));
+    const tu30 = ymd(new Date(new Date(d) - 30 * 86400000));
+    const sai = [];
+    dat.forEach((x) => {
+      const po = poKey(x.po);
+      const ngay = ymd(x.ngayTao);
+      const dong = { soPhieu: x.soPhieu, ngayTao: x.ngayTao, ngayNhan: x.ngayNhan, po, maHang: x.maHang, mau: x.mau, size: x.size, slDat: N(x.slDat) };
+      const r = day.get(`${po}|${chuanMau(x.mau)}|${chuanSize(x.size)}`) || theoMa.get(`${po}|${maMau(x.mau)}|${chuanSize(x.size)}`);
+      if (!r) {
+        if (ngay >= tu30) sai.push({ ...dong, lyDo: coPO.has(po) ? 'Màu / size không có trong kế hoạch phân bổ của tổ' : 'PO không có kế hoạch phân bổ ở tổ' });
+        return;
+      }
+      r.datLK += dong.slDat;
+      if (ngay === d) r.datNgay += dong.slDat;
+      r.phieu.push({ ...dong, ngay });
+    });
+    // Đặt lũy kế vượt SL KH của size: đánh dấu các phiếu từ lúc vượt
+    sizes.forEach((r) => {
+      let lk = 0;
+      r.phieu.sort((a, b) => String(a.ngay).localeCompare(String(b.ngay)) || String(a.soPhieu).localeCompare(String(b.soPhieu)))
+        .forEach((x) => {
+          lk += x.slDat;
+          if (lk > r.kh && x.ngay >= tu30) sai.push({ ...x, lyDo: `Đặt lũy kế ${lk.toLocaleString('vi-VN')} vượt KH ${r.kh.toLocaleString('vi-VN')}` });
+        });
+      delete r.phieu;
+    });
+
+    const the = pos.map((x) => {
+      const po = poKey(x.po);
+      const s2 = sizes.filter((r) => r.po === po);
+      const m = sxPO.get(po) || { ngay: 0, lk: 0 };
+      const khNgay = Math.round(N(x.khNgay));
+      return {
+        po, maHang: x.maHang, lenhSX: x.lenhSX, soLuong: N(x.soLuong), khNgay, ngayVaoChuyen: x.ngayVaoChuyen, ngayKetThuc: x.ngayKetThuc,
+        datNgay: s2.reduce((t, r) => t + r.datNgay, 0), datLK: s2.reduce((t, r) => t + r.datLK, 0),
+        sxNgay: m.ngay, sxLK: m.lk, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
+        sizes: s2.map(({ mau, size, kh, datNgay, datLK }) => ({ mau, size, kh, datNgay, datLK })),
+      };
+    }).sort((a, b) => String(a.ngayVaoChuyen).localeCompare(String(b.ngayVaoChuyen)));
+    res.json({ the, sai: sai.sort((a, b) => String(b.ngayTao).localeCompare(String(a.ngayTao))) });
+  } catch (err) {
+    console.error('[toMayKeHoach]', err.message);
     res.status(500).json({ error: err.message });
   }
 });

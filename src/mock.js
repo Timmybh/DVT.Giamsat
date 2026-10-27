@@ -133,6 +133,9 @@ const poMau = (xn, line) => Array.from({ length: hInt(`mpo${xn}${line}`, 1, 3) }
   batDau: new Date(Date.now() - hInt(`mb${xn}${line}${i}`, 5, 90) * 86400000).toISOString().slice(0, 10),
   soNgay: hInt(`mn${xn}${line}${i}`, 20, 50), ngayXuat: day(hInt(`mx${line}${i}`, 3, 40)),
 }));
+// PO đang chạy của tổ tại ngày d (theo kế hoạch mẫu) và size breakdown cố định theo PO
+const poToMau = (xn, maTo, d) => keHoach.filter((k) => k.xn === xn && k.maTo === maTo && k.ngayVaoChuyen.slice(0, 10) <= d && k.ngayKetThuc.slice(0, 10) >= d);
+const sizeToMau = (k) => mauList.slice(0, 1 + (Number(k.maHang) % 2)).flatMap((mau) => sizeList.map((size) => ({ mau, size, kh: hInt(`sz${k.po}${mau}${size}`, 80, 400) })));
 const inRange = (d, tu, den) => d.slice(0, 10) >= tu && d.slice(0, 10) <= den;
 
 module.exports = {
@@ -346,5 +349,24 @@ module.exports = {
     const truoc = new Date(new Date(tuNgay) - 86400000).toISOString().slice(0, 10);
     const homQua = new Date(new Date(denNgay) - 86400000).toISOString().slice(0, 10);
     return { xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, po: p.po, maHang: p.maHang, mayRaKy: lk(denNgay) - lk(truoc), mayRaNgay: lk(denNgay) - lk(homQua), mayRaLK: lk(denNgay) };
-  }))),
+  }))).concat(keHoach.filter((k) => k.ngayBatDau.slice(0, 10) <= denNgay).map((k) => {
+    const f = Math.min(1, (new Date(denNgay) - new Date(k.ngayBatDau)) / (new Date(k.ngayKetThuc) - new Date(k.ngayBatDau)));
+    return { xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, po: k.po, maHang: k.maHang, mayRaKy: 0, mayRaNgay: hInt(`sxn${k.po}${denNgay}`, 40, 160), mayRaLK: Math.floor(k.soLuong * Math.max(0, f) * 0.9) };
+  })),
+  // Tổ trưởng may: kế hoạch tổ (PO đang chạy tại ngày d), size theo SBD, phiếu đặt có 1 dòng sai size và 1 size đặt vượt KH
+  khToPO: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).map((k) => ({
+    po: k.po, maHang: k.maHang, lenhSX: k.lenhSX, soLuong: k.soLuong, khNgay: Math.round(k.soLuong / 8), ngayVaoChuyen: k.ngayVaoChuyen, ngayKetThuc: k.ngayKetThuc,
+  })),
+  khToSize: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).flatMap((k) => sizeToMau(k).map((x) => ({ po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, soLuong: x.kh, dangChay: 1 }))),
+  datToSize: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).flatMap((k, i) => {
+    const rows = sizeToMau(k).flatMap((x, j) => {
+      const dat = Math.round(x.kh * (j === 1 && i === 0 ? 0.7 : 0.45));
+      return [
+        { soPhieu: `26${1000 + i}${j}1`, ngayTao: `${d}T02:00:00.000Z`, ngayNhan: `${d}T01:00:00.000Z`, po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: 0 },
+        { soPhieu: `26${1000 + i}${j}0`, ngayTao: new Date(new Date(d) - 3 * 86400000).toISOString(), po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, slDat: dat, slNhan: dat },
+      ];
+    });
+    if (i === 0) rows.push({ soPhieu: `26${1000 + i}99`, ngayTao: `${d}T03:00:00.000Z`, po: k.po, maHang: k.maHang, mau: mauList[0], size: 'XXL', slDat: 40, slNhan: 0 });
+    return rows;
+  }),
 };

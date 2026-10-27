@@ -25,6 +25,24 @@ const vaiChinh = (col) => {
   return VAI_CHINH.map((v) => `${ds} LIKE N'%,${v},%'`).concat(`(@xnCode = 'XN2' AND ${ds} LIKE N'%,Vải chính B,%')`).join(' OR ');
 };
 
+// PO đang chạy của tổ @to tại ngày @d (kế hoạch từ vào chuyền đến kết thúc may phủ @d)
+const poChayToSQL = `
+        SELECT DISTINCT po.PONo AS po
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = pct.POId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
+          AND k.NgayVaoChuyenKeHoachBatDau < DATEADD(day, 1, @d) AND k.NgayMayKeHoachKetThuc >= @d`;
+// PO trong phiếu đặt BTP của tổ tạo trong 30 ngày tới hết @d
+const poDatToSQL = `
+        SELECT DISTINCT ct.PO AS po
+        FROM dbo.CUTTING_PhieuCapBTP pc
+        JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
+        WHERE pc.TenPhanXuong = @xnCode AND LTRIM(RTRIM(pc.TenCum)) = @to
+          AND pc.NgayTao >= DATEADD(day, -30, @d) AND pc.NgayTao < DATEADD(day, 1, @d)`;
+
 module.exports = {
   // Danh mục xí nghiệp. API tự suy ra mã 'XN1'.. từ số trong tên để lọc bảng CUTTING
   xiNghiep: {
@@ -648,5 +666,71 @@ module.exports = {
       WHERE k.ngay_san_xuat >= @tuLK AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
       GROUP BY nm.ten, c.ten, sp.po`,
     };
+  },
+
+  // ======================= Tổ trưởng chuyền may: kế hoạch tổ theo PO x size =======================
+  // PO "đang chạy" của tổ tại ngày @d: có dòng OMM_KeHoachThang từ vào chuyền đến kết thúc may phủ ngày @d.
+  // Phiếu đặt gần đây: phiếu cấp BTP của tổ tạo trong 30 ngày tới @d. Tham số chung: @xn, @xnCode, @to, @d
+  khToSize: {
+    db: 'egmf',
+    text: `
+      WITH poChay AS (${poChayToSQL}),
+      poDat AS (${poDatToSQL})
+      SELECT po.PONo AS po, dh.MaHang AS maHang, ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size,
+             SUM(ISNULL(s.SoLuong, 0)) AS soLuong,
+             CASE WHEN po.PONo IN (SELECT po FROM poChay) THEN 1 ELSE 0 END AS dangChay
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+      JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = pct.POId
+      JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
+        AND (po.PONo IN (SELECT po FROM poChay) OR po.PONo IN (SELECT po FROM poDat))
+      GROUP BY po.PONo, dh.MaHang, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+  },
+
+  // Theo PO đang chạy của tổ: SL kế hoạch, KH ngày @d (như keHoachNgay), ngày vào chuyền / kết thúc may, lệnh SX (Bravo)
+  khToPO: {
+    db: 'egmf',
+    text: `
+      WITH poChay AS (${poChayToSQL})
+      SELECT x.*,
+             STUFF((SELECT DISTINCT ', ' + a.DocNo
+                    FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+                    JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+                    WHERE b.PO = x.po
+                    FOR XML PATH('')), 1, 2, '') AS lenhSX
+      FROM (
+        SELECT po.PONo AS po, MAX(dh.MaHang) AS maHang, SUM(k.SoLuong) AS soLuong,
+               SUM(CASE WHEN CAST(k.NgayMayKeHoachBatDau AS date) <= @d AND @d <= CAST(k.NgayMayKeHoachKetThuc AS date)
+                        THEN CASE WHEN ISNULL(k.SoNgaySX, 0) <= 1 THEN k.SoLuong ELSE k.SoLuong * 1.0 / k.SoNgaySX END
+                        ELSE 0 END) AS khNgay,
+               MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = pct.POId
+        JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
+          AND po.PONo IN (SELECT po FROM poChay)
+        GROUP BY po.PONo
+      ) x`,
+  },
+
+  // Dòng chi tiết phiếu đặt BTP của tổ (SL đặt = SoLuongCanCap), tạo đến hết @d, thuộc PO đang chạy hoặc tạo trong 30 ngày
+  datToSize: {
+    db: 'egmf',
+    text: `
+      WITH poChay AS (${poChayToSQL})
+      SELECT pc.SoPhieuCapBTP AS soPhieu, pc.NgayTao AS ngayTao, pc.NgayNhanBTP AS ngayNhan,
+             ct.PO AS po, pc.ProductCode AS maHang, ISNULL(ct.TenMau, '') AS mau, ISNULL(ct.SizeCode, '') AS size,
+             ISNULL(ct.SoLuongCanCap, 0) AS slDat, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
+      FROM dbo.CUTTING_PhieuCapBTP pc
+      JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
+      WHERE pc.TenPhanXuong = @xnCode AND LTRIM(RTRIM(pc.TenCum)) = @to AND pc.NgayTao < DATEADD(day, 1, @d)
+        AND (pc.NgayTao >= DATEADD(day, -30, @d) OR ct.PO IN (SELECT po FROM poChay))`,
   },
 };
