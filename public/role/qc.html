@@ -19,7 +19,7 @@
   </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
-    <h2>Theo tổ</h2>
+    <h2>Theo tổ <span id="toName2"></span></h2>
     <div id="theoTo"></div>
   </div>
   <div class="panel">
@@ -52,6 +52,7 @@
     const q = { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value };
     [theoTo, theoLoi, theoNgay].forEach(App.loading);
     toName.textContent = to.value ? `- Tổ ${to.value}` : '';
+    toName2.textContent = to.value ? '(đang lọc 1 tổ, chọn "Tất cả" để xem mọi tổ)' : '';
     try {
       const [nscl, loi] = await Promise.all([App.api('qc-nscl', q), App.api('qc-loi-chi-tiet', q)]);
       const chon = (r) => !to.value || r.line === to.value;
@@ -76,7 +77,7 @@
       };
       const tyLeCol = { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: (rs) => `<span style="float:right">${tyLeTong(rs)}</span>` };
 
-      const tos = gom(nscl.map((r) => ({ ...r, dat: Number(r.dat || 0), loi: Number(r.loi || 0), sua: Number(r.sua || 0) })), (r) => r.line, (r) => ({ line: r.line }))
+      const tos = gom(nscl.filter(chon).map((r) => ({ ...r, dat: Number(r.dat || 0), loi: Number(r.loi || 0), sua: Number(r.sua || 0) })), (r) => r.line, (r) => ({ line: r.line }))
         .sort((a, b) => Number(a.line) - Number(b.line));
       App.table(theoTo, [
         { key: 'line', label: 'Tổ', render: (r) => `Tổ ${App.esc(r.line)}` },
