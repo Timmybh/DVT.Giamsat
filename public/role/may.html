@@ -96,8 +96,28 @@
     theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veMotThe(t, x)).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
   }
   // Cảnh báo: gom từ thẻ kế hoạch (phiếu đặt sai) và sản lượng HiPro (mã không bấm, lỗi cao). Ngưỡng lỗi: > 5 sản phẩm / ngày.
+  // Chỉ xét kế hoạch chưa hoàn tất (SX LK < SL PO) có ngày vào chuyền KH từ (ngày chọn - SO_NGAY_VAO) trở đi.
   const NGUONG_LOI = 5;
-  const cb = { sai: [], khongBam: [], loiQC: null, loiKT: null };
+  const SO_NGAY_VAO = 3;
+  const cb = { the: null, saiTho: [], bamTho: [], loiTho: null, loiKT: null };
+  const lui = (d, n) => { const x = new Date(`${d}T00:00:00`); x.setDate(x.getDate() - n); return App.ymd(x); };
+  function phamVi() {
+    const tu = lui(ngay.value, SO_NGAY_VAO);
+    const xet = (cb.the || []).filter((t) => t.sxLK < t.soLuong && String(t.ngayVaoChuyen || '').slice(0, 10) >= tu);
+    return { tu, po: new Set(xet.map((t) => String(t.po).trim())), ma: new Set(xet.map((t) => String(t.maHang).trim())) };
+  }
+  function tinhCanhBao() {
+    const pv = phamVi();
+    // Phiếu của PO trong phạm vi; phiếu của PO không có kế hoạch ở tổ: chỉ phiếu tạo từ ngày "tu"
+    const sai = cb.saiTho.filter((x) => (pv.po.has(String(x.po).trim()) ? true : !cb.the.some((t) => String(t.po).trim() === String(x.po).trim()) && String(x.ngayTao || '').slice(0, 10) >= pv.tu));
+    const kb = new Map();
+    cb.bamTho.filter((r) => pv.po.has(String(r.po).trim())).forEach((r) => {
+      const m = kb.get(r.maHang) || kb.set(r.maHang, { maHang: r.maHang, pos: [], vao: 0, ra: 0 }).get(r.maHang);
+      m.pos.push(r.po); m.vao += Number(r.vaoChuyenLK || 0); m.ra += Number(r.mayRaLK || 0);
+    });
+    const theoMa = cb.loiTho ? cb.loiTho.filter((m) => pv.ma.has(String(m.maHang).trim())) : [];
+    return { pv, sai, khongBam: [...kb.values()], loiQC: cb.loiTho ? { tong: theoMa.reduce((t, m) => t + m.loi, 0), theoMa } : null };
+  }
   const theSai = (x) => `<div class="the-po do">
       <div class="dau">Phiếu ${App.esc(x.soPhieu)}</div>
       <div class="phu">${x.lenhSX ? `<b>Lệnh ${App.esc(String(x.lenhSX).replace(/;\s*$/, ''))}</b> · ` : ''}Tạo ${App.datetime(x.ngayTao)}${x.ngayNhan ? ` · nhận ${App.date(x.ngayNhan)}` : ''}</div>
@@ -111,6 +131,9 @@
   const nhomCB = (tieu, n, html, ghi = '') => `<section class="${n ? 'co' : 'khong'}"><h3>${tieu} <span>(${n})</span></h3>${n ? html : `<div class="ok">Không có</div>`}${ghi ? `<div class="note">${ghi}</div>` : ''}</section>`;
   const dongLoi = (l) => `<table class="bang-cb"><thead><tr><th>Mã hàng</th><th>Lỗi</th><th>Giờ nhiều lỗi nhất</th></tr></thead><tbody>${l.theoMa.map((m) => `<tr><td>${App.esc(m.maHang)}</td><td>${App.num(m.loi)}</td><td>${m.gio ? `Giờ ${m.gio} (${App.num(m.loiGio)})` : ''}</td></tr>`).join('')}</tbody></table>`;
   function veCanhBao() {
+    if (!cb.the) return;
+    const { pv, ...cbx } = tinhCanhBao();
+    Object.assign(cb, cbx);
     const coQC = cb.loiQC && cb.loiQC.tong > NGUONG_LOI;
     const coKT = cb.loiKT && cb.loiKT.tong > NGUONG_LOI;
     const x = cb.sai.length + cb.khongBam.length + (coQC ? 1 : 0) + (coKT ? 1 : 0);
@@ -125,19 +148,20 @@
         'Mã hàng đã nhận BTP vào chuyền, còn hàng trên chuyền (vào chuyền LK > may ra LK) nhưng hôm nay chưa có sản lượng HiPro.'),
       nhomCB('Lỗi kỹ thuật cao', coKT ? 1 : 0, coKT ? dongLoi(cb.loiKT) : '', cb.loiKT ? `Tổng lỗi kỹ thuật hôm nay ${App.num(cb.loiKT.tong)}, cảnh báo khi vượt ${NGUONG_LOI} sản phẩm.` : 'Chưa có nguồn số liệu lỗi kỹ thuật.'),
       nhomCB('Lỗi QC cao', coQC ? 1 : 0, coQC ? dongLoi(cb.loiQC) : '', cb.loiQC ? `Tổng lỗi QC (HiPro NSCL) hôm nay ${App.num(cb.loiQC.tong)}, cảnh báo khi vượt ${NGUONG_LOI} sản phẩm.` : ''),
-    ].join('');
+    ].join('') + `<div class="note">Chỉ xét kế hoạch chưa hoàn tất (SX LK < SL PO), ngày vào chuyền KH từ ${App.date(pv.tu)} trở đi: ${pv.po.size} PO.</div>`;
   }
   nutCanhBao.onclick = () => { hopCanhBao.hidden = false; };
   dongCB.onclick = () => { hopCanhBao.hidden = true; };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hopCanhBao.hidden = true; });
   function veThe(kq) {
     veKH(kq);
-    cb.sai = kq.sai;
+    cb.the = kq.the;
+    cb.saiTho = kq.sai;
     veCanhBao();
   }
   async function loadKeHoachTo() {
     App.loading(theKH);
-    try { veThe(await App.api('to-may/ke-hoach', { xn: App.xn, to: to.value, d: ngay.value })); } catch (e) { App.error(theKH, e); }
+    try { veThe(await App.api('to-may/ke-hoach', { xn: App.xn, to: to.value, d: ngay.value })); } catch (e) { App.error(theKH, e); cb.the = []; cb.saiTho = []; veCanhBao(); }
   }
 
   async function load() {
@@ -166,16 +190,10 @@
       const g = hours.reduce((m, h) => ((r[`r${h}`] || 0) > (r[`r${m}`] || 0) ? h : m), 1);
       return { maHang: r.maHang, loi: r.loi, gio: r[`r${g}`] ? g : null, loiGio: r[`r${g}`] || 0 };
     }).sort((a, b) => b.loi - a.loi);
-    cb.loiQC = sl.error ? null : { tong: loi, theoMa };
+    cb.loiTho = sl.error ? null : theoMa;
     // Mã hàng còn hàng trên chuyền nhưng hôm nay không bấm HiPro
     const coBam = new Set(gioRows.filter((r) => r.tong + r.loi > 0).map((r) => String(r.maHang).trim()));
-    const kb = new Map();
-    mine(pos).filter((r) => Number(r.vaoChuyenLK) > Number(r.mayRaLK || 0) && !Number(r.mayRaNgay) && !coBam.has(String(r.maHang).trim()))
-      .forEach((r) => {
-        const m = kb.get(r.maHang) || kb.set(r.maHang, { maHang: r.maHang, pos: [], vao: 0, ra: 0 }).get(r.maHang);
-        m.pos.push(r.po); m.vao += Number(r.vaoChuyenLK || 0); m.ra += Number(r.mayRaLK || 0);
-      });
-    cb.khongBam = [...kb.values()];
+    cb.bamTho = mine(pos).filter((r) => Number(r.vaoChuyenLK) > Number(r.mayRaLK || 0) && !Number(r.mayRaNgay) && !coBam.has(String(r.maHang).trim()));
     veCanhBao();
 
     App.cards(cards, [
