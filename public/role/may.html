@@ -18,7 +18,12 @@
     </div>
   </div>
   <div class="panel">
-    <h2>Kế hoạch tổ theo lệnh x PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <h2 style="margin:0">Kế hoạch tổ theo lệnh x PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
+      <div class="kieu-the" id="kieuThe">
+        <button data-k="1">Kiểu 1 · Chi tiết</button><button data-k="2">Kiểu 2 · Tiến độ</button><button data-k="3">Kiểu 3 · Ma trận</button>
+      </div>
+    </div>
     <div id="theKH" class="the-ngang"></div>
     <div class="note">Vuốt ngang để xem từng tổ hợp lệnh x PO x màu x size. SL KH lệnh: Bravo theo lệnh x PO x màu x size; SL phân bổ: SBD của tổ; đặt: phiếu cấp (PO nhiều lệnh thì tách theo lệnh ghi trên phiếu). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
       Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
@@ -58,23 +63,76 @@
   }
 
   const so = (label, v, cls = '') => `<div><span>${label}</span><b class="${cls}">${App.num(v)}</b></div>`;
-  // Mỗi tổ hợp PO x mã hàng x màu x size là 1 thẻ. SX chỉ có theo PO (HiPro không ghi size) nên ghi số của cả PO.
-  function veThe(kq) {
-    const ds = kq.the.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: 0, datLK: 0 }])
-      .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
-    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${kq.the.length} PO)` : '';
-    theKH.innerHTML = ds.length ? ds.map(({ t, x }) => `<div class="the-po">
-        <div class="dau">${App.esc(x.size || '(chưa có size)')} · ${App.esc(x.mau || '')}</div>
-        <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b> · PO ${App.esc(t.po)} · ${App.esc(t.maHang || '')}<br>
-          vào chuyền ${App.date(t.ngayVaoChuyen)} → ${App.date(t.ngayKetThuc)}</div>
+  // Mỗi tổ hợp lệnh x PO x màu x size là 1 thẻ. SX chỉ có theo PO (HiPro không ghi size) nên ghi số của cả PO.
+  // 3 kiểu thẻ để chọn, nhớ trong trình duyệt.
+  let kieu = '1';
+  try { kieu = localStorage.getItem('kieuThe') || '1'; } catch (e) { /* bỏ qua */ }
+  let kqCuoi = null;
+  const pct = (a, b) => (b ? Math.min(100, Math.round((a / b) * 100)) : 0);
+  const thanh = (label, a, b, ghi = '') => `<div class="thanh">
+      <div class="nhan"><span>${label}${ghi}</span><b>${App.num(a)} / ${App.num(b)}</b></div>
+      <div class="ray"><i class="${a > b ? 'vuot' : pct(a, b) >= 100 ? 'du' : ''}" style="width:${pct(a, b)}%"></i></div>
+    </div>`;
+  const dauThe = (t, x) => `<div class="dau">${App.esc(x.size || '(chưa có size)')} · ${App.esc(x.mau || '')}</div>
+    <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b> · PO ${App.esc(t.po)} · ${App.esc(t.maHang || '')}<br>
+      vào chuyền ${App.date(t.ngayVaoChuyen)} → ${App.date(t.ngayKetThuc)}</div>`;
+  const veKieu = {
+    // Kiểu 1: lưới số 2 cột, đủ mọi chỉ số
+    1: (t, x) => `<div class="the-po">${dauThe(t, x)}
         <div class="so">
           ${so('SL KH lệnh', x.slLenh)}${so('SL phân bổ (SBD)', x.kh)}
           ${so('KH hôm nay (PO)', t.khNgay)}<div></div>
           ${so('Đặt hôm nay', x.datNgay)}${so('Đặt lũy kế', x.datLK, x.datLK > (x.slLenh ?? x.kh) ? 'vuot' : '')}
           ${so('SX hôm nay (PO)', t.sxNgay)}${so('SX lũy kế (PO)', t.sxLK)}
           ${so('Còn lại hôm nay (PO)', t.conLaiNgay)}${so('SX còn lại (PO)', t.conLai)}
+        </div></div>`,
+    // Kiểu 2: thanh tiến độ cho đặt / SX, 3 ô số hôm nay
+    2: (t, x) => {
+      const kh = x.slLenh ?? x.kh;
+      return `<div class="the-po k2">
+        <div class="k2-dau"><span class="size">${App.esc(x.size || '?')}</span><div>${dauThe(t, x).replace('class="dau"', 'class="dau nho"')}</div></div>
+        ${thanh('Đặt lũy kế / KH lệnh', x.datLK, kh)}
+        ${thanh('SX lũy kế / KH', t.sxLK, t.soLuong, ' <small>(PO)</small>')}
+        <div class="o3">
+          <div><span>KH hôm nay</span><b>${App.num(t.khNgay)}</b></div>
+          <div><span>SX hôm nay</span><b>${App.num(t.sxNgay)}</b></div>
+          <div class="${t.conLaiNgay ? 'con' : 'xong'}"><span>Còn lại hôm nay</span><b>${App.num(t.conLaiNgay)}</b></div>
         </div>
-      </div>`).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
+        <div class="chan">Đặt hôm nay <b>${App.num(x.datNgay)}</b> · Phân bổ SBD <b>${App.num(x.kh)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
+      </div>`;
+    },
+    // Kiểu 3: ma trận Kế hoạch / Đặt / SX x Hôm nay / Lũy kế / Còn lại
+    3: (t, x) => {
+      const kh = x.slLenh ?? x.kh;
+      const conDat = kh - x.datLK;
+      return `<div class="the-po">${dauThe(t, x)}
+        <table class="k3"><thead><tr><th></th><th>Hôm nay</th><th>Lũy kế</th><th>Còn lại</th></tr></thead><tbody>
+          <tr><th>Kế hoạch</th><td>${App.num(t.khNgay)}<small>PO</small></td><td>${App.num(kh)}</td><td></td></tr>
+          <tr><th>Đặt BTP</th><td>${App.num(x.datNgay)}</td><td class="${x.datLK > kh ? 'vuot' : ''}">${App.num(x.datLK)}</td><td class="${conDat < 0 ? 'vuot' : ''}">${App.num(conDat)}</td></tr>
+          <tr><th>SX <small>(PO)</small></th><td>${App.num(t.sxNgay)}</td><td>${App.num(t.sxLK)}</td><td>${App.num(t.conLai)}</td></tr>
+          <tr><th>Còn lại hôm nay</th><td>${App.num(t.conLaiNgay)}<small>PO</small></td><td colspan="2" class="ghi">Phân bổ SBD ${App.num(x.kh)}</td></tr>
+        </tbody></table></div>`;
+    },
+  };
+  function veKH() {
+    const kq = kqCuoi;
+    if (!kq) return;
+    kieuThe.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.k === kieu));
+    const ds = kq.the.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: 0, datLK: 0 }])
+      .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
+    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${kq.the.length} PO)` : '';
+    theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veKieu[kieu](t, x)).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
+  }
+  kieuThe.onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    kieu = b.dataset.k;
+    try { localStorage.setItem('kieuThe', kieu); } catch (err) { /* bỏ qua */ }
+    veKH();
+  };
+  function veThe(kq) {
+    kqCuoi = kq;
+    veKH();
     pSai.hidden = !kq.sai.length;
     soSai.textContent = kq.sai.length ? `(${kq.sai.length})` : '';
     theSai.innerHTML = kq.sai.map((x) => `<div class="the-po do">

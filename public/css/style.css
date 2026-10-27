@@ -107,3 +107,30 @@ footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: v
 .the-po.do { border-top-color: var(--bad); background: #fff7f6; flex-basis: min(300px, 80vw); }
 .the-po.do .ly-do { color: var(--bad); font-weight: 600; margin-top: 6px; }
 .the-po .vuot { color: var(--bad); font-weight: 600; }
+/* Chọn kiểu thẻ + kiểu 2 (tiến độ) + kiểu 3 (ma trận) */
+.kieu-the { display: flex; gap: 4px; }
+.kieu-the button { background: var(--primary-soft); color: var(--primary); padding: 4px 10px; font-size: 12px; }
+.kieu-the button.active { background: var(--primary); color: #fff; }
+.the-po .dau.nho { font-size: 14px; }
+.the-po.k2 .k2-dau { display: flex; gap: 10px; align-items: flex-start; }
+.the-po.k2 .size { min-width: 46px; height: 46px; border-radius: 8px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; padding: 0 4px; }
+.the-po .thanh { margin: 6px 0; }
+.the-po .thanh .nhan { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.the-po .thanh .nhan b { color: var(--text); font-variant-numeric: tabular-nums; }
+.the-po .thanh .ray { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin-top: 3px; }
+.the-po .thanh .ray i { display: block; height: 100%; background: var(--primary); }
+.the-po .thanh .ray i.du { background: var(--ok); }
+.the-po .thanh .ray i.vuot { background: var(--bad); }
+.the-po .o3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 6px; }
+.the-po .o3 div { background: var(--bg); border-radius: 6px; padding: 6px; text-align: center; }
+.the-po .o3 span { display: block; font-size: 11px; color: var(--muted); }
+.the-po .o3 b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.the-po .o3 .con b { color: var(--warn); }
+.the-po .o3 .xong b { color: var(--ok); }
+.the-po .chan { font-size: 12px; color: var(--muted); }
+.the-po table.k3 th { text-align: left; color: var(--muted); font-weight: 500; }
+.the-po table.k3 thead th { text-align: right; }
+.the-po table.k3 td { font-size: 14px; font-variant-numeric: tabular-nums; }
+.the-po table.k3 td small, .the-po table.k3 th small { color: var(--muted); font-size: 10px; margin-left: 2px; }
+.the-po table.k3 td.ghi { font-size: 12px; color: var(--muted); }
+.the-po table.k3 .vuot { color: var(--bad); font-weight: 600; }
