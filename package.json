@@ -7,7 +7,8 @@
     "start": "node server.js",
     "mock": "node -e \"process.env.USE_MOCK='true';require('./server')\"",
     "khao-sat": "node scripts/khao-sat.js",
-    "build:zip": "powershell -ExecutionPolicy Bypass -File scripts/build-zip.ps1"
+    "build:zip": "powershell -ExecutionPolicy Bypass -File scripts/build-zip.ps1",
+    "doi-chieu-to": "node scripts/doi-chieu-to.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

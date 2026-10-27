@@ -2,3 +2,4 @@ node_modules/
 .env
 dist/
 khao-sat/
+config/ma-to-hipro.json

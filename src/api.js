@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('./db');
 const queries = require('./queries');
 const mock = require('./mock');
+const { doiMa } = require('./maHiPro');
 
 const router = express.Router();
 
@@ -54,12 +55,19 @@ const lineOf = (raw) => {
   return m ? String(Number(m[1])) : String(raw ?? '').trim();
 };
 
-// Chạy truy vấn rồi lọc theo xí nghiệp (cột xn dạng tên) và chuẩn hóa số tổ
-function handleXn(name, getParams) {
+// Nhà máy / chuyền HiPro -> xí nghiệp / tổ eGMF (theo config/ma-to-hipro.json, không có thì lấy số trong tên)
+const hp = (r) => doiMa(r.xn, r.line, xnOf, lineOf);
+
+// Chạy truy vấn rồi lọc theo xí nghiệp (cột xn dạng tên) và chuẩn hóa số tổ. laHiPro: đổi mã HiPro sang eGMF
+function handleXn(name, getParams, laHiPro = false) {
   return async (req, res) => {
     try {
       const n = await xnNum(req.query.xn);
       const rows = await run(name, await getParams(req));
+      if (laHiPro) {
+        res.json(rows.map((r) => { const m = hp(r); return { ...r, xn: m.xn, line: m.to }; }).filter((r) => r.xn === n));
+        return;
+      }
       res.json(rows.filter((r) => r.xn === undefined || xnOf(r.xn) === n)
         .map((r) => (r.line !== undefined ? { ...r, line: lineOf(r.line) } : r)));
     } catch (err) {
@@ -85,9 +93,9 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     const theoPO = new Map();
     const theoHang = new Map();
     const cong = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
-    sx.filter((r) => xnOf(r.xn) === n).forEach((r) => {
-      cong(theoPO, `${lineOf(r.line)}|${up(r.po)}`, Number(r.slSX || 0));
-      cong(theoHang, `${lineOf(r.line)}|${up(r.maHang)}`, Number(r.slSX || 0));
+    sx.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n).forEach((r) => {
+      cong(theoPO, `${r.to}|${up(r.po)}`, Number(r.slSX || 0));
+      cong(theoHang, `${r.to}|${up(r.maHang)}`, Number(r.slSX || 0));
     });
     const soPO = new Map();
     rows.filter((r) => r.soLuong != null).forEach((r) => cong(soPO, `${lineOf(r.maTo)}|${up(r.maHang)}`, 1));
@@ -253,7 +261,7 @@ router.get('/btp-cat/dieu-tiet/phieu-cap', handle('dtPhieuCap', dtParams));
 // ---- Tổ trưởng may / QC / Giám đốc XN ----
 const ngay = (req) => req.query.d || today();
 router.get('/ke-hoach-ngay', handleXn('keHoachNgay', (req) => ({ xn: req.query.xn, d0: ngay(req) })));
-router.get('/san-luong-gio', handleXn('sanLuongGio', (req) => ({ d0: ngay(req) })));
+router.get('/san-luong-gio', handleXn('sanLuongGio', (req) => ({ d0: ngay(req) }), true));
 // Báo cáo may ra (viết lại store Report_BaoCaoMayRa_GetData_TuNgay_DenNgay, đọc thẳng nguồn):
 // eGMF cho SL, vào chuyền, nhập kho; HiPro cho may ra, ghép theo tổ x PO.
 // Trong kỳ = tuNgay..denNgay; lũy kế = từ lúc bắt đầu PO trên tổ đến hết denNgay (đọc cả bảng lưu trữ pro_nscl_MM_YYYY).
@@ -280,12 +288,12 @@ async function tinhMayRa(xn, tuNgay, denNgay) {
   const key = (line, po) => `${lineOf(line)}|${String(po ?? '').trim()}`;
   const map = new Map();
   rows.forEach((r) => map.set(key(r.maTo, r.po), { ...r, maTo: lineOf(r.maTo), po: String(r.po ?? '').trim(), mayRaKy: 0, mayRaNgay: 0, mayRaLK: 0 }));
-  sx.filter((r) => xnOf(r.xn) === n).forEach((r) => {
-    const k = key(r.line, r.po);
+  sx.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n).forEach((r) => {
+    const k = key(r.to, r.po);
     let x = map.get(k);
     if (!x) {
       if (!Number(r.mayRaKy)) return; // PO chỉ có may ra trước kỳ: bỏ
-      x = { maTo: lineOf(r.line), po: String(r.po ?? '').trim(), maHang: r.maHang, mayRaKy: 0, mayRaNgay: 0, mayRaLK: 0 };
+      x = { maTo: r.to, po: String(r.po ?? '').trim(), maHang: r.maHang, mayRaKy: 0, mayRaNgay: 0, mayRaLK: 0 };
       map.set(k, x);
     }
     x.mayRaKy += Number(r.mayRaKy || 0);
@@ -339,7 +347,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     const N = (v) => Number(v || 0);
     const poKey = (v) => String(v ?? '').trim();
     const sxPO = new Map();
-    sx.filter((r) => xnOf(r.xn) === n && lineOf(r.line) === lineOf(maTo)).forEach((r) => {
+    sx.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n && r.to === lineOf(maTo)).forEach((r) => {
       const x = sxPO.get(poKey(r.po)) || { ngay: 0, lk: 0, dat: 0, loi: 0 };
       x.ngay += N(r.mayRaNgay); x.lk += N(r.mayRaLK); x.dat += N(r.datNgay); x.loi += N(r.loiNgay);
       sxPO.set(poKey(r.po), x);
@@ -418,8 +426,8 @@ router.get('/to-may/ke-hoach', async (req, res) => {
 });
 router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
 const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
-router.get('/qc-nscl', handleXn('qcNscl', qcRange));
-router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange));
+router.get('/qc-nscl', handleXn('qcNscl', qcRange, true));
+router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange, true));
 router.get('/doanh-thu', async (req, res) => {
   try {
     const rows = await run('doanhThuNgay', {

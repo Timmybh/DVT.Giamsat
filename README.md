@@ -26,6 +26,17 @@ npm run khao-sat
 Script chỉ đọc (SELECT), ghi cột, khóa ngoại và 5 dòng mẫu của các bảng `CUTTING_PhieuCapBTP*`, `CUTTING_PhieuHoachToan*`, lệnh sản xuất vào `khao-sat\ket-qua-<database>.txt`.
 Gửi file này để sửa các câu SQL đánh dấu `[TẠM]` trong `src/queries.js`.
 
+## Ghép chuyền HiPro với tổ eGMF
+
+Mã xí nghiệp / tổ trên HiPro và eGMF khác nhau. Chạy (chỉ đọc):
+
+```powershell
+npm.cmd run doi-chieu-to
+```
+
+Script ghép từng chuyền HiPro với tổ eGMF có nhiều PO chung nhất (60 ngày gần nhất), ghi `config\ma-to-hipro.json` (web đọc file này, sửa file không cần khởi động lại) và báo cáo `khao-sat\doi-chieu-to.txt`.
+Dòng ghép sai: sửa `xn` / `to` trong file json và thêm `"khoa": true` để lần chạy sau giữ nguyên. Chuyền không có trong file: web lấy số trong tên như cũ.
+
 ## Triển khai production (máy khác trong LAN)
 
 ```powershell
