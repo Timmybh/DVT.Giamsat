@@ -189,6 +189,17 @@ module.exports = {
     }));
     return [...m.values()];
   },
+  datTatCaToTheoPhieuCap: () => {
+    const m = new Map();
+    phieuCap.forEach((p) => phieuCapCT.filter((c) => c.soPhieu === p.soPhieu).forEach((c) => {
+      const k = `${p.lenhSX}|${c.po}|${c.mau}|${c.size}`;
+      const x = m.get(k) || m.set(k, { lenhSX: p.lenhSX, po: c.po, mau: c.mau, size: c.size, slDat: 0 }).get(k);
+      x.slDat += c.slDat;
+    }));
+    return [...m.values()];
+  },
+  lenhTheoPhieuCap: (q) => module.exports.datTatCaToTheoPhieuCap(q)
+    .map((d) => ({ lenhSX: String(d.lenhSX).replace(/;\s*$/, ''), po: d.po, mau: d.mau, size: d.size, slLenh: Math.round(d.slDat * (1 + hash(`ln${d.po}${d.size}`) * 0.3)) })),
   phieuCapChiTiet: ({ soPhieu }) => phieuCapCT.filter((c) => c.soPhieu === soPhieu),
   phieuXuatTheoPhieuCap: ({ soPhieu }) => quetXuat.filter((x) => x.soPhieu === soPhieu)
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),

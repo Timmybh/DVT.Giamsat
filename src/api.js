@@ -160,10 +160,28 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
       tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
       lenhSX: (req.query.lenhSX || '').trim(), po: (req.query.po || '').trim(),
     };
-    const [rows, kh] = await Promise.all([run('chiTietDatBTP', p), run('khSBDTheoPhieuCap', p)]);
+    const [rows, kh, lenhs, datAll] = await Promise.all([run('chiTietDatBTP', p), run('khSBDTheoPhieuCap', p), run('lenhTheoPhieuCap', p), run('datTatCaToTheoPhieuCap', p)]);
+    const cong = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
+    // Tổng SL lệnh (Bravo) và tổng SL đặt của tất cả tổ theo lệnh x PO x màu x size; lệnh phiếu ghi 'A;B' thì cộng các lệnh
+    const goLenh = (v) => String(v ?? '').toUpperCase().split(';').map((x) => x.replace(/\s+/g, '')).filter(Boolean);
+    const khoaLMS = (lenh, po, mau, size, mauFn) => `${lenh}|${String(po ?? '').trim()}|${mauFn(mau)}|${chuanSize(size)}`;
+    const slLenh = { day: new Map(), ma: new Map() };
+    lenhs.forEach((l) => goLenh(l.lenhSX).forEach((x) => {
+      cong(slLenh.day, khoaLMS(x, l.po, l.mau, l.size, chuanMau), Number(l.slLenh || 0));
+      cong(slLenh.ma, khoaLMS(x, l.po, l.mau, l.size, maMau), Number(l.slLenh || 0));
+    }));
+    const slDatAll = new Map();
+    datAll.forEach((d) => cong(slDatAll, khoaLMS(goLenh(d.lenhSX).join(';'), d.po, d.mau, d.size, chuanMau), Number(d.slDat || 0)));
+    const tongLenh = (r) => {
+      let t = null;
+      goLenh(r.lenhSX).forEach((x) => {
+        const v = slLenh.day.get(khoaLMS(x, r.po, r.mau, r.size, chuanMau)) ?? slLenh.ma.get(khoaLMS(x, r.po, r.mau, r.size, maMau));
+        if (v != null) t = (t || 0) + v;
+      });
+      return t;
+    };
     const day = new Map();
     const theoMa = new Map();
-    const cong = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
     kh.forEach((k) => {
       const g = `${lineOf(k.maTo)}|${String(k.po).trim()}|${chuanSize(k.size)}`;
       cong(day, `${g}|${chuanMau(k.mau)}`, Number(k.soLuong || 0));
@@ -172,7 +190,9 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     res.json(rows.map((r) => {
       const g = `${lineOf(r.maTo)}|${String(r.po).trim()}|${chuanSize(r.size)}`;
       const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${maMau(r.mau)}`);
-      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null) };
+      const tLenh = tongLenh(r);
+      const tDat = slDatAll.get(khoaLMS(goLenh(r.lenhSX).join(';'), r.po, r.mau, r.size, chuanMau)) ?? 0;
+      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null), tongLenh: tLenh, tongDat: tDat, tongConLai: tLenh == null ? null : tLenh - tDat };
     }));
   } catch (err) {
     console.error('[chiTietDatBTP]', err.message);

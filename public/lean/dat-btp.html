@@ -199,6 +199,10 @@
         { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', total: (rs) => App.num(tong(rs).thieu) },
         { key: 'tt', label: 'Đáp ứng', render: (r) => (r.slKH == null ? '' : status({ slDat: r.slKH, slXuat: r.lkNhan })), total: (rs) => { const t = tong(rs); return status({ slDat: t.kh, slXuat: t.nhan }); } },
+        // Theo lệnh x PO x mã hàng x màu x size, đặt của tất cả tổ (mọi ngày); dòng tổng cộng mỗi nhóm 1 lần
+        { key: 'tongLenh', label: 'Tổng SL lệnh', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'tongLenh')) },
+        { key: 'tongDat', label: 'Tổng SL đặt (mọi tổ)', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'tongDat')) },
+        { key: 'tongConLai', label: 'Tổng còn lại', type: 'num', render: (r) => (r.tongConLai == null ? '' : `<span style="color:${r.tongConLai < 0 ? 'var(--bad)' : 'inherit'}">${App.num(r.tongConLai)}</span>`), total: (rs) => App.num(sumDistinct(rs, 'tongConLai')) },
       ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }
   }

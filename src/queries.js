@@ -35,6 +35,16 @@ const poChayToSQL = `
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
           AND k.NgayVaoChuyenKeHoachBatDau < DATEADD(day, 1, @d) AND k.NgayMayKeHoachKetThuc >= @d`;
+// PO của các dòng phiếu cấp BTP theo điều kiện lọc lưới "Chi tiết đặt BTP" (@xnCode, @to, @tuNgay, @denNgay, @lenhSX, @po)
+const poPhieuCapLocSQL = `
+          SELECT ct.PO
+          FROM dbo.CUTTING_PhieuCapBTP pc
+          JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
+          WHERE pc.TenPhanXuong = @xnCode
+            AND (@to = '' OR LTRIM(RTRIM(pc.TenCum)) = @to)
+            AND pc.NgayNhanBTP >= @tuNgay AND pc.NgayNhanBTP < DATEADD(day, 1, @denNgay)
+            AND (@lenhSX = '' OR pc.LenhSanXuat LIKE '%' + @lenhSX + '%' OR ct.LenhSanXuat LIKE '%' + @lenhSX + '%')
+            AND (@po = '' OR ct.PO LIKE '%' + @po + '%')`;
 // PO trong phiếu đặt BTP của tổ tạo trong 30 ngày tới hết @d
 const poDatToSQL = `
         SELECT DISTINCT ct.PO AS po
@@ -204,6 +214,30 @@ module.exports = {
             AND (@lenhSX = '' OR pc.LenhSanXuat LIKE '%' + @lenhSX + '%' OR ct.LenhSanXuat LIKE '%' + @lenhSX + '%')
             AND (@po = '' OR ct.PO LIKE '%' + @po + '%'))
       GROUP BY LTRIM(RTRIM(e.TenCum)), po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+  },
+
+  // Tổng SL lệnh (Bravo) theo lệnh x PO x màu x size của các PO có trong lưới chi tiết đặt BTP (cùng điều kiện lọc)
+  lenhTheoPhieuCap: {
+    db: 'egmf',
+    text: `
+      SELECT CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+             b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE ISNULL(a.IsActive, 1) <> 0 AND b.PO IN (${poPhieuCapLocSQL})
+      GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+               b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
+  },
+  // Tổng SL đặt (SoLuongCanCap) của tất cả tổ, mọi ngày, theo lệnh x PO x màu x size của các PO trong lưới chi tiết đặt BTP
+  datTatCaToTheoPhieuCap: {
+    db: 'egmf',
+    text: `
+      SELECT ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, ct.PO AS po, ISNULL(ct.TenMau, '') AS mau,
+             ISNULL(ct.SizeCode, '') AS size, SUM(ISNULL(ct.SoLuongCanCap, 0)) AS slDat
+      FROM dbo.CUTTING_PhieuCapBTP pc
+      JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
+      WHERE ct.PO IN (${poPhieuCapLocSQL})
+      GROUP BY ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat), ct.PO, ISNULL(ct.TenMau, ''), ISNULL(ct.SizeCode, '')`,
   },
 
   phieuCapBTP: {
