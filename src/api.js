@@ -192,7 +192,7 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
       const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${maMau(r.mau)}`);
       const tLenh = tongLenh(r);
       const tDat = slDatAll.get(khoaLMS(goLenh(r.lenhSX).join(';'), r.po, r.mau, r.size, chuanMau)) ?? 0;
-      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null), tongLenh: tLenh, tongDat: tDat, tongConLai: tLenh == null ? null : tLenh - tDat };
+      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null), nguonKH: slKH != null ? 'SBD' : r.slKHPhieu != null ? 'phieu' : null, tongLenh: tLenh, tongDat: tDat, tongConLai: tLenh == null ? null : tLenh - tDat };
     }));
   } catch (err) {
     console.error('[chiTietDatBTP]', err.message);

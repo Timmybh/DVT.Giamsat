@@ -47,6 +47,7 @@
       <button id="ctBtn">Xem</button>
     </div>
     <div id="ctResult"><div class="empty">Chọn điều kiện rồi bấm Xem</div></div>
+    <div class="note">SL KH: phân bổ SBD của tổ (OMM_KeHoachThang_SBD) theo PO x màu x size; có dấu * là tổ không có SBD, lấy SL kế hoạch ghi trên phiếu cấp. Tổng SL lệnh: Bravo theo lệnh x PO x màu x size. Tổng SL đặt: SL đặt của mọi tổ, mọi ngày. Tổng còn lại = Tổng SL lệnh - Tổng SL đặt.</div>
   </div>
   </section>
 </main>
@@ -193,7 +194,7 @@
         { key: 'po', label: 'PO' },
         { key: 'mau', label: 'Màu' },
         { key: 'size', label: 'Size' },
-        { key: 'slKH', label: 'SL KH', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'slKH')) },
+        { key: 'slKH', label: 'SL KH', type: 'num', render: (r) => (r.slKH == null ? '' : r.nguonKH === 'phieu' ? `<span title="Không có SBD của tổ: lấy SL kế hoạch ghi trên phiếu cấp">${App.num(r.slKH)}*</span>` : App.num(r.slKH)), total: (rs) => App.num(sumDistinct(rs, 'slKH')) },
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slCap', label: 'SL cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
