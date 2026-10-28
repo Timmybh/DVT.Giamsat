@@ -14,11 +14,12 @@
     <div class="filters">
       <label>Từ ngày <input type="date" id="tuNgay"></label>
       <label>Đến ngày <input type="date" id="denNgay"></label>
+      <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <button id="btn">Xem</button>
     </div>
     <div id="result" class="luoi-cao"><div class="empty">Chọn ngày rồi bấm Xem</div></div>
-    <div class="note">Nguồn: quy trình công nghệ eGMF (QTCN_QuyTrinhCongNghe_Master), chỉ bản có check SOT, ngày tạo trong khoảng chọn; mỗi mã hàng x chuyền lấy phiên bản mới nhất.
-      SOT = tổng thời gian chế tạo (giây / sản phẩm). Nhịp độ = SOT / LĐ. Mục tiêu NS = thời gian làm việc x LĐ / SOT.</div>
+    <div class="note">Lao động: bảng lao động chuyền may (LCD_Truc_Quan_ChuyenMay_LaoDong) theo ngày x tổ x mã hàng. SOT: quy trình công nghệ (QTCN_QuyTrinhCongNghe_Master) cùng mã hàng, chỉ bản có check SOT, phiên bản mới nhất; SOT = tổng thời gian chế tạo (giây / sản phẩm).
+      Nhịp độ = SOT / LĐ theo mã hàng. Mục tiêu NS = thời gian làm việc x LĐ theo mã hàng / SOT. Mã hàng chưa có QTCN check SOT thì để trống.</div>
   </div>
 </main>
 <script>
@@ -26,31 +27,43 @@
   tuNgay.value = App.ymd(Date.now() - 30 * 86400000);
   const so = (v, n = 0) => (v == null ? '' : Number(v).toLocaleString('vi-VN', { minimumFractionDigits: n, maximumFractionDigits: n }));
 
+  async function loadTo() {
+    const list = await App.api('to', { xn: App.xn });
+    to.innerHTML = '<option value="">Tất cả</option>' + list.map((t) => `<option value="${App.esc(t.ma)}">${App.esc(t.ten)}</option>`).join('');
+    load();
+  }
+
   async function load() {
     App.loading(result);
     try {
-      const rows = await App.api('sot-ma-hang', { tuNgay: tuNgay.value, denNgay: denNgay.value });
+      const rows = (await App.api('sot-ma-hang', { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value }))
+        .filter((r) => !to.value || r.line === to.value)
+        .map((r) => {
+          const ld = Number(r.ldTheoMa || r.hienDien || 0);
+          return { ...r, nhipDoTT: r.sot && ld ? r.sot / ld : null, mucTieuTT: r.sot && ld ? Math.round(((r.thoiGianLamViec || 28800) * ld) / r.sot) : null };
+        });
       App.table(result, [
-        { key: 'ngayTao', label: 'Ngày tạo', type: 'date' },
+        { key: 'ngay', label: 'Ngày', type: 'date' },
+        { key: 'line', label: 'Tổ' },
         { key: 'maHang', label: 'Mã hàng', total: (rs) => `${new Set(rs.map((r) => r.maHang)).size} mã` },
         { key: 'khachHang', label: 'Khách hàng' },
         { key: 'chungLoai', label: 'Chủng loại' },
-        { key: 'mua', label: 'Mùa' },
-        { key: 'chuyen', label: 'Chuyền' },
-        { key: 'soLaoDong', label: 'Lao động', type: 'num' },
+        { key: 'tongLD', label: 'LĐ tổ', type: 'num' },
+        { key: 'hienDien', label: 'LĐ hiện diện', type: 'num' },
+        { key: 'ldTheoMa', label: 'LĐ theo mã hàng', type: 'num' },
         { key: 'sot', label: 'SOT (giây)', type: 'num', render: (r) => so(r.sot, 2) },
         { key: 'sotPhut', label: 'SOT (phút)', type: 'num', value: (r) => (r.sot == null ? null : r.sot / 60), render: (r) => (r.sot == null ? '' : so(r.sot / 60, 2)) },
-        { key: 'nhipDo', label: 'Nhịp độ (giây)', type: 'num', render: (r) => so(r.nhipDo, 2) },
-        { key: 'mucTieu', label: 'Mục tiêu NS / ngày', type: 'num' },
-        { key: 'gioLam', label: 'Giờ làm việc', type: 'num', value: (r) => (r.thoiGianLamViec || 0) / 3600, render: (r) => so((r.thoiGianLamViec || 0) / 3600, 1) },
-        { key: 'phienBan', label: 'Phiên bản', type: 'num' },
-        { key: 'trangThai', label: 'Trạng thái' },
-        { key: 'nguoiTao', label: 'Người tạo' },
-      ], rows, { footer: true, empty: 'Không có quy trình công nghệ có SOT trong khoảng ngày này' });
+        { key: 'ldQTCN', label: 'LĐ theo QTCN', type: 'num' },
+        { key: 'nhipDoTT', label: 'Nhịp độ (giây)', type: 'num', render: (r) => so(r.nhipDoTT, 2) },
+        { key: 'mucTieuTT', label: 'Mục tiêu NS / ngày', type: 'num' },
+        { key: 'phienBan', label: 'Phiên bản QTCN', type: 'num' },
+        { key: 'trangThai', label: 'Trạng thái QTCN' },
+      ], rows, { footer: true, empty: 'Không có số liệu lao động theo mã hàng trong khoảng ngày này' });
     } catch (e) { App.error(result, e); }
   }
   btn.onclick = load;
-  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Mã hàng, LĐ, SOT']], load).then(load);
+  to.onchange = load;
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Mã hàng, LĐ, SOT']], loadTo).then(loadTo);
 </script>
 </body>
 </html>

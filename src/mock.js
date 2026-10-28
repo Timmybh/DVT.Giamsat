@@ -200,16 +200,25 @@ module.exports = {
   },
   lenhTheoPhieuCap: (q) => module.exports.datTatCaToTheoPhieuCap(q)
     .map((d) => ({ lenhSX: String(d.lenhSX).replace(/;\s*$/, ''), po: d.po, mau: d.mau, size: d.size, slLenh: Math.round(d.slDat * (1 + hash(`ln${d.po}${d.size}`) * 0.3)) })),
-  sotMaHang: ({ tuNgay, denNgay }) => Array.from({ length: 14 }, (_, i) => {
-    const sot = Math.round(1500 + hash(`sot${i}`) * 4500);
-    const ld = hInt(`ld${i}`, 22, 38);
-    return {
-      id: 600 - i, maHang: pick([`FOA4${hInt(`m${i}`, 10000, 10999)}`, String(hInt(`n${i}`, 370000, 389999))]), khachHang: pick(khach), chungLoai: pick(['ÁO KHOÁC 1 LỚP', 'QUẦN DÀI 1 LỚP', 'Áo các loại']),
-      mua: pick(['SS27', 'FW26', '']), chuyen: i % 3 ? String(hInt(`c${i}`, 1, 12)) : '', soLaoDong: ld, sot, sam: 0, thoiGianLamViec: 28800,
-      mucTieu: Math.round((28800 * ld) / sot), nhipDo: Math.round((sot / ld) * 100) / 100, phienBan: hInt(`pb${i}`, 0, 2), trangThai: pick(['Đã ban hành', 'MoiTao']),
-      ngayTao: new Date(new Date(denNgay) - hInt(`d${i}`, 0, 25) * 86400000).toISOString(), nguoiTao: 'NGUYỄN THỊ DUNG', ngayBanHanh: null,
-    };
-  }).filter((r) => inRange(r.ngayTao, tuNgay, denNgay)),
+  sotMaHang: ({ tuNgay, denNgay }) => {
+    const rows = [];
+    for (let d = new Date(denNgay); d >= new Date(tuNgay) && rows.length < 400; d = new Date(d - 86400000)) {
+      const ngay = d.toISOString().slice(0, 10);
+      xiNghiep.forEach((xn) => to[xn.ma].slice(0, 6).forEach((t) => {
+        const maHang = hangCuaTo(xn.ma, t.ma, ngay);
+        const tong = hInt(`ld${xn.ma}${t.ma}`, 26, 38);
+        const coQT = hash(`qt${maHang}`) > 0.2;
+        const sot = Math.round(1500 + hash(`sot${maHang}`) * 4000);
+        rows.push({
+          ngay, xn: `XN${xn.ma}`, line: t.ma, maHang, tongLD: tong, hienDien: tong - hInt(`vm${xn.ma}${t.ma}${ngay}`, 0, 4), ldTheoMa: tong - hInt(`lm${t.ma}`, 0, 3),
+          idQTCN: coQT ? 600 : null, sot: coQT ? sot : null, ldQTCN: coQT ? 30 : null, mucTieu: coQT ? Math.round((28800 * 30) / sot) : null,
+          nhipDo: coQT ? Math.round((sot / 30) * 100) / 100 : null, thoiGianLamViec: coQT ? 28800 : null, khachHang: coQT ? pick(khach) : null,
+          chungLoai: coQT ? 'ÁO KHOÁC 1 LỚP' : null, phienBan: coQT ? 1 : null, trangThai: coQT ? 'Đã ban hành' : null,
+        });
+      }));
+    }
+    return rows;
+  },
   phieuCapChiTiet: ({ soPhieu }) => phieuCapCT.filter((c) => c.soPhieu === soPhieu),
   phieuXuatTheoPhieuCap: ({ soPhieu }) => quetXuat.filter((x) => x.soPhieu === soPhieu)
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),

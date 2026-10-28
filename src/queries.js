@@ -241,22 +241,31 @@ module.exports = {
       GROUP BY pc.TenPhanXuong, LTRIM(RTRIM(pc.TenCum)), ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat), ct.PO, ISNULL(ct.TenMau, ''), ISNULL(ct.SizeCode, '')`,
   },
 
-  // Mã hàng, lao động, SOT từ quy trình công nghệ (QTCN_QuyTrinhCongNghe_Master), chỉ bản có check SOT (TinhOWE = 'SOT').
-  // Mỗi mã hàng x chuyền lấy phiên bản mới nhất tạo trong khoảng ngày. SOT = TongThoiGian (giây / sản phẩm).
-  // Tham số: @tuNgay, @denNgay
+  // Mã hàng, lao động, SOT: lao động theo ngày x tổ x mã hàng (LCD_Truc_Quan_ChuyenMay_LaoDong),
+  // ghép quy trình công nghệ (QTCN_QuyTrinhCongNghe_Master) theo mã hàng, chỉ bản có check SOT (TinhOWE = 'SOT'), lấy phiên bản mới nhất.
+  // SOT = TongThoiGian (giây / sản phẩm). API lọc xí nghiệp theo tên. Tham số: @tuNgay, @denNgay
   sotMaHang: {
     db: 'egmf',
     text: `
-      SELECT * FROM (
-        SELECT m.Id AS id, m.MaHang AS maHang, m.TenKhachHang AS khachHang, m.TenChungLoai AS chungLoai, m.Mua AS mua,
-               LTRIM(RTRIM(m.Chuyen)) AS chuyen, m.SoLaoDong AS soLaoDong, m.TongThoiGian AS sot, m.SAM AS sam,
-               m.ThoiGianLamViec AS thoiGianLamViec, m.MucTieuNangSuat AS mucTieu, m.NhipDoSanXuat AS nhipDo,
-               m.PhienBan AS phienBan, m.TrangThai AS trangThai, m.NgayTao AS ngayTao, m.NguoiTao AS nguoiTao, m.NgayBanHanh AS ngayBanHanh,
-               ROW_NUMBER() OVER (PARTITION BY ISNULL(m.MaHang, ''), ISNULL(LTRIM(RTRIM(m.Chuyen)), '') ORDER BY m.PhienBan DESC, m.Id DESC) AS rn
+      SELECT ld.ngay, ld.xn, ld.line, ld.maHang, ld.tongLD, ld.hienDien, ld.ldTheoMa,
+             q.Id AS idQTCN, q.TongThoiGian AS sot, q.SoLaoDong AS ldQTCN, q.MucTieuNangSuat AS mucTieu, q.NhipDoSanXuat AS nhipDo,
+             q.ThoiGianLamViec AS thoiGianLamViec, q.TenKhachHang AS khachHang, q.TenChungLoai AS chungLoai, q.PhienBan AS phienBan, q.TrangThai AS trangThai
+      FROM (
+        SELECT CAST(a.Ngay AS date) AS ngay, a.XiNghiep AS xn, ISNULL(a.TenChuyen, CAST(a.ToChuyen AS nvarchar(20))) AS line,
+               LTRIM(RTRIM(a.MaHang)) AS maHang, MAX(a.TongSoLaoDong) AS tongLD, MAX(a.SoLaoDongHienDien) AS hienDien,
+               MAX(a.SoLaoDongTheoMahang) AS ldTheoMa
+        FROM dbo.LCD_Truc_Quan_ChuyenMay_LaoDong a
+        WHERE a.Ngay >= @tuNgay AND a.Ngay < DATEADD(day, 1, @denNgay) AND ISNULL(a.MaHang, '') <> ''
+        GROUP BY CAST(a.Ngay AS date), a.XiNghiep, ISNULL(a.TenChuyen, CAST(a.ToChuyen AS nvarchar(20))), LTRIM(RTRIM(a.MaHang))
+      ) ld
+      OUTER APPLY (
+        SELECT TOP 1 m.Id, m.TongThoiGian, m.SoLaoDong, m.MucTieuNangSuat, m.NhipDoSanXuat, m.ThoiGianLamViec,
+               m.TenKhachHang, m.TenChungLoai, m.PhienBan, m.TrangThai
         FROM dbo.QTCN_QuyTrinhCongNghe_Master m
-        WHERE m.TinhOWE = 'SOT' AND m.NgayTao >= @tuNgay AND m.NgayTao < DATEADD(day, 1, @denNgay)
-      ) x WHERE rn = 1
-      ORDER BY ngayTao DESC, maHang`,
+        WHERE LTRIM(RTRIM(m.MaHang)) = ld.maHang AND m.TinhOWE = 'SOT'
+        ORDER BY m.PhienBan DESC, m.Id DESC
+      ) q
+      ORDER BY ld.ngay DESC, ld.line, ld.maHang`,
   },
 
   phieuCapBTP: {
