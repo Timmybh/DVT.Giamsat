@@ -33,13 +33,16 @@
   <div class="panel">
     <h2>Theo ngày</h2>
     <div id="theoNgay"></div>
-    <div class="note">Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi).</div>
+    <div class="note">Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi). RFT = đạt lần đầu / đã kiểm = đạt / (đạt + lỗi).</div>
   </div>
 </main>
 <script>
   denNgay.value = App.today();
   tuNgay.value = App.ymd(Date.now() - 13 * 86400000);
   const tyLe = (r) => (r.dat + r.loi ? `${((r.loi / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
+  // RFT = đạt lần đầu / đã kiểm (đạt + lỗi)
+  const rft = (r) => (r.dat + r.loi ? `${((r.dat / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
+  const rftTong = (rs) => rft({ dat: rs.reduce((s, r) => s + Number(r.dat || 0), 0), loi: rs.reduce((s, r) => s + Number(r.loi || 0), 0) });
   const tyLeTong = (rs) => tyLe({ dat: rs.reduce((s, r) => s + Number(r.dat || 0), 0), loi: rs.reduce((s, r) => s + Number(r.loi || 0), 0) });
 
   async function loadTo() {
@@ -63,6 +66,7 @@
         { label: 'Lỗi', value: App.num(S('loi')) },
         { label: 'Đã sửa', value: App.num(S('sua')), sub: `${App.pct(S('sua'), S('loi'))} số lỗi` },
         { label: 'Tỷ lệ lỗi', value: tyLeTong(data) },
+        { label: 'RFT', value: rftTong(data), sub: 'đạt lần đầu / đã kiểm' },
       ]);
 
       const gom = (rows, keyFn, init) => {
@@ -75,7 +79,8 @@
         });
         return [...m.values()];
       };
-      const tyLeCol = { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: (rs) => `<span style="float:right">${tyLeTong(rs)}</span>` };
+      const tyLeCol = { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: tyLeTong };
+      const rftCol = { key: 'rft', label: 'RFT', type: 'num', render: rft, total: rftTong };
 
       const tos = gom(nscl.filter(chon).map((r) => ({ ...r, dat: Number(r.dat || 0), loi: Number(r.loi || 0), sua: Number(r.sua || 0) })), (r) => r.line, (r) => ({ line: r.line }))
         .sort((a, b) => Number(a.line) - Number(b.line));
@@ -84,7 +89,7 @@
         { key: 'dat', label: 'Đạt', type: 'num', sum: true },
         { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
         { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
-        tyLeCol,
+        tyLeCol, rftCol,
       ], tos, { footer: true, onClick: (r) => { to.value = r.line; load(); }, empty: 'Không có số liệu NSCL' });
 
       const loiRows = gom(loi.filter(chon).map((r) => ({ ...r, dat: 0, loi: Number(r.soLan || 0), sua: 0 })), (r) => r.maLoi, (r) => ({ maLoi: r.maLoi, tenLoi: r.tenLoi, cumLoi: r.cumLoi }))
@@ -104,7 +109,7 @@
         { key: 'dat', label: 'Đạt', type: 'num', sum: true },
         { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
         { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
-        tyLeCol,
+        tyLeCol, rftCol,
       ], ngays, { footer: true, empty: 'Không có số liệu' });
     } catch (e) { [theoTo, theoLoi, theoNgay].forEach((el) => App.error(el, e)); }
 
@@ -123,7 +128,8 @@
           { key: 'gio', label: 'Giờ' },
           { key: 'dat', label: 'Đạt', type: 'num', sum: true },
           { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
-          { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: (rs) => `<span style="float:right">${tyLeTong(rs)}</span>` },
+          { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: tyLeTong },
+          { key: 'rft', label: 'RFT', type: 'num', render: rft, total: rftTong },
         ], data, { footer: true, empty: 'Chưa có số liệu trong ngày' });
       } catch (e) { App.error(theoGio, e); }
     }
