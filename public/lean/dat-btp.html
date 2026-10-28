@@ -47,7 +47,7 @@
       <button id="ctBtn">Xem</button>
     </div>
     <div id="ctResult"><div class="empty">Chọn điều kiện rồi bấm Xem</div></div>
-    <div class="note">SL KH: phân bổ SBD của tổ (OMM_KeHoachThang_SBD) theo PO x màu x size; có dấu * là tổ không có SBD, lấy SL kế hoạch ghi trên phiếu cấp. Tổng SL lệnh: Bravo theo lệnh x PO x màu x size. Tổng SL đặt: SL đặt của mọi tổ, mọi ngày. Tổng còn lại = Tổng SL lệnh - Tổng SL đặt.</div>
+    <div class="note">SL KH: phân bổ SBD của tổ (OMM_KeHoachThang_SBD) theo PO x màu x size; có dấu * là tổ không có SBD, lấy SL kế hoạch ghi trên phiếu cấp. Tổng SL lệnh: Bravo theo lệnh x PO x màu x size. Tổng SL đặt: SL đặt của mọi tổ, mọi ngày; Tổ đã đặt: các tổ có phiếu đặt (tổ xí nghiệp khác ghi kèm mã xí nghiệp). Tổng còn lại = Tổng SL lệnh - Tổng SL đặt.</div>
   </div>
   </section>
 </main>
@@ -203,6 +203,7 @@
         // Theo lệnh x PO x mã hàng x màu x size, đặt của tất cả tổ (mọi ngày); dòng tổng cộng mỗi nhóm 1 lần
         { key: 'tongLenh', label: 'Tổng SL lệnh', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'tongLenh')) },
         { key: 'tongDat', label: 'Tổng SL đặt (mọi tổ)', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'tongDat')) },
+        { key: 'toDaDat', label: 'Tổ đã đặt' },
         { key: 'tongConLai', label: 'Tổng còn lại', type: 'num', render: (r) => (r.tongConLai == null ? '' : `<span style="color:${r.tongConLai < 0 ? 'var(--bad)' : 'inherit'}">${App.num(r.tongConLai)}</span>`), total: (rs) => App.num(sumDistinct(rs, 'tongConLai')) },
       ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }

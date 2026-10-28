@@ -192,8 +192,8 @@ module.exports = {
   datTatCaToTheoPhieuCap: () => {
     const m = new Map();
     phieuCap.forEach((p) => phieuCapCT.filter((c) => c.soPhieu === p.soPhieu).forEach((c) => {
-      const k = `${p.lenhSX}|${c.po}|${c.mau}|${c.size}`;
-      const x = m.get(k) || m.set(k, { lenhSX: p.lenhSX, po: c.po, mau: c.mau, size: c.size, slDat: 0 }).get(k);
+      const k = `${p.xnCode}|${p.to}|${p.lenhSX}|${c.po}|${c.mau}|${c.size}`;
+      const x = m.get(k) || m.set(k, { xnCode: p.xnCode, maTo: p.to, lenhSX: p.lenhSX, po: c.po, mau: c.mau, size: c.size, slDat: 0 }).get(k);
       x.slDat += c.slDat;
     }));
     return [...m.values()];

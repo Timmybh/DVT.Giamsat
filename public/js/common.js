@@ -128,7 +128,7 @@ const App = {
     let totalRow = '';
     if (footer) {
       totalRow = `<tr class="total-row">${cols.map((c, i) => {
-        if (c.total) return `<th>${c.total(data)}</th>`;
+        if (c.total) return `<th class="${c.type === 'num' ? 'num' : ''}">${c.total(data)}</th>`;
         if (c.sum) return `<th class="num">${App.num(data.reduce((s, r) => s + Number((c.value ? c.value(r) : r[c.key]) || 0), 0))}</th>`;
         return i === 0 ? `<th title="${App.num(data.length)} dòng">Tổng${dangLoc ? ` <span class="loc-dem">(${App.num(data.length)}/${App.num(rows.length)} dòng)</span>` : ''}</th>` : '<th></th>';
       }).join('')}</tr>`;

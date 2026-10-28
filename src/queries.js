@@ -228,16 +228,17 @@ module.exports = {
       GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
-  // Tổng SL đặt (SoLuongCanCap) của tất cả tổ, mọi ngày, theo lệnh x PO x màu x size của các PO trong lưới chi tiết đặt BTP
+  // SL đặt (SoLuongCanCap) của từng xí nghiệp x tổ, mọi ngày, theo lệnh x PO x màu x size của các PO trong lưới chi tiết đặt BTP
   datTatCaToTheoPhieuCap: {
     db: 'egmf',
     text: `
-      SELECT ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, ct.PO AS po, ISNULL(ct.TenMau, '') AS mau,
+      SELECT pc.TenPhanXuong AS xnCode, LTRIM(RTRIM(pc.TenCum)) AS maTo,
+             ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, ct.PO AS po, ISNULL(ct.TenMau, '') AS mau,
              ISNULL(ct.SizeCode, '') AS size, SUM(ISNULL(ct.SoLuongCanCap, 0)) AS slDat
       FROM dbo.CUTTING_PhieuCapBTP pc
       JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
       WHERE ct.PO IN (${poPhieuCapLocSQL})
-      GROUP BY ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat), ct.PO, ISNULL(ct.TenMau, ''), ISNULL(ct.SizeCode, '')`,
+      GROUP BY pc.TenPhanXuong, LTRIM(RTRIM(pc.TenCum)), ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat), ct.PO, ISNULL(ct.TenMau, ''), ISNULL(ct.SizeCode, '')`,
   },
 
   phieuCapBTP: {

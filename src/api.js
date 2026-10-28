@@ -170,8 +170,17 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
       cong(slLenh.day, khoaLMS(x, l.po, l.mau, l.size, chuanMau), Number(l.slLenh || 0));
       cong(slLenh.ma, khoaLMS(x, l.po, l.mau, l.size, maMau), Number(l.slLenh || 0));
     }));
+    // Tổ đã đặt: tổ cùng xí nghiệp ghi số tổ, xí nghiệp khác ghi kèm mã xí nghiệp (XN2-6)
     const slDatAll = new Map();
-    datAll.forEach((d) => cong(slDatAll, khoaLMS(goLenh(d.lenhSX).join(';'), d.po, d.mau, d.size, chuanMau), Number(d.slDat || 0)));
+    const toDat = new Map();
+    datAll.forEach((d) => {
+      const k = khoaLMS(goLenh(d.lenhSX).join(';'), d.po, d.mau, d.size, chuanMau);
+      cong(slDatAll, k, Number(d.slDat || 0));
+      if (!Number(d.slDat)) return;
+      const ten = String(d.xnCode).trim() === p.xnCode ? lineOf(d.maTo) : `${String(d.xnCode).trim()}-${lineOf(d.maTo)}`;
+      (toDat.get(k) || toDat.set(k, new Set()).get(k)).add(ten);
+    });
+    const dsTo = (k) => [...(toDat.get(k) || [])].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true })).join(', ');
     const tongLenh = (r) => {
       let t = null;
       goLenh(r.lenhSX).forEach((x) => {
@@ -191,8 +200,9 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
       const g = `${lineOf(r.maTo)}|${String(r.po).trim()}|${chuanSize(r.size)}`;
       const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${maMau(r.mau)}`);
       const tLenh = tongLenh(r);
-      const tDat = slDatAll.get(khoaLMS(goLenh(r.lenhSX).join(';'), r.po, r.mau, r.size, chuanMau)) ?? 0;
-      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null), nguonKH: slKH != null ? 'SBD' : r.slKHPhieu != null ? 'phieu' : null, tongLenh: tLenh, tongDat: tDat, tongConLai: tLenh == null ? null : tLenh - tDat };
+      const kDat = khoaLMS(goLenh(r.lenhSX).join(';'), r.po, r.mau, r.size, chuanMau);
+      const tDat = slDatAll.get(kDat) ?? 0;
+      return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null), nguonKH: slKH != null ? 'SBD' : r.slKHPhieu != null ? 'phieu' : null, tongLenh: tLenh, tongDat: tDat, toDaDat: dsTo(kDat), tongConLai: tLenh == null ? null : tLenh - tDat };
     }));
   } catch (err) {
     console.error('[chiTietDatBTP]', err.message);
