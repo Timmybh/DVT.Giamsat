@@ -241,6 +241,24 @@ module.exports = {
       GROUP BY pc.TenPhanXuong, LTRIM(RTRIM(pc.TenCum)), ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat), ct.PO, ISNULL(ct.TenMau, ''), ISNULL(ct.SizeCode, '')`,
   },
 
+  // Mã hàng, lao động, SOT từ quy trình công nghệ (QTCN_QuyTrinhCongNghe_Master), chỉ bản có check SOT (TinhOWE = 'SOT').
+  // Mỗi mã hàng x chuyền lấy phiên bản mới nhất tạo trong khoảng ngày. SOT = TongThoiGian (giây / sản phẩm).
+  // Tham số: @tuNgay, @denNgay
+  sotMaHang: {
+    db: 'egmf',
+    text: `
+      SELECT * FROM (
+        SELECT m.Id AS id, m.MaHang AS maHang, m.TenKhachHang AS khachHang, m.TenChungLoai AS chungLoai, m.Mua AS mua,
+               LTRIM(RTRIM(m.Chuyen)) AS chuyen, m.SoLaoDong AS soLaoDong, m.TongThoiGian AS sot, m.SAM AS sam,
+               m.ThoiGianLamViec AS thoiGianLamViec, m.MucTieuNangSuat AS mucTieu, m.NhipDoSanXuat AS nhipDo,
+               m.PhienBan AS phienBan, m.TrangThai AS trangThai, m.NgayTao AS ngayTao, m.NguoiTao AS nguoiTao, m.NgayBanHanh AS ngayBanHanh,
+               ROW_NUMBER() OVER (PARTITION BY ISNULL(m.MaHang, ''), ISNULL(LTRIM(RTRIM(m.Chuyen)), '') ORDER BY m.PhienBan DESC, m.Id DESC) AS rn
+        FROM dbo.QTCN_QuyTrinhCongNghe_Master m
+        WHERE m.TinhOWE = 'SOT' AND m.NgayTao >= @tuNgay AND m.NgayTao < DATEADD(day, 1, @denNgay)
+      ) x WHERE rn = 1
+      ORDER BY ngayTao DESC, maHang`,
+  },
+
   phieuCapBTP: {
     db: 'egmf',
     text: `

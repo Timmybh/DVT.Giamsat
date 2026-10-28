@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mã hàng, LĐ, SOT - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Mã hàng, lao động, SOT</h1>
+  <div class="panel">
+    <div class="filters">
+      <label>Từ ngày <input type="date" id="tuNgay"></label>
+      <label>Đến ngày <input type="date" id="denNgay"></label>
+      <button id="btn">Xem</button>
+    </div>
+    <div id="result" class="luoi-cao"><div class="empty">Chọn ngày rồi bấm Xem</div></div>
+    <div class="note">Nguồn: quy trình công nghệ eGMF (QTCN_QuyTrinhCongNghe_Master), chỉ bản có check SOT, ngày tạo trong khoảng chọn; mỗi mã hàng x chuyền lấy phiên bản mới nhất.
+      SOT = tổng thời gian chế tạo (giây / sản phẩm). Nhịp độ = SOT / LĐ. Mục tiêu NS = thời gian làm việc x LĐ / SOT.</div>
+  </div>
+</main>
+<script>
+  denNgay.value = App.today();
+  tuNgay.value = App.ymd(Date.now() - 30 * 86400000);
+  const so = (v, n = 0) => (v == null ? '' : Number(v).toLocaleString('vi-VN', { minimumFractionDigits: n, maximumFractionDigits: n }));
+
+  async function load() {
+    App.loading(result);
+    try {
+      const rows = await App.api('sot-ma-hang', { tuNgay: tuNgay.value, denNgay: denNgay.value });
+      App.table(result, [
+        { key: 'ngayTao', label: 'Ngày tạo', type: 'date' },
+        { key: 'maHang', label: 'Mã hàng', total: (rs) => `${new Set(rs.map((r) => r.maHang)).size} mã` },
+        { key: 'khachHang', label: 'Khách hàng' },
+        { key: 'chungLoai', label: 'Chủng loại' },
+        { key: 'mua', label: 'Mùa' },
+        { key: 'chuyen', label: 'Chuyền' },
+        { key: 'soLaoDong', label: 'Lao động', type: 'num' },
+        { key: 'sot', label: 'SOT (giây)', type: 'num', render: (r) => so(r.sot, 2) },
+        { key: 'sotPhut', label: 'SOT (phút)', type: 'num', value: (r) => (r.sot == null ? null : r.sot / 60), render: (r) => (r.sot == null ? '' : so(r.sot / 60, 2)) },
+        { key: 'nhipDo', label: 'Nhịp độ (giây)', type: 'num', render: (r) => so(r.nhipDo, 2) },
+        { key: 'mucTieu', label: 'Mục tiêu NS / ngày', type: 'num' },
+        { key: 'gioLam', label: 'Giờ làm việc', type: 'num', value: (r) => (r.thoiGianLamViec || 0) / 3600, render: (r) => so((r.thoiGianLamViec || 0) / 3600, 1) },
+        { key: 'phienBan', label: 'Phiên bản', type: 'num' },
+        { key: 'trangThai', label: 'Trạng thái' },
+        { key: 'nguoiTao', label: 'Người tạo' },
+      ], rows, { footer: true, empty: 'Không có quy trình công nghệ có SOT trong khoảng ngày này' });
+    } catch (e) { App.error(result, e); }
+  }
+  btn.onclick = load;
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Mã hàng, LĐ, SOT']], load).then(load);
+</script>
+</body>
+</html>

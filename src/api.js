@@ -209,6 +209,7 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router.get('/sot-ma-hang', handle('sotMaHang', (req) => ({ tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today() })));
 router.get('/phieu-cap-btp/:soPhieu/chi-tiet', handle('phieuCapChiTiet', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/phieu-cap-btp/:soPhieu/phieu-xuat', handle('phieuXuatTheoPhieuCap', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/lenh-sx', handle('lenhSX', (req) => ({ q: (req.query.q || '').trim() })));

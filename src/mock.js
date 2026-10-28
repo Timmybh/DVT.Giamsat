@@ -200,6 +200,16 @@ module.exports = {
   },
   lenhTheoPhieuCap: (q) => module.exports.datTatCaToTheoPhieuCap(q)
     .map((d) => ({ lenhSX: String(d.lenhSX).replace(/;\s*$/, ''), po: d.po, mau: d.mau, size: d.size, slLenh: Math.round(d.slDat * (1 + hash(`ln${d.po}${d.size}`) * 0.3)) })),
+  sotMaHang: ({ tuNgay, denNgay }) => Array.from({ length: 14 }, (_, i) => {
+    const sot = Math.round(1500 + hash(`sot${i}`) * 4500);
+    const ld = hInt(`ld${i}`, 22, 38);
+    return {
+      id: 600 - i, maHang: pick([`FOA4${hInt(`m${i}`, 10000, 10999)}`, String(hInt(`n${i}`, 370000, 389999))]), khachHang: pick(khach), chungLoai: pick(['ÁO KHOÁC 1 LỚP', 'QUẦN DÀI 1 LỚP', 'Áo các loại']),
+      mua: pick(['SS27', 'FW26', '']), chuyen: i % 3 ? String(hInt(`c${i}`, 1, 12)) : '', soLaoDong: ld, sot, sam: 0, thoiGianLamViec: 28800,
+      mucTieu: Math.round((28800 * ld) / sot), nhipDo: Math.round((sot / ld) * 100) / 100, phienBan: hInt(`pb${i}`, 0, 2), trangThai: pick(['Đã ban hành', 'MoiTao']),
+      ngayTao: new Date(new Date(denNgay) - hInt(`d${i}`, 0, 25) * 86400000).toISOString(), nguoiTao: 'NGUYỄN THỊ DUNG', ngayBanHanh: null,
+    };
+  }).filter((r) => inRange(r.ngayTao, tuNgay, denNgay)),
   phieuCapChiTiet: ({ soPhieu }) => phieuCapCT.filter((c) => c.soPhieu === soPhieu),
   phieuXuatTheoPhieuCap: ({ soPhieu }) => quetXuat.filter((x) => x.soPhieu === soPhieu)
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),
