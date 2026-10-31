@@ -13,7 +13,7 @@ const gio = (cot) => Array.from({ length: 10 }, (_, i) => `SUM(ISNULL(n.${cot}_$
 const HIPRO = {
   db: 'hipro',
   text: `
-    SELECT nm.ten AS xn, c.ten AS chuyen, cp.ten AS checkPoint, cp.type, sp.ma_san_pham AS maHang, sp.po,
+    SELECT nm.ten AS xn, c.ten AS chuyen, cp.ten AS diemKiem, cp.type, sp.ma_san_pham AS maHang, sp.po,
            ${gio('qty')}, ${gio('reject')}, ${gio('fix')},
            SUM(ISNULL(n.loi_ngay, 0)) AS loiNgay, SUM(ISNULL(n.sua_ngay, 0)) AS suaNgay
     FROM dbo.pro_nscl n
@@ -29,7 +29,7 @@ const HIPRO = {
 const HIPRO_KIEM_TRONG = {
   db: 'hipro',
   text: `
-    SELECT kt.thoi_gian, kt.gio_lam, kt.ma_loi, l.ten_loi, cp.ten AS checkPoint
+    SELECT kt.thoi_gian, kt.gio_lam, kt.ma_loi, l.ten_loi, cp.ten AS diemKiem
     FROM dbo.pro_kiemtrong_chi_tiet_loi kt
     JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = kt.pro_ke_hoach_san_xuat_id
     JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
