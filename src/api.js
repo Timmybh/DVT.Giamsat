@@ -308,12 +308,14 @@ const LUI_LK = 90;
 const mocLK = (ngays, d) => ngays.map(ymd).filter(Boolean)
   .reduce((m, x) => (x < m ? x : m), ymd(new Date(new Date(d) - LUI_LK * 86400000)));
 // May ra HiPro (nhà máy x chuyền x PO) từ tuLK, đọc cả bảng lưu trữ pro_nscl_MM_YYYY của các tháng tuLK..denNgay
-async function docMayRa(tuLK, tuNgay, denNgay) {
+async function docMayRa(tuLK, tuNgay, denNgay, pos = []) {
   const bang = (await run('nsclLuuTru', {})).map((x) => x.name).filter((b) => {
     const m = /^pro_nscl_(\d{2})_(\d{4})$/.exec(b);
     return m && `${m[2]}-${m[1]}` >= tuLK.slice(0, 7) && `${m[2]}-${m[1]}` <= denNgay.slice(0, 7);
   });
-  return { bang, sx: await run('mayRaHiPro', { tuLK, tuNgay, denNgay }, bang) };
+  const p = { tuLK, tuNgay, denNgay };
+  pos.forEach((po, i) => { p[`hp${i}`] = po; });
+  return { bang, sx: await run('mayRaHiPro', p, { bang, nPO: pos.length }) };
 }
 async function tinhMayRa(xn, tuNgay, denNgay) {
   const n = await xnNum(xn);
@@ -379,9 +381,18 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     const maTo = String(req.query.to || '').trim();
     const n = await xnNum(req.query.xn);
     const p = { xn: req.query.xn, xnCode: n ? `XN${n}` : '', to: maTo, d };
-    const [sbd, pos, dat, lenhs] = await Promise.all([run('khToSize', p), run('khToPO', p), run('datToSize', p), run('lenhToSize', p)]);
+    // Danh sách PO của tổ tính 1 lần rồi truyền vào các câu sau
+    const dsPO = await run('poToMay', p);
+    const chay = [...new Set(dsPO.filter((r) => Number(r.chay) === 1).map((r) => r.po))];
+    const poDat = [...new Set(dsPO.filter((r) => Number(r.chay) !== 1).map((r) => r.po))];
+    chay.forEach((x, i) => { p[`pc${i}`] = x; });
+    poDat.forEach((x, i) => { p[`pd${i}`] = x; });
+    const so = { nChay: chay.length, nDat: poDat.length };
+    const [sbd, pos, dat, lenhs] = await Promise.all([run('khToSize', p, so), run('khToPO', p, so), run('datToSize', p, so), run('lenhToSize', p, so)]);
     const tuLK = mocLK(pos.map((r) => r.ngayVaoChuyen), d);
-    const { sx } = await docMayRa(tuLK, d, d);
+    // Lũy kế HiPro chỉ đọc các PO của tổ
+    const dsPOTo = pos.map((r) => String(r.po ?? '').trim()).filter(Boolean);
+    const { sx } = dsPOTo.length ? await docMayRa(tuLK, d, d, dsPOTo) : { sx: [] };
     const N = (v) => Number(v || 0);
     const poKey = (v) => String(v ?? '').trim();
     const sxPO = new Map();

@@ -57,7 +57,19 @@ const poDatToSQL = `
         WHERE pc.TenPhanXuong = @xnCode AND LTRIM(RTRIM(pc.TenCum)) = @to
           AND pc.NgayTao >= DATEADD(day, -30, @d) AND pc.NgayTao < DATEADD(day, 1, @d)`;
 
+// Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
+const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
+
 module.exports = {
+  // PO của tổ (tính 1 lần, API truyền danh sách cho các câu kế hoạch tổ bên dưới): chay = PO kế hoạch (poChayToSQL), dat = PO có phiếu đặt 30 ngày
+  poToMay: {
+    db: 'egmf',
+    text: `
+      SELECT po, 1 AS chay FROM (${poChayToSQL}) c
+      UNION
+      SELECT po, 0 AS chay FROM (${poDatToSQL}) d`,
+  },
+
   // Danh mục xí nghiệp. API tự suy ra mã 'XN1'.. từ số trong tên để lọc bảng CUTTING
   xiNghiep: {
     db: 'egmf',
@@ -701,7 +713,8 @@ module.exports = {
   // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ;
   // thêm đạt lần đầu (qty) và lỗi (reject) của ngày @denNgay để tính đã kiểm / RFT,
   // đọc cả pro_nscl hiện hành lẫn các bảng lưu trữ truyền vào (tên đã kiểm ở API). Tham số: @tuLK, @tuNgay, @denNgay
-  mayRaHiPro: (bangLuuTru = []) => {
+  // arg: { bang: bảng lưu trữ, nPO: lọc theo danh sách PO @hp0.. (0 = mọi PO) }
+  mayRaHiPro: ({ bang: bangLuuTru = [], nPO = 0 } = {}) => {
     const cong = (cot) => Array.from({ length: 14 }, (_, i) => `ISNULL(${cot}_${i + 1}_h, 0)`).join(' + ');
     const cot = `${cong('qty')} AS dat, ${cong('fix')} AS sua, ${cong('reject')} AS loi`;
     const nguon = [`SELECT pro_ke_hoach_san_xuat_id, pro_check_point_id, ${cot}, ISNULL(sua_po_luy_ke, 0) AS dc FROM dbo.pro_nscl`]
@@ -721,22 +734,20 @@ module.exports = {
       JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
       JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
-      WHERE k.ngay_san_xuat >= @tuLK AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      WHERE k.ngay_san_xuat >= @tuLK AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)${nPO ? `
+        AND sp.po IN (${dsThamSo('hp', nPO)})` : ''}
       GROUP BY nm.ten, c.ten, sp.po`,
     };
   },
 
   // ======================= Tổ trưởng chuyền may: kế hoạch tổ theo PO x size =======================
-  // PO "đang chạy" của tổ tại ngày @d: có dòng OMM_KeHoachThang từ vào chuyền đến kết thúc may phủ ngày @d.
-  // Phiếu đặt gần đây: phiếu cấp BTP của tổ tạo trong 30 ngày tới @d. Tham số chung: @xn, @xnCode, @to, @d
-  khToSize: {
+  // Danh sách PO lấy 1 lần qua poToMay; @pc0.. = PO kế hoạch (chay), @pd0.. = PO có phiếu đặt 30 ngày. Tham số chung: @xn, @xnCode, @to, @d
+  khToSize: ({ nChay = 0, nDat = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      WITH poChay AS (${poChayToSQL}),
-      poDat AS (${poDatToSQL})
       SELECT po.PONo AS po, dh.MaHang AS maHang, ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size,
              SUM(ISNULL(s.SoLuong, 0)) AS soLuong,
-             CASE WHEN po.PONo IN (SELECT po FROM poChay) THEN 1 ELSE 0 END AS dangChay
+             CASE WHEN po.PONo IN (${dsThamSo('pc', nChay)}) THEN 1 ELSE 0 END AS dangChay
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
       JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
@@ -745,16 +756,15 @@ module.exports = {
       JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
-        AND (po.PONo IN (SELECT po FROM poChay) OR po.PONo IN (SELECT po FROM poDat))
+        AND (po.PONo IN (${dsThamSo('pc', nChay)}) OR po.PONo IN (${dsThamSo('pd', nDat)}))
       GROUP BY po.PONo, dh.MaHang, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
-  },
+  }),
 
   // Theo PO đang chạy của tổ: SL kế hoạch, KH ngày @d (như keHoachNgay), ngày vào chuyền / kết thúc may, lệnh SX (Bravo),
   // hoanThanh = 1 khi mọi dòng KH của PO ở tổ có tình trạng Hoàn thành (OMM_KeHoachThang.TinhTrang) trong phần mềm kế hoạch
-  khToPO: {
+  khToPO: ({ nChay = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      WITH poChay AS (${poChayToSQL})
       SELECT x.*,
              STUFF((SELECT DISTINCT ', ' + a.DocNo
                     FROM dbo.Bravo_LenhSanXuat_Detail_PO b
@@ -776,37 +786,34 @@ module.exports = {
         JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
-          AND po.PONo IN (SELECT po FROM poChay)
+          AND po.PONo IN (${dsThamSo('pc', nChay)})
         GROUP BY po.PONo
       ) x`,
-  },
+  }),
 
   // Dòng chi tiết phiếu đặt BTP của tổ (SL đặt = SoLuongCanCap), tạo đến hết @d, thuộc PO đang chạy hoặc tạo trong 30 ngày
-  datToSize: {
+  datToSize: ({ nChay = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      WITH poChay AS (${poChayToSQL})
       SELECT pc.SoPhieuCapBTP AS soPhieu, pc.NgayTao AS ngayTao, pc.NgayNhanBTP AS ngayNhan,
              ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhSX, ct.PO AS po, pc.ProductCode AS maHang, ISNULL(ct.TenMau, '') AS mau, ISNULL(ct.SizeCode, '') AS size,
              ISNULL(ct.SoLuongCanCap, 0) AS slDat, ISNULL(ct.SoLuongThucNhan, 0) AS slNhan
       FROM dbo.CUTTING_PhieuCapBTP pc
       JOIN dbo.CUTTING_PhieuCapBTP_ChiTiet ct ON ct.IdCapBTP = pc.IdCapBTP
       WHERE pc.TenPhanXuong = @xnCode AND LTRIM(RTRIM(pc.TenCum)) = @to AND pc.NgayTao < DATEADD(day, 1, @d)
-        AND (pc.NgayTao >= DATEADD(day, -30, @d) OR ct.PO IN (SELECT po FROM poChay))`,
-  },
+        AND (pc.NgayTao >= DATEADD(day, -30, @d) OR ct.PO IN (${dsThamSo('pc', nChay)}))`,
+  }),
 
   // SL kế hoạch theo lệnh x PO x màu x size (Bravo) cho PO đang chạy / có phiếu đặt gần đây của tổ (như lenhTheoSize)
-  lenhToSize: {
+  lenhToSize: ({ nChay = 0, nDat = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      WITH poChay AS (${poChayToSQL}),
-      poDat AS (${poDatToSQL})
       SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-      WHERE (b.PO IN (SELECT po FROM poChay) OR b.PO IN (SELECT po FROM poDat)) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+      WHERE (b.PO IN (${dsThamSo('pc', nChay)}) OR b.PO IN (${dsThamSo('pd', nDat)})) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
       GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
-  },
+  }),
 };

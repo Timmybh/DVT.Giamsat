@@ -380,6 +380,7 @@ module.exports = {
     return { xn: `Xí Nghiệp 0${k.xn}`, line: k.maTo, po: k.po, maHang: k.maHang, mayRaKy: 0, mayRaNgay: hInt(`sxn${k.po}${denNgay}`, 40, 160), mayRaLK: Math.floor(k.soLuong * Math.max(0, f) * 0.9), datNgay: hInt(`sxn${k.po}${denNgay}`, 40, 160) - 6, loiNgay: hInt(`lo${k.po}`, 3, 15) };
   })),
   // Tổ trưởng may: kế hoạch tổ (PO đang chạy tại ngày d), size theo SBD, phiếu đặt có 1 dòng sai size và 1 size đặt vượt KH
+  poToMay: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).map((k) => ({ po: k.po, chay: 1 })),
   khToPO: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).map((k) => ({
     po: k.po, maHang: k.maHang, lenhSX: k.lenhSX, soLuong: k.soLuong, khNgay: Math.round(k.soLuong / 8), ngayVaoChuyen: k.ngayVaoChuyen, ngayKetThuc: k.ngayKetThuc, hoanThanh: 0, nangLuc: 350,
   })),
