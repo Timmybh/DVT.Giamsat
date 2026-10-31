@@ -743,7 +743,7 @@ module.exports = {
   },
 
   // Theo PO đang chạy của tổ: SL kế hoạch, KH ngày @d (như keHoachNgay), ngày vào chuyền / kết thúc may, lệnh SX (Bravo),
-  // Đã SX theo phần mềm kế hoạch (SoLuongTPDaNhap) và cờ SanXuatXong (mọi dòng KH của PO ở tổ đều xong)
+  // hoanThanh = 1 khi mọi dòng KH của PO ở tổ có tình trạng Hoàn thành (OMM_KeHoachThang.TinhTrang) trong phần mềm kế hoạch
   khToPO: {
     db: 'egmf',
     text: `
@@ -760,8 +760,7 @@ module.exports = {
                         THEN CASE WHEN ISNULL(k.SoNgaySX, 0) <= 1 THEN k.SoLuong ELSE k.SoLuong * 1.0 / k.SoNgaySX END
                         ELSE 0 END) AS khNgay,
                MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
-               SUM(ISNULL(k.SoLuongTPDaNhap, 0)) AS daSX,
-               MIN(CASE WHEN k.SanXuatXong = 1 THEN 1 ELSE 0 END) AS sanXuatXong
+               MIN(CASE WHEN REPLACE(k.TinhTrang, ' ', '') IN (N'HoanThanh', N'Hoànthành') THEN 1 ELSE 0 END) AS hoanThanh
         FROM dbo.OMM_KeHoachThang k
         JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
         JOIN dbo.OMM_PO po ON po.POId = pct.POId

@@ -22,7 +22,7 @@
     <div class="tabs" id="tabKH"><button type="button" data-tab="dang" class="active">Đang hoạt động</button><button type="button" data-tab="xong">Đã hoàn thành</button></div>
     <div id="theKH" class="the-ngang"></div>
     <div class="note">Vuốt ngang để xem từng tổ hợp lệnh x PO x màu x size. KH tổ: SL phân bổ SBD của tổ; đặt: phiếu cấp (PO nhiều lệnh thì tách theo lệnh ghi trên phiếu). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
-      Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế. Đã hoàn thành: phần mềm kế hoạch báo PO đã sản xuất xong ở tổ (Đã SX ≥ Phân bổ), hoặc SX lũy kế HiPro ≥ SL KH.</div>
+      Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế. Đã hoàn thành: kế hoạch có tình trạng Hoàn thành trong phần mềm kế hoạch.</div>
   </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
@@ -105,10 +105,10 @@
         <div class="${mau(rft, 95, 90)}"><span>RFT</span><b>${rft == null ? '-' : `${rft}%`}</b></div>
         <div class="${mau(hs, 100, 85)}"><span>Hiệu suất</span><b>${hs == null ? '-' : `${hs}%`}</b></div>
       </div>
-      <div class="chan">KH hôm nay (PO) <b>${App.num(t.khNgay)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b> · Đã SX (phần mềm KH) <b>${App.num(t.daSX)}</b></div>
+      <div class="chan">KH hôm nay (PO) <b>${App.num(t.khNgay)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
     </div>`;
   };
-  // Tab Đang hoạt động / Đã hoàn thành: cờ hoanThanh từ API (phần mềm kế hoạch báo xong hoặc SX HiPro >= SL KH)
+  // Tab Đang hoạt động / Đã hoàn thành: cờ hoanThanh từ API (tình trạng Hoàn thành trong phần mềm kế hoạch)
   let tabKHChon = 'dang', khGanNhat = null;
   const xongPO = (t) => !!t.hoanThanh;
   tabKH.addEventListener('click', (e) => {

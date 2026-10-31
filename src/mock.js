@@ -381,7 +381,7 @@ module.exports = {
   })),
   // Tổ trưởng may: kế hoạch tổ (PO đang chạy tại ngày d), size theo SBD, phiếu đặt có 1 dòng sai size và 1 size đặt vượt KH
   khToPO: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).map((k) => ({
-    po: k.po, maHang: k.maHang, lenhSX: k.lenhSX, soLuong: k.soLuong, khNgay: Math.round(k.soLuong / 8), ngayVaoChuyen: k.ngayVaoChuyen, ngayKetThuc: k.ngayKetThuc, daSX: 0, sanXuatXong: 0,
+    po: k.po, maHang: k.maHang, lenhSX: k.lenhSX, soLuong: k.soLuong, khNgay: Math.round(k.soLuong / 8), ngayVaoChuyen: k.ngayVaoChuyen, ngayKetThuc: k.ngayKetThuc, hoanThanh: 0,
   })),
   khToSize: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).flatMap((k) => sizeToMau(k).map((x) => ({ po: k.po, maHang: k.maHang, mau: x.mau, size: x.size, soLuong: x.kh, dangChay: 1 }))),
   datToSize: ({ xn, to: maTo, d }) => poToMau(xn, maTo, d).flatMap((k, i) => {
