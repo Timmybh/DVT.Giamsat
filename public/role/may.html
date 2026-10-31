@@ -211,7 +211,12 @@
     const [kh, sl, ld, pos] = await Promise.all(['ke-hoach-ngay', 'san-luong-gio', 'lao-dong', 'po-may-ra'].map((u) => safe(App.api(u, q))));
     const mine = (rows) => (rows.error ? [] : rows.filter((r) => r.line === to.value));
 
-    const gioRows = mine(sl);
+    // Lỗi theo giờ = reject (lỗi) + fix (lấy sửa) của HiPro, như màn hình QC HiPro (vd 23 kiểm: 21 đạt, 2 lỗi lấy sửa)
+    const gioRows = mine(sl).map((r) => {
+      const x = { ...r };
+      for (let h = 1; h <= 14; h++) x[`r${h}`] = Number(r[`r${h}`] || 0) + Number(r[`f${h}`] || 0);
+      return x;
+    });
     const hours = Array.from({ length: 14 }, (_, i) => i + 1);
     const lastH = Math.max(0, ...hours.filter((h) => gioRows.some((r) => r[`h${h}`] > 0 || r[`r${h}`] > 0)));
     gioRows.forEach((r) => {

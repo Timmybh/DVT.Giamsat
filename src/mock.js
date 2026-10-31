@@ -276,6 +276,7 @@ module.exports = {
     for (let h = 1; h <= 14; h++) {
       row[`h${h}`] = h <= maxH ? hInt(`h${xn.ma}${t.ma}${d0}${h}`, 40, 110) : 0;
       row[`r${h}`] = h <= maxH ? hInt(`r${xn.ma}${t.ma}${d0}${h}`, 0, 8) : 0;
+      row[`f${h}`] = h <= maxH ? hInt(`f${xn.ma}${t.ma}${d0}${h}`, 0, 3) : 0;
     }
     return row;
   })),

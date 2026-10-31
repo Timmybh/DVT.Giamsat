@@ -436,13 +436,14 @@ module.exports = {
       GROUP BY e.TenCum, ISNULL(dh.MaHang, '')`,
   },
 
-  // Sản lượng theo giờ (HiPro): tổng qty_1_h..qty_14_h (đạt) và reject_1_h..reject_14_h (lỗi) theo chuyền x mã hàng. Tham số: @d0. API lọc xí nghiệp theo tên nhà máy.
+  // Sản lượng theo giờ (HiPro): tổng qty_1_h..qty_14_h (đạt) reject_1_h..reject_14_h (lỗi), fix_1_h..fix_14_h (lấy sửa) theo chuyền x mã hàng. Tham số: @d0. API lọc xí nghiệp theo tên nhà máy.
   sanLuongGio: {
     db: 'hipro',
     text: `
       SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang,
              ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.qty_${i + 1}_h, 0)) AS h${i + 1}`).join(', ')},
-             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.reject_${i + 1}_h, 0)) AS r${i + 1}`).join(', ')}
+             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.reject_${i + 1}_h, 0)) AS r${i + 1}`).join(', ')},
+             ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.fix_${i + 1}_h, 0)) AS f${i + 1}`).join(', ')}
       FROM dbo.pro_nscl n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
