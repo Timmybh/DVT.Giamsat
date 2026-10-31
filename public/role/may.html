@@ -267,8 +267,9 @@
   }
 
   // Sản lượng theo giờ: mỗi mã hàng 1 dòng, cột Giờ 1-4 / NT (nghỉ trưa, để trống) / Giờ 5-9 (+ giờ tăng ca nếu có bấm).
-  // Ô = x / y / z: x = năng lực chuyền / ngày của mã hàng (NangLucSXChuyen, KH chưa hoàn thành) chia đều SO_GIO giờ,
-  //   không có thì lấy KH ngày trong khoảng ngày may KH; y = đạt (HiPro qty), z = lỗi (HiPro reject).
+  // Ô = x / y / z: x = định mức / ngày của mã hàng (NangLucSXChuyen, KH chưa hoàn thành) chia đều SO_GIO khung giờ,
+  //   không có thì lấy KH ngày trong khoảng ngày may KH; y = sản lượng bấm = đạt + sửa + lỗi chưa sửa (qty + fix + reject),
+  //   z = sửa + lỗi (fix + reject).
   const SO_GIO = 9;
   function veGio(gioRows, khRows, lastH) {
     gioGanNhat = [gioRows, khRows, lastH];
@@ -291,7 +292,7 @@
     const dong = ma.map((m) => {
       const r = gioRows.find((x) => String(x.maHang || '').trim() === m) || {};
       const kh = khMa.get(m) || 0;
-      return { ma: m, o: gioCot.map((h) => ({ x: phanBo(kh, h), y: r[`h${h}`] || 0, z: r[`r${h}`] || 0 })) };
+      return { ma: m, o: gioCot.map((h) => ({ x: phanBo(kh, h), y: (r[`h${h}`] || 0) + (r[`r${h}`] || 0), z: r[`r${h}`] || 0 })) };
     });
     const cong = (os) => os.reduce((t, v) => ({ x: t.x + v.x, y: t.y + v.y, z: t.z + v.z }), { x: 0, y: 0, z: 0 });
     const tong = gioCot.map((_, i) => cong(dong.map((d) => d.o[i])));
@@ -306,7 +307,7 @@
       <thead><tr><th>Mã hàng</th>${dau}<th class="num">Tổng</th></tr></thead>
       <tbody>${dong.map((d) => hang(App.esc(d.ma || '(không mã)'), d.o)).join('')}</tbody>
       <tfoot>${hang('Tổng', tong, true)}</tfoot></table></div>
-      <div class="note">Mỗi ô: KH phân bổ / <span class="g-y">đạt</span> / <span class="g-z">lỗi</span>. KH phân bổ = năng lực chuyền / ngày của mã hàng (phần mềm kế hoạch) chia đều ${SO_GIO} giờ; đạt, lỗi lấy HiPro. NT: nghỉ trưa.</div>`;
+      <div class="note">Mỗi ô: định mức khung giờ / <span class="g-y">sản lượng bấm (đạt + sửa + lỗi chưa sửa)</span> / <span class="g-z">sửa + lỗi</span>. Định mức / khung = định mức ngày của mã hàng (phần mềm kế hoạch) chia đều ${SO_GIO} khung; sản lượng, lỗi lấy HiPro. NT: nghỉ trưa.</div>`;
   }
 
   to.onchange = ngay.onchange = load;
