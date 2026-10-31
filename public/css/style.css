@@ -184,6 +184,10 @@ header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overf
 
 /* Sản lượng theo giờ (tổ trưởng may): ô x / y / z */
 .bang-gio td, .bang-gio th { white-space: nowrap; }
+.bang-gio th, .bang-gio td.num, .bang-gio th.num { text-align: center; }
+/* Cột Mã hàng đứng yên khi cuộn ngang (điện thoại) */
+.bang-gio tr > :first-child { position: sticky; left: 0; z-index: 2; text-align: left; }
+.bang-gio td:first-child { background: #fff; }
 .bang-gio .g-y, .note .g-y { color: #1e8e3e; font-weight: 600; }
 .bang-gio .g-z, .note .g-z { color: #d93025; font-weight: 600; }
 .bang-gio .g-nt { background: var(--line); min-width: 32px; text-align: center; }
