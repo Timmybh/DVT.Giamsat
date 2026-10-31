@@ -374,7 +374,7 @@ router.get('/po-may-ra', async (req, res) => {
 //   SL KH: OMM_KeHoachThang (PO) / SBD (size). SL đặt: SoLuongCanCap phiếu cấp BTP của tổ (hôm nay = phiếu tạo ngày d; lũy kế đến hết d).
 //   SL SX: HiPro theo chuyền x PO (HiPro không ghi size). Còn lại hôm nay = KH ngày - SX hôm nay; còn lại = SL KH - SX lũy kế.
 //   Hoàn thành: tình trạng kế hoạch trong phần mềm kế hoạch là Hoàn thành.
-//   Phiếu đặt sai kế hoạch (tạo trong 30 ngày): PO không có kế hoạch ở tổ, màu/size không có trong SBD, hoặc đặt lũy kế vượt SL KH size.
+//   Phiếu đặt sai kế hoạch: PO không có kế hoạch ở tổ hoặc màu/size không có trong SBD (phiếu tạo trong 30 ngày), đặt lũy kế vượt SL KH size (mọi phiếu).
 router.get('/to-may/ke-hoach', async (req, res) => {
   try {
     const d = req.query.d || today();
@@ -427,13 +427,13 @@ router.get('/to-may/ke-hoach', async (req, res) => {
       r.phieu.push({ ...dong, ngay });
       r.tatCaPhieu.push({ ...dong, ngay });
     });
-    // Đặt lũy kế vượt SL KH của size: đánh dấu các phiếu từ lúc vượt
+    // Đặt lũy kế vượt SL KH của size: đánh dấu các phiếu từ lúc vượt (không giới hạn 30 ngày; trang lọc theo PO trong phạm vi cảnh báo)
     sizes.forEach((r) => {
       let lk = 0;
       r.phieu.sort((a, b) => String(a.ngay).localeCompare(String(b.ngay)) || String(a.soPhieu).localeCompare(String(b.soPhieu)))
         .forEach((x) => {
           lk += x.slDat;
-          if (lk > r.kh && x.ngay >= tu30) sai.push({ ...x, lyDo: `Đặt lũy kế ${lk.toLocaleString('vi-VN')} vượt KH ${r.kh.toLocaleString('vi-VN')}` });
+          if (lk > r.kh) sai.push({ ...x, lyDo: `Đặt lũy kế ${lk.toLocaleString('vi-VN')} vượt KH ${r.kh.toLocaleString('vi-VN')}` });
         });
       delete r.phieu;
     });
