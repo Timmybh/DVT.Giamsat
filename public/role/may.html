@@ -124,9 +124,11 @@
       b.textContent = b.dataset.tab === 'xong' ? `Đã hoàn thành (${soXong})` : `Đang hoạt động (${kq.the.length - soXong})`;
     });
     const dsPO = kq.the.filter((t) => xongPO(t) === (tabKHChon === 'xong'));
-    const ds = dsPO.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: 0, datLK: 0 }])
+    // Chỉ lên thẻ khi kế hoạch đã có đủ màu và size (SBD)
+    const duMauSize = (x) => String(x.mau || '').trim() && String(x.size || '').trim();
+    const ds = dsPO.flatMap((t) => t.sizes.filter(duMauSize)
       .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
-    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${dsPO.length} PO)` : '';
+    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${new Set(ds.map(({ t }) => t.po)).size} PO)` : '';
     theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veMotThe(t, x)).join('')
       : `<div class="empty">${!kq.the.length ? 'Tổ không có PO đang chạy trong ngày này' : tabKHChon === 'xong' ? 'Chưa có kế hoạch nào hoàn thành' : 'Không còn kế hoạch đang hoạt động'}</div>`;
   }
