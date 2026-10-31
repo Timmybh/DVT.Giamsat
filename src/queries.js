@@ -100,10 +100,15 @@ module.exports = {
         GROUP BY e.TenCum, dh.MaHang, po.PONo
       ) x
       LEFT JOIN (
-        SELECT b.PO, a.DocNo AS lenhSX, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+        -- Lệnh điều chỉnh (TypeCt = 1) cộng vào lệnh gốc (ProductionOrderAdjNo) như các trang khác; bỏ lệnh không active
+        -- và lệnh có SL ròng = 0 (đã điều chỉnh hết)
+        SELECT b.PO, CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+               SUM(ISNULL(b.Quantity, 0)) AS slLenh
         FROM dbo.Bravo_LenhSanXuat_Detail_PO b
         JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-        GROUP BY b.PO, a.DocNo
+        WHERE ISNULL(a.IsActive, 1) <> 0
+        GROUP BY b.PO, CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END
+        HAVING SUM(ISNULL(b.Quantity, 0)) <> 0
       ) l ON l.PO = x.po
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
   },
