@@ -101,12 +101,12 @@ module.exports = {
         GROUP BY e.TenCum, dh.MaHang, po.PONo
       ) x
       LEFT JOIN (
-        -- Mỗi lệnh (DocNo) 1 dòng. Loại lệnh theo Bravo TypeCt: 0 lệnh sản xuất (gốc), 1 điều chỉnh, 2 thu hồi; IsActive = 0 là đình chỉ (bỏ)
+        -- Mỗi lệnh (DocNo) 1 dòng. Loại lệnh theo Bravo TypeCt: 0 lệnh sản xuất (gốc), 1 điều chỉnh, 2 thu hồi; IsActive = 0 là đình chỉ (bỏ); chỉ lấy lệnh DocStatus = 4 (đã hoàn thiện)
         SELECT b.PO, a.DocNo AS lenhSX, MAX(ISNULL(a.TypeCt, 0)) AS typeCt, MAX(ISNULL(a.ProductionOrderAdjNo, '')) AS lenhGoc,
                SUM(ISNULL(b.Quantity, 0)) AS slLenh
         FROM dbo.Bravo_LenhSanXuat_Detail_PO b
         JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-        WHERE ISNULL(a.IsActive, 1) <> 0
+        WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
         GROUP BY b.PO, a.DocNo
       ) l ON l.PO = x.po
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
@@ -165,7 +165,7 @@ module.exports = {
              SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-      WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0
+      WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
       GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
@@ -228,7 +228,7 @@ module.exports = {
              b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-      WHERE ISNULL(a.IsActive, 1) <> 0 AND b.PO IN (${poPhieuCapLocSQL})
+      WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4 AND b.PO IN (${poPhieuCapLocSQL})
       GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
@@ -345,7 +345,7 @@ module.exports = {
       OUTER APPLY (SELECT TOP 1 ProductCode, SeasonCode FROM dbo.Bravo_LenhSanXuat_Detail WHERE IdMaster = m.Id) d
       OUTER APPLY (SELECT TOP 1 SoLuongLenh FROM dbo.CUTTING_LenhSanXuat_SoLuongLenh
                    WHERE LenhSanXuat = m.DocNo + ';' OR LenhSanXuat = m.DocNo) sl
-      WHERE m.IsActive = 1 AND ISNULL(m.TypeCt, 0) = 0
+      WHERE m.IsActive = 1 AND ISNULL(m.TypeCt, 0) = 0 AND m.DocStatus = 4
         AND (@q = '' OR m.DocNo LIKE '%' + @q + '%' OR d.ProductCode LIKE '%' + @q + '%')
       ORDER BY m.DocDate DESC, m.Id DESC`,
   },
@@ -751,7 +751,7 @@ module.exports = {
              STUFF((SELECT DISTINCT ', ' + a.DocNo
                     FROM dbo.Bravo_LenhSanXuat_Detail_PO b
                     JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-                    WHERE b.PO = x.po
+                    WHERE b.PO = x.po AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
                     FOR XML PATH('')), 1, 2, '') AS lenhSX
       FROM (
         SELECT po.PONo AS po, MAX(dh.MaHang) AS maHang, SUM(k.SoLuong) AS soLuong,
@@ -795,7 +795,7 @@ module.exports = {
              b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
-      WHERE (b.PO IN (SELECT po FROM poChay) OR b.PO IN (SELECT po FROM poDat)) AND ISNULL(a.IsActive, 1) <> 0
+      WHERE (b.PO IN (SELECT po FROM poChay) OR b.PO IN (SELECT po FROM poDat)) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
       GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
