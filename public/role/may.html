@@ -109,7 +109,7 @@
     </div>`;
   };
   // Tab Đang hoạt động / Đã hoàn thành: cờ hoanThanh từ API (tình trạng Hoàn thành trong phần mềm kế hoạch)
-  let tabKHChon = 'dang', khGanNhat = null;
+  let tabKHChon = 'dang', khGanNhat = null, gioGanNhat = null;
   const xongPO = (t) => !!t.hoanThanh;
   tabKH.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-tab]'); if (!b) return;
@@ -117,6 +117,7 @@
   });
   function veKH(kq) {
     khGanNhat = kq;
+    if (gioGanNhat) veGio(...gioGanNhat);
     const soXong = kq.the.filter(xongPO).length;
     tabKH.querySelectorAll('button').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === tabKHChon);
@@ -199,6 +200,7 @@
   }
 
   async function load() {
+    gioGanNhat = null; khGanNhat = null;
     ghiTo();
     loadKeHoachTo();
     const q = { xn: App.xn, d: ngay.value };
@@ -258,12 +260,20 @@
   }
 
   // Sản lượng theo giờ: mỗi mã hàng 1 dòng, cột Giờ 1-4 / NT (nghỉ trưa, để trống) / Giờ 5-9 (+ giờ tăng ca nếu có bấm).
-  // Ô = x / y / z: x = KH ngày của mã hàng (eGMF) chia đều SO_GIO giờ, y = đạt (HiPro qty), z = lỗi (HiPro reject).
+  // Ô = x / y / z: x = năng lực chuyền / ngày của mã hàng (NangLucSXChuyen, KH chưa hoàn thành) chia đều SO_GIO giờ,
+  //   không có thì lấy KH ngày trong khoảng ngày may KH; y = đạt (HiPro qty), z = lỗi (HiPro reject).
   const SO_GIO = 9;
   function veGio(gioRows, khRows, lastH) {
+    gioGanNhat = [gioRows, khRows, lastH];
     const khMa = new Map();
     khRows.forEach((r) => { const m = String(r.maHang || '').trim(); khMa.set(m, (khMa.get(m) || 0) + Number(r.keHoach || 0)); });
+    const nangLuc = new Map();
+    ((khGanNhat && khGanNhat.the) || []).filter((t) => !t.hoanThanh && t.nangLuc > 0).forEach((t) => {
+      const m = String(t.maHang || '').trim(); nangLuc.set(m, Math.max(nangLuc.get(m) || 0, t.nangLuc));
+    });
+    // Dòng: mã hàng có bấm HiPro hôm nay hoặc có KH trong khoảng ngày may KH
     const ma = [...new Set([...gioRows.map((r) => String(r.maHang || '').trim()), ...[...khMa.keys()].filter((m) => khMa.get(m) > 0)])];
+    nangLuc.forEach((v, m) => khMa.set(m, v));
     if (!ma.length) { gio.innerHTML = '<div class="empty">Chưa có kế hoạch / sản lượng HiPro cho tổ trong ngày</div>'; return; }
     const gioCot = Array.from({ length: Math.max(SO_GIO, lastH) }, (_, i) => i + 1);
     const phanBo = (kh, h) => {
@@ -289,7 +299,7 @@
       <thead><tr><th>Mã hàng</th>${dau}<th class="num">Tổng</th></tr></thead>
       <tbody>${dong.map((d) => hang(App.esc(d.ma || '(không mã)'), d.o)).join('')}</tbody>
       <tfoot>${hang('Tổng', tong, true)}</tfoot></table></div>
-      <div class="note">Mỗi ô: KH phân bổ / <span class="g-y">đạt</span> / <span class="g-z">lỗi</span>. KH phân bổ = KH ngày của mã hàng (phần mềm kế hoạch) chia đều ${SO_GIO} giờ; đạt, lỗi lấy HiPro. NT: nghỉ trưa.</div>`;
+      <div class="note">Mỗi ô: KH phân bổ / <span class="g-y">đạt</span> / <span class="g-z">lỗi</span>. KH phân bổ = năng lực chuyền / ngày của mã hàng (phần mềm kế hoạch) chia đều ${SO_GIO} giờ; đạt, lỗi lấy HiPro. NT: nghỉ trưa.</div>`;
   }
 
   to.onchange = ngay.onchange = load;

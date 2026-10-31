@@ -766,6 +766,7 @@ module.exports = {
                         THEN CASE WHEN ISNULL(k.SoNgaySX, 0) <= 1 THEN k.SoLuong ELSE k.SoLuong * 1.0 / k.SoNgaySX END
                         ELSE 0 END) AS khNgay,
                MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
+               MAX(ISNULL(k.NangLucSXChuyen, 0)) AS nangLuc,
                MIN(CASE WHEN REPLACE(k.TinhTrang, ' ', '') IN (N'HoanThanh', N'Hoànthành') THEN 1 ELSE 0 END) AS hoanThanh
         FROM dbo.OMM_KeHoachThang k
         JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
