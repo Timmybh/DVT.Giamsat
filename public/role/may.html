@@ -19,9 +19,10 @@
   </div>
   <div class="panel">
     <h2>Kế hoạch tổ theo lệnh x PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
+    <div class="tabs" id="tabKH"><button type="button" data-tab="dang" class="active">Đang hoạt động</button><button type="button" data-tab="xong">Đã hoàn thành</button></div>
     <div id="theKH" class="the-ngang"></div>
     <div class="note">Vuốt ngang để xem từng tổ hợp lệnh x PO x màu x size. KH tổ: SL phân bổ SBD của tổ; đặt: phiếu cấp (PO nhiều lệnh thì tách theo lệnh ghi trên phiếu). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
-      Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế.</div>
+      Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế. Đã hoàn thành: SX lũy kế của PO (HiPro) ≥ SL KH của PO.</div>
   </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
@@ -107,11 +108,26 @@
       <div class="chan">KH hôm nay (PO) <b>${App.num(t.khNgay)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
     </div>`;
   };
+  // Tab Đang hoạt động / Đã hoàn thành: PO hoàn thành khi SX lũy kế (HiPro) >= SL KH của PO
+  let tabKHChon = 'dang', khGanNhat = null;
+  const xongPO = (t) => t.soLuong > 0 && t.sxLK >= t.soLuong;
+  tabKH.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-tab]'); if (!b) return;
+    tabKHChon = b.dataset.tab; if (khGanNhat) veKH(khGanNhat);
+  });
   function veKH(kq) {
-    const ds = kq.the.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: 0, datLK: 0 }])
+    khGanNhat = kq;
+    const soXong = kq.the.filter(xongPO).length;
+    tabKH.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === tabKHChon);
+      b.textContent = b.dataset.tab === 'xong' ? `Đã hoàn thành (${soXong})` : `Đang hoạt động (${kq.the.length - soXong})`;
+    });
+    const dsPO = kq.the.filter((t) => xongPO(t) === (tabKHChon === 'xong'));
+    const ds = dsPO.flatMap((t) => (t.sizes.length ? t.sizes : [{ mau: '', size: '', kh: t.soLuong, datNgay: 0, datLK: 0 }])
       .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
-    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${kq.the.length} PO)` : '';
-    theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veMotThe(t, x)).join('') : '<div class="empty">Tổ không có PO đang chạy trong ngày này</div>';
+    soThe.textContent = ds.length ? `(${ds.length} thẻ · ${dsPO.length} PO)` : '';
+    theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veMotThe(t, x)).join('')
+      : `<div class="empty">${!kq.the.length ? 'Tổ không có PO đang chạy trong ngày này' : tabKHChon === 'xong' ? 'Chưa có kế hoạch nào hoàn thành' : 'Không còn kế hoạch đang hoạt động'}</div>`;
   }
   // Cảnh báo: gom từ thẻ kế hoạch (phiếu đặt sai) và sản lượng HiPro (mã không bấm, lỗi cao). Ngưỡng lỗi: > 5 sản phẩm / ngày.
   // Chỉ xét kế hoạch chưa hoàn tất (SX LK < SL PO) có ngày vào chuyền KH từ (ngày chọn - SO_NGAY_VAO) trở đi.
