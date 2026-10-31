@@ -143,7 +143,12 @@ module.exports = {
   to: ({ xn }) => to[xn] || [],
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
-      .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau)),
+      .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau))
+      .flatMap((k, i) => (i % 5 ? [{ ...k, loaiLenh: 'Lệnh gốc' }] : [
+        { ...k, loaiLenh: 'Lệnh gốc' },
+        { ...k, lenhSX: `${k.lenhSX}-TH`, slLenh: -k.slLenh, soLuong: null, loaiLenh: 'Lệnh thu hồi', lenhGoc: k.lenhSX },
+        { ...k, lenhSX: `${k.lenhSX}-DC`, soLuong: null, loaiLenh: 'Lệnh điều chỉnh', lenhGoc: k.lenhSX },
+      ])),
   keHoachTheoSize: ({ xn, tuNgay, denNgay }) => keHoach
     .filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
     .flatMap((k) => {

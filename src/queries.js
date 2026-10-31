@@ -80,8 +80,9 @@ module.exports = {
   keHoachPhanBo: {
     db: 'egmf',
     text: `
-      SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.slLenh,
-             CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
+      SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.slLenh, l.lenhGoc,
+             CASE WHEN l.slLenh < 0 THEN N'Lệnh thu hồi' WHEN l.typeCt = 1 THEN N'Lệnh điều chỉnh' WHEN l.lenhSX IS NULL THEN NULL ELSE N'Lệnh gốc' END AS loaiLenh,
+             CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY CASE WHEN l.slLenh < 0 THEN 2 WHEN l.typeCt = 1 THEN 1 ELSE 0 END, l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
              x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc
       FROM (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
@@ -100,15 +101,13 @@ module.exports = {
         GROUP BY e.TenCum, dh.MaHang, po.PONo
       ) x
       LEFT JOIN (
-        -- Lệnh điều chỉnh (TypeCt = 1) cộng vào lệnh gốc (ProductionOrderAdjNo) như các trang khác; bỏ lệnh không active
-        -- và lệnh có SL ròng = 0 (đã điều chỉnh hết)
-        SELECT b.PO, CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+        -- Mỗi lệnh (DocNo) 1 dòng. Loại lệnh: TypeCt = 1 là lệnh điều chỉnh (SL âm: thu hồi), còn lại là lệnh gốc (SL âm: thu hồi)
+        SELECT b.PO, a.DocNo AS lenhSX, MAX(ISNULL(a.TypeCt, 0)) AS typeCt, MAX(ISNULL(a.ProductionOrderAdjNo, '')) AS lenhGoc,
                SUM(ISNULL(b.Quantity, 0)) AS slLenh
         FROM dbo.Bravo_LenhSanXuat_Detail_PO b
         JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
         WHERE ISNULL(a.IsActive, 1) <> 0
-        GROUP BY b.PO, CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END
-        HAVING SUM(ISNULL(b.Quantity, 0)) <> 0
+        GROUP BY b.PO, a.DocNo
       ) l ON l.PO = x.po
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
   },
