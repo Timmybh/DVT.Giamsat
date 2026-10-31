@@ -33,16 +33,16 @@
   <div class="panel">
     <h2>Theo ngày</h2>
     <div id="theoNgay"></div>
-    <div class="note">Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi). RFT = đạt lần đầu / đã kiểm = đạt / (đạt + lỗi).</div>
+    <div class="note">Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi). RFT = đạt lần đầu / đã kiểm = đạt / (đạt + lỗi + sửa).</div>
   </div>
 </main>
 <script>
   denNgay.value = App.today();
   tuNgay.value = App.ymd(Date.now() - 13 * 86400000);
   const tyLe = (r) => (r.dat + r.loi ? `${((r.loi / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
-  // RFT = đạt lần đầu / đã kiểm (đạt + lỗi)
-  const rft = (r) => (r.dat + r.loi ? `${((r.dat / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
-  const rftTong = (rs) => rft({ dat: rs.reduce((s, r) => s + Number(r.dat || 0), 0), loi: rs.reduce((s, r) => s + Number(r.loi || 0), 0) });
+  // RFT = đạt lần đầu / đã kiểm (đạt + lỗi + sửa): hàng lấy sửa (fix) cũng là hàng lỗi lần đầu
+  const rft = (r) => { const k = r.dat + r.loi + (r.sua || 0); return k ? `${((r.dat / k) * 100).toFixed(1)}%` : '-'; };
+  const rftTong = (rs) => rft(['dat', 'loi', 'sua'].reduce((t, c) => ({ ...t, [c]: rs.reduce((s, r) => s + Number(r[c] || 0), 0) }), {}));
   const tyLeTong = (rs) => tyLe({ dat: rs.reduce((s, r) => s + Number(r.dat || 0), 0), loi: rs.reduce((s, r) => s + Number(r.loi || 0), 0) });
 
   async function loadTo() {

@@ -81,7 +81,7 @@
       <div class="ray"><i class="${+a > +b ? 'vuot' : pct(a, b) >= 100 ? 'du' : ''}" style="width:${pct(a, b)}%"></i><em>${b ? `${Math.round((a / b) * 100)}%` : ''}</em></div>
     </div>`;
   // Đầu thẻ mã hàng / size / màu / lệnh / PO; thanh lũy kế đặt & SX; ô hôm nay: đặt / nhận, đã kiểm, SX, còn lại; RFT, hiệu suất
-  //   Đã kiểm = đạt lần đầu + lỗi (HiPro, cả PO); RFT = đạt lần đầu / đã kiểm; Hiệu suất = SX hôm nay / KH hôm nay (cả PO)
+  //   Đã kiểm = đạt lần đầu + lỗi + sửa (HiPro qty + reject + fix, cả PO); RFT = đạt lần đầu / đã kiểm; Hiệu suất = SX hôm nay / KH hôm nay (cả PO)
   const veMotThe = (t, x) => {
     const rft = t.kiemNgay ? Math.round((t.datLanDau / t.kiemNgay) * 1000) / 10 : null;
     const hs = t.khNgay ? Math.round((t.sxNgay / t.khNgay) * 100) : null;

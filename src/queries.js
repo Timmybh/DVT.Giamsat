@@ -712,7 +712,7 @@ module.exports = {
   },
 
   // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ;
-  // thêm đạt lần đầu (qty) và lỗi (reject) của ngày @denNgay để tính đã kiểm / RFT,
+  // thêm đạt lần đầu (qty) và lỗi (reject + fix: lỗi chưa sửa + đã lấy sửa) của ngày @denNgay để tính đã kiểm / RFT,
   // đọc cả pro_nscl hiện hành lẫn các bảng lưu trữ truyền vào (tên đã kiểm ở API). Tham số: @tuLK, @tuNgay, @denNgay
   // arg: { bang: bảng lưu trữ, nPO: lọc theo danh sách PO @hp0.. (0 = mọi PO) }
   mayRaHiPro: ({ bang: bangLuuTru = [], nPO = 0 } = {}) => {
@@ -728,7 +728,7 @@ module.exports = {
              SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaNgay,
              SUM(n.dat + n.sua + n.dc) AS mayRaLK,
              SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat ELSE 0 END) AS datNgay,
-             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.loi ELSE 0 END) AS loiNgay
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.loi + n.sua ELSE 0 END) AS loiNgay
       FROM (${nguon.join('\n        UNION ALL ')}) n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
