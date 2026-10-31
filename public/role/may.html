@@ -90,6 +90,7 @@
         <div class="dau nho">${App.esc(t.maHang || '')} · Size ${App.esc(x.size || '?')} · ${App.esc(x.mau || '')}</div>
         <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b></div>
         <div class="po-dong">PO ${App.esc(t.po)}</div>
+        <div class="phu">TG may: <b>${App.date(t.ngayVaoChuyen) || '?'} – ${App.date(t.ngayKetThuc) || '?'}</b></div>
       </div></div>
       <div class="lk"><div class="lk-tieu">Lũy kế</div>
         ${thanh(`Lũy kế đặt / KH tổ ${App.esc(to.value)}`, x.datLK, x.kh)}
