@@ -268,7 +268,7 @@ module.exports = {
     });
     return [...groups.values()];
   },
-  keHoachNgay: ({ xn, d0 }) => (to[xn] || []).map((t) => ({ line: t.ma, keHoach: hInt(`kh${xn}${t.ma}${d0}`, 500, 1100) })),
+  keHoachNgay: ({ xn, d0 }) => (to[xn] || []).map((t) => ({ line: t.ma, maHang: hangCuaTo(xn, t.ma, d0), keHoach: hInt(`kh${xn}${t.ma}${d0}`, 500, 1100) })),
   sanLuongGio: ({ d0 }) => xiNghiep.flatMap((xn) => to[xn.ma].map((t) => {
     const row = { xn: `XN${xn.ma}`, line: `Chuyền ${t.ma}`, maHang: hangCuaTo(xn.ma, t.ma, d0) };
     const isToday = d0 === new Date().toISOString().slice(0, 10);

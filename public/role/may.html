@@ -239,20 +239,7 @@
     ]);
 
     if (sl.error) App.error(gio, sl.error);
-    else {
-      // Hàng dọc: mỗi giờ 1 dòng, mỗi mã hàng 1 cột
-      const dongGio = hours.slice(0, Math.max(lastH, 1)).map((h) => {
-        const d = { gio: `Giờ ${h}`, tong: 0, loi: 0 };
-        gioRows.forEach((r, i) => { d[`m${i}`] = r[`h${h}`] || 0; d.tong += r[`h${h}`] || 0; d.loi += r[`r${h}`] || 0; });
-        return d;
-      });
-      App.table(gio, [
-        { key: 'gio', label: 'Giờ' },
-        ...gioRows.map((r, i) => ({ key: `m${i}`, label: r.maHang || '(không mã)', type: 'num', sum: true })),
-        { key: 'tong', label: 'Tổng đạt', type: 'num', sum: true },
-        { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
-      ], gioRows.length ? dongGio : [], { footer: true, empty: 'Chưa có sản lượng HiPro cho tổ trong ngày' });
-    }
+    else veGio(gioRows, mine(kh), lastH);
 
     if (pos.error) App.error(po, pos.error);
     else App.table(po, [
@@ -268,6 +255,41 @@
       { key: 'tt', label: 'Hoàn thành', render: (r) => App.pctTag(r.mayRaLK || 0, r.soLuong), total: (rs) => App.pctTag(rs.reduce((s, r) => s + (r.mayRaLK || 0), 0), rs.reduce((s, r) => s + (r.soLuong || 0), 0)) },
       { key: 'ngayXuat', label: 'Ngày xuất hàng', type: 'date' },
     ], mine(pos), { footer: true, empty: 'Không có PO may trong ngày' });
+  }
+
+  // Sản lượng theo giờ: mỗi mã hàng 1 dòng, cột Giờ 1-4 / NT (nghỉ trưa, để trống) / Giờ 5-9 (+ giờ tăng ca nếu có bấm).
+  // Ô = x / y / z: x = KH ngày của mã hàng (eGMF) chia đều SO_GIO giờ, y = đạt (HiPro qty), z = lỗi (HiPro reject).
+  const SO_GIO = 9;
+  function veGio(gioRows, khRows, lastH) {
+    const khMa = new Map();
+    khRows.forEach((r) => { const m = String(r.maHang || '').trim(); khMa.set(m, (khMa.get(m) || 0) + Number(r.keHoach || 0)); });
+    const ma = [...new Set([...gioRows.map((r) => String(r.maHang || '').trim()), ...[...khMa.keys()].filter((m) => khMa.get(m) > 0)])];
+    if (!ma.length) { gio.innerHTML = '<div class="empty">Chưa có kế hoạch / sản lượng HiPro cho tổ trong ngày</div>'; return; }
+    const gioCot = Array.from({ length: Math.max(SO_GIO, lastH) }, (_, i) => i + 1);
+    const phanBo = (kh, h) => {
+      if (h > SO_GIO || !kh) return 0;
+      const n = Math.round(kh); const goc = Math.floor(n / SO_GIO);
+      return goc + (h <= n - goc * SO_GIO ? 1 : 0);
+    };
+    const dong = ma.map((m) => {
+      const r = gioRows.find((x) => String(x.maHang || '').trim() === m) || {};
+      const kh = khMa.get(m) || 0;
+      return { ma: m, o: gioCot.map((h) => ({ x: phanBo(kh, h), y: r[`h${h}`] || 0, z: r[`r${h}`] || 0 })) };
+    });
+    const cong = (os) => os.reduce((t, v) => ({ x: t.x + v.x, y: t.y + v.y, z: t.z + v.z }), { x: 0, y: 0, z: 0 });
+    const tong = gioCot.map((_, i) => cong(dong.map((d) => d.o[i])));
+    const o = (v) => `${App.num(v.x)} / <span class="g-y">${App.num(v.y)}</span> / <span class="g-z">${App.num(v.z)}</span>`;
+    const hang = (ten, os, th) => {
+      const c = th ? 'th' : 'td';
+      const cells = os.map((v, i) => `${gioCot[i] === 5 ? `<${c} class="g-nt"></${c}>` : ''}<${c} class="num">${o(v)}</${c}>`).join('');
+      return `<tr${th ? ' class="total-row"' : ''}><${c}>${ten}</${c}>${cells}<${c} class="num">${o(cong(os))}</${c}></tr>`;
+    };
+    const dau = gioCot.map((h) => `${h === 5 ? '<th class="g-nt">NT</th>' : ''}<th class="num">${h > SO_GIO ? `Giờ ${h} (TC)` : `Giờ ${h}`}</th>`).join('');
+    gio.innerHTML = `<div class="table-wrap"><table class="bang-gio">
+      <thead><tr><th>Mã hàng</th>${dau}<th class="num">Tổng</th></tr></thead>
+      <tbody>${dong.map((d) => hang(App.esc(d.ma || '(không mã)'), d.o)).join('')}</tbody>
+      <tfoot>${hang('Tổng', tong, true)}</tfoot></table></div>
+      <div class="note">Mỗi ô: KH phân bổ / <span class="g-y">đạt</span> / <span class="g-z">lỗi</span>. KH phân bổ = KH ngày của mã hàng (phần mềm kế hoạch) chia đều ${SO_GIO} giờ; đạt, lỗi lấy HiPro. NT: nghỉ trưa.</div>`;
   }
 
   to.onchange = ngay.onchange = load;

@@ -181,3 +181,9 @@ header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overf
 .qr-trang { display: flex; align-items: center; gap: 16px; }
 .qr-trang #qrAnh svg { width: 140px; height: 140px; display: block; }
 .qr-trang #qrLink { word-break: break-all; margin-top: 4px; }
+
+/* Sản lượng theo giờ (tổ trưởng may): ô x / y / z */
+.bang-gio td, .bang-gio th { white-space: nowrap; }
+.bang-gio .g-y, .note .g-y { color: #1e8e3e; font-weight: 600; }
+.bang-gio .g-z, .note .g-z { color: #d93025; font-weight: 600; }
+.bang-gio .g-nt { background: var(--line); min-width: 32px; text-align: center; }

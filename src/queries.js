@@ -403,18 +403,21 @@ module.exports = {
   // ======================= Tổ trưởng may / QC / Giám đốc XN =======================
   // Nguồn và cách tính theo dự án DH-DVT (egmf_ops.py, hipro.py, omm_plan.py).
 
-  // Kế hoạch may trong ngày theo tổ: SoNgaySX <= 1 lấy SoLuong, ngược lại SoLuong / SoNgaySX. Tham số: @xn, @d0
+  // Kế hoạch may trong ngày theo tổ x mã hàng: SoNgaySX <= 1 lấy SoLuong, ngược lại SoLuong / SoNgaySX. Tham số: @xn, @d0
   keHoachNgay: {
     db: 'egmf',
     text: `
-      SELECT LTRIM(RTRIM(e.TenCum)) AS line,
+      SELECT LTRIM(RTRIM(e.TenCum)) AS line, ISNULL(dh.MaHang, '') AS maHang,
              SUM(CASE WHEN ISNULL(k.SoNgaySX, 0) <= 1 THEN k.SoLuong ELSE k.SoLuong / k.SoNgaySX END) AS keHoach
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      LEFT JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+      LEFT JOIN dbo.OMM_PO po ON po.POId = pct.POId
+      LEFT JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
       WHERE px.XNId = @xn AND k.SoLuong > 0
         AND CAST(k.NgayMayKeHoachBatDau AS date) <= @d0 AND @d0 <= CAST(k.NgayMayKeHoachKetThuc AS date)
-      GROUP BY e.TenCum`,
+      GROUP BY e.TenCum, ISNULL(dh.MaHang, '')`,
   },
 
   // Sản lượng theo giờ (HiPro): tổng qty_1_h..qty_14_h (đạt) và reject_1_h..reject_14_h (lỗi) theo chuyền x mã hàng. Tham số: @d0. API lọc xí nghiệp theo tên nhà máy.
