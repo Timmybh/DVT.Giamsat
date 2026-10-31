@@ -302,6 +302,11 @@ const ymd = (v) => {
   const p = (x) => String(x).padStart(2, '0');
   return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
 };
+// Mốc bắt đầu lũy kế HiPro: ngày bắt đầu kế hoạch sớm nhất nhưng lùi tối thiểu LUI_LK ngày,
+// vì tổ có thể may trước ngày kế hoạch (vd PO may xong 20/10 nhưng KH vào chuyền 24/10)
+const LUI_LK = 90;
+const mocLK = (ngays, d) => ngays.map(ymd).filter(Boolean)
+  .reduce((m, x) => (x < m ? x : m), ymd(new Date(new Date(d) - LUI_LK * 86400000)));
 // May ra HiPro (nhà máy x chuyền x PO) từ tuLK, đọc cả bảng lưu trữ pro_nscl_MM_YYYY của các tháng tuLK..denNgay
 async function docMayRa(tuLK, tuNgay, denNgay) {
   const bang = (await run('nsclLuuTru', {})).map((x) => x.name).filter((b) => {
@@ -313,7 +318,7 @@ async function docMayRa(tuLK, tuNgay, denNgay) {
 async function tinhMayRa(xn, tuNgay, denNgay) {
   const n = await xnNum(xn);
   const rows = await run('mayRa', { xn, xnCode: n ? `XN${n}` : '', tuNgay, denNgay });
-  const tuLK = rows.reduce((m, r) => { const d = ymd(r.ngayBatDau); return d && d < m ? d : m; }, tuNgay);
+  const tuLK = mocLK(rows.map((r) => r.ngayBatDau), tuNgay);
   const { bang, sx } = await docMayRa(tuLK, tuNgay, denNgay);
 
   const key = (line, po) => `${lineOf(line)}|${String(po ?? '').trim()}`;
@@ -375,7 +380,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     const n = await xnNum(req.query.xn);
     const p = { xn: req.query.xn, xnCode: n ? `XN${n}` : '', to: maTo, d };
     const [sbd, pos, dat, lenhs] = await Promise.all([run('khToSize', p), run('khToPO', p), run('datToSize', p), run('lenhToSize', p)]);
-    const tuLK = pos.reduce((m, r) => { const x = ymd(r.ngayVaoChuyen); return x && x < m ? x : m; }, d);
+    const tuLK = mocLK(pos.map((r) => r.ngayVaoChuyen), d);
     const { sx } = await docMayRa(tuLK, d, d);
     const N = (v) => Number(v || 0);
     const poKey = (v) => String(v ?? '').trim();
