@@ -81,8 +81,8 @@ module.exports = {
     db: 'egmf',
     text: `
       SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.slLenh, l.lenhGoc,
-             CASE WHEN l.slLenh < 0 THEN N'Lệnh thu hồi' WHEN l.typeCt = 1 THEN N'Lệnh điều chỉnh' WHEN l.lenhSX IS NULL THEN NULL ELSE N'Lệnh gốc' END AS loaiLenh,
-             CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY CASE WHEN l.slLenh < 0 THEN 2 WHEN l.typeCt = 1 THEN 1 ELSE 0 END, l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
+             CASE l.typeCt WHEN 2 THEN N'Lệnh thu hồi' WHEN 1 THEN N'Lệnh điều chỉnh' WHEN 0 THEN N'Lệnh gốc' END AS loaiLenh,
+             CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY ISNULL(l.typeCt, 0), l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
              x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc
       FROM (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
@@ -101,7 +101,7 @@ module.exports = {
         GROUP BY e.TenCum, dh.MaHang, po.PONo
       ) x
       LEFT JOIN (
-        -- Mỗi lệnh (DocNo) 1 dòng. Loại lệnh: TypeCt = 1 là lệnh điều chỉnh (SL âm: thu hồi), còn lại là lệnh gốc (SL âm: thu hồi)
+        -- Mỗi lệnh (DocNo) 1 dòng. Loại lệnh theo Bravo TypeCt: 0 lệnh sản xuất (gốc), 1 điều chỉnh, 2 thu hồi; IsActive = 0 là đình chỉ (bỏ)
         SELECT b.PO, a.DocNo AS lenhSX, MAX(ISNULL(a.TypeCt, 0)) AS typeCt, MAX(ISNULL(a.ProductionOrderAdjNo, '')) AS lenhGoc,
                SUM(ISNULL(b.Quantity, 0)) AS slLenh
         FROM dbo.Bravo_LenhSanXuat_Detail_PO b
@@ -144,7 +144,7 @@ module.exports = {
   },
 
   // SL kế hoạch theo lệnh SX x PO x màu x size (Bravo_LenhSanXuat_Detail_PO) cho các PO của keHoachTheoSize.
-  // Lệnh điều chỉnh (TypeCt = 1, ProductionOrderAdjNo = lệnh gốc) cộng vào lệnh gốc; bỏ lệnh IsActive = 0. Tham số như keHoachTheoSize
+  // Lệnh điều chỉnh / thu hồi (TypeCt = 1 / 2, ProductionOrderAdjNo = lệnh gốc) cộng vào lệnh gốc; bỏ lệnh IsActive = 0. Tham số như keHoachTheoSize
   lenhTheoSize: {
     db: 'egmf',
     text: `
@@ -160,13 +160,13 @@ module.exports = {
         WHERE px.XNId = @xn AND k.SoLuong > 0
           AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
       )
-      SELECT CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+      SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, MAX(b.ProductCode) AS maHang, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size,
              SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
       WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0
-      GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+      GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
 
@@ -224,12 +224,12 @@ module.exports = {
   lenhTheoPhieuCap: {
     db: 'egmf',
     text: `
-      SELECT CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+      SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
       WHERE ISNULL(a.IsActive, 1) <> 0 AND b.PO IN (${poPhieuCapLocSQL})
-      GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+      GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
   // SL đặt (SoLuongCanCap) của từng xí nghiệp x tổ, mọi ngày, theo lệnh x PO x màu x size của các PO trong lưới chi tiết đặt BTP
@@ -791,12 +791,12 @@ module.exports = {
     text: `
       WITH poChay AS (${poChayToSQL}),
       poDat AS (${poDatToSQL})
-      SELECT CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+      SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
       WHERE (b.PO IN (SELECT po FROM poChay) OR b.PO IN (SELECT po FROM poDat)) AND ISNULL(a.IsActive, 1) <> 0
-      GROUP BY CASE WHEN a.TypeCt = 1 AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+      GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
 };
