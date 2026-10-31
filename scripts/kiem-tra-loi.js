@@ -1,5 +1,5 @@
 // Đối chiếu (CHỈ ĐỌC) số lỗi theo giờ của một tổ trong ngày: HiPro pro_nscl (đạt / lỗi / sửa theo giờ, theo check point)
-// và kiểm tra chuyên môn inline eGMF (KTCM_InLine_*: khung giờ, SP kiểm, SP lỗi, tên lỗi).
+// và bảng lỗi kiểm trong HiPro (pro_kiemtrong_chi_tiet_loi).
 // Chạy: npm run kiem-tra-loi -- <ngày yyyy-mm-dd> <số xí nghiệp> <tổ> [mã hàng]   -> khao-sat/kiem-tra-loi.txt
 require('dotenv').config();
 const fs = require('fs');
@@ -39,32 +39,6 @@ const HIPRO_KIEM_TRONG = {
     WHERE kt.thoi_gian >= @d AND kt.thoi_gian < DATEADD(day, 1, @d) AND nm.ten LIKE '%' + @xn AND c.ten = @to
     ORDER BY kt.thoi_gian`,
 };
-// Kiểm tra inline eGMF: SP kiểm / lỗi theo sơ đồ chuyền (IdMaster) x khung giờ trong ngày, xí nghiệp @xn
-const KTCM = {
-  db: 'egmf',
-  text: `
-    SELECT t.IdMaster, sp.IdKhungGio, MIN(kt.ThoiGianKiem) AS tu, MAX(kt.ThoiGianKiem) AS den, MAX(kt.NguoiKiem) AS nguoiKiem,
-           SUM(ISNULL(sp.SL, 0)) AS spKiem, SUM(CASE WHEN sp.TrangThai = N'Đạt' THEN ISNULL(sp.SL, 0) ELSE 0 END) AS spDat,
-           SUM(CASE WHEN sp.TrangThai <> N'Đạt' THEN ISNULL(sp.SL, 0) ELSE 0 END) AS spLoi
-    FROM dbo.KTCM_InLine_SoDoChuyen_Tram_KiemTra_SanPham sp
-    JOIN dbo.KTCM_InLine_SoDoChuyen_Tram_KiemTra kt ON kt.Id = sp.IdTramKT
-    JOIN dbo.KTCM_InLine_SoDoChuyen_Tram t ON t.Id = kt.IdSDC_Tram
-    WHERE sp.NgayTao >= @d AND sp.NgayTao < DATEADD(day, 1, @d) AND sp.XiNghiep LIKE N'%' + @xn
-    GROUP BY t.IdMaster, sp.IdKhungGio
-    ORDER BY t.IdMaster, sp.IdKhungGio`,
-};
-const KTCM_LOI = {
-  db: 'egmf',
-  text: `
-    SELECT t.IdMaster, l.IdKhungGio, l.TenLoi, SUM(ISNULL(l.SLLoi, 1)) AS soLoi, MAX(l.NguoiKiem) AS nguoiKiem
-    FROM dbo.KTCM_InLine_SoDoChuyen_Tram_KiemTra_SanPham_CTLoi l
-    JOIN dbo.KTCM_InLine_SoDoChuyen_Tram_KiemTra_SanPham sp ON sp.Id = l.IdSanPham
-    JOIN dbo.KTCM_InLine_SoDoChuyen_Tram_KiemTra kt ON kt.Id = sp.IdTramKT
-    JOIN dbo.KTCM_InLine_SoDoChuyen_Tram t ON t.Id = kt.IdSDC_Tram
-    WHERE l.NgayKiem >= @d AND l.NgayKiem < DATEADD(day, 1, @d) AND sp.XiNghiep LIKE N'%' + @xn AND l.TenLoi IS NOT NULL
-    GROUP BY t.IdMaster, l.IdKhungGio, l.TenLoi
-    ORDER BY t.IdMaster, l.IdKhungGio`,
-};
 // Sơ đồ chuyền (DFC) của tổ để biết IdMaster nào là tổ @to / mã hàng
 const SO_DO = {
   db: 'egmf',
@@ -89,8 +63,6 @@ const SO_DO = {
   };
   await chay('HiPro pro_nscl theo giờ (q = đạt, r = lỗi, f = sửa)', HIPRO);
   await chay('HiPro pro_kiemtrong_chi_tiet_loi', HIPRO_KIEM_TRONG);
-  await chay('eGMF kiểm tra inline (KTCM) theo sơ đồ x khung giờ', KTCM);
-  await chay('eGMF kiểm tra inline (KTCM) chi tiết lỗi', KTCM_LOI);
   await chay('Sơ đồ chuyền (DFC) gần nhất của mã hàng', SO_DO);
   fs.mkdirSync('khao-sat', { recursive: true });
   fs.writeFileSync(path.join('khao-sat', 'kiem-tra-loi.txt'), `${out.join('\n')}\n`);
