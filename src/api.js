@@ -366,6 +366,7 @@ router.get('/po-may-ra', async (req, res) => {
 // Tổ trưởng may: kế hoạch tổ theo PO (thẻ) x màu x size tại ngày d.
 //   SL KH: OMM_KeHoachThang (PO) / SBD (size). SL đặt: SoLuongCanCap phiếu cấp BTP của tổ (hôm nay = phiếu tạo ngày d; lũy kế đến hết d).
 //   SL SX: HiPro theo chuyền x PO (HiPro không ghi size). Còn lại hôm nay = KH ngày - SX hôm nay; còn lại = SL KH - SX lũy kế.
+//   Hoàn thành: phần mềm kế hoạch báo xong (SanXuatXong hoặc Đã SX >= SL KH), hoặc SX lũy kế HiPro >= SL KH.
 //   Phiếu đặt sai kế hoạch (tạo trong 30 ngày): PO không có kế hoạch ở tổ, màu/size không có trong SBD, hoặc đặt lũy kế vượt SL KH size.
 router.get('/to-may/ke-hoach', async (req, res) => {
   try {
@@ -436,6 +437,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
       const khNgay = Math.round(N(x.khNgay));
       return {
         po, maHang: x.maHang, lenhSX: x.lenhSX, soLuong: N(x.soLuong), khNgay, ngayVaoChuyen: x.ngayVaoChuyen, ngayKetThuc: x.ngayKetThuc,
+        daSX: N(x.daSX), hoanThanh: N(x.sanXuatXong) === 1 || (N(x.soLuong) > 0 && (N(x.daSX) >= N(x.soLuong) || m.lk >= N(x.soLuong))),
         sxNgay: m.ngay, sxLK: m.lk, kiemNgay: m.dat + m.loi, datLanDau: m.dat, loiNgay: m.loi, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
         sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
           const ls = lenhTheoKhoa.get(`${po}|${maMau(r.mau)}|${chuanSize(r.size)}`) || [];

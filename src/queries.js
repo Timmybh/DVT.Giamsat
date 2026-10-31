@@ -742,7 +742,8 @@ module.exports = {
       GROUP BY po.PONo, dh.MaHang, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
   },
 
-  // Theo PO đang chạy của tổ: SL kế hoạch, KH ngày @d (như keHoachNgay), ngày vào chuyền / kết thúc may, lệnh SX (Bravo)
+  // Theo PO đang chạy của tổ: SL kế hoạch, KH ngày @d (như keHoachNgay), ngày vào chuyền / kết thúc may, lệnh SX (Bravo),
+  // Đã SX theo phần mềm kế hoạch (SoLuongTPDaNhap) và cờ SanXuatXong (mọi dòng KH của PO ở tổ đều xong)
   khToPO: {
     db: 'egmf',
     text: `
@@ -758,7 +759,9 @@ module.exports = {
                SUM(CASE WHEN CAST(k.NgayMayKeHoachBatDau AS date) <= @d AND @d <= CAST(k.NgayMayKeHoachKetThuc AS date)
                         THEN CASE WHEN ISNULL(k.SoNgaySX, 0) <= 1 THEN k.SoLuong ELSE k.SoLuong * 1.0 / k.SoNgaySX END
                         ELSE 0 END) AS khNgay,
-               MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+               MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
+               SUM(ISNULL(k.SoLuongTPDaNhap, 0)) AS daSX,
+               MIN(CASE WHEN k.SanXuatXong = 1 THEN 1 ELSE 0 END) AS sanXuatXong
         FROM dbo.OMM_KeHoachThang k
         JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
         JOIN dbo.OMM_PO po ON po.POId = pct.POId
