@@ -26,7 +26,7 @@ const vaiChinh = (col) => {
 };
 
 // PO của tổ @to tại ngày @d: kế hoạch chưa hoàn thành (như danh sách "Kế hoạch" của phần mềm / máy POS, không xét ngày
-// vì tổ hay may sớm hoặc trễ so với KH), cộng kế hoạch đã hoàn thành có khoảng vào chuyền - kết thúc may phủ @d. Bỏ KH đã hủy.
+// vì tổ hay may sớm hoặc trễ so với KH; chỉ KH vào chuyền trong 2 tháng trước @d cho nhẹ), cộng kế hoạch đã hoàn thành có khoảng vào chuyền - kết thúc may phủ @d. Bỏ KH đã hủy.
 const poChayToSQL = `
         SELECT DISTINCT po.PONo AS po
         FROM dbo.OMM_KeHoachThang k
@@ -36,6 +36,7 @@ const poChayToSQL = `
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
           AND ISNULL(k.TinhTrang, '') NOT IN (N'HuyCoNPL', N'HuyChuaNPL')
+          AND k.NgayVaoChuyenKeHoachBatDau >= DATEADD(month, -2, @d)
           AND (ISNULL(k.TinhTrang, '') <> N'HoanThanh'
                OR (k.NgayVaoChuyenKeHoachBatDau < DATEADD(day, 1, @d) AND k.NgayMayKeHoachKetThuc >= @d))`;
 // PO của các dòng phiếu cấp BTP theo điều kiện lọc lưới "Chi tiết đặt BTP" (@xnCode, @to, @tuNgay, @denNgay, @lenhSX, @po)
