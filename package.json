@@ -11,6 +11,7 @@
     "doi-chieu-to": "node scripts/doi-chieu-to.js",
     "kiem-tra-po": "node scripts/kiem-tra-po.js",
     "xem-cot": "node scripts/xem-cot.js",
+    "tim-cot-lsx": "node scripts/tim-cot-lsx.js",
     "khao-sat-mau": "node scripts/khao-sat-mau.js",
     "khao-sat-lenh": "node scripts/khao-sat-lenh.js",
     "khao-sat-bravo": "node scripts/khao-sat-bravo.js",
