@@ -149,9 +149,11 @@ module.exports = {
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau))
       .flatMap((k, i) => (i % 5 ? [{ ...k, loaiLenh: 'Lệnh gốc' }] : [
-        { ...k, loaiLenh: 'Lệnh gốc' },
-        { ...k, lenhSX: `${k.lenhSX}-TH`, slLenh: -k.slLenh, soLuong: null, loaiLenh: 'Lệnh thu hồi', lenhGoc: k.lenhSX },
-        { ...k, lenhSX: `${k.lenhSX}-DC`, soLuong: null, loaiLenh: 'Lệnh điều chỉnh', lenhGoc: k.lenhSX },
+        // lệnh ra cho XN khác rồi thu hồi hết, ra lệnh mới cho XN này (bán PO)
+        { ...k, loaiLenh: 'Lệnh gốc', typeCt: 0, dept: 'M9' },
+        { ...k, lenhSX: `${k.lenhSX}-TH`, slLenh: -k.slLenh, soLuong: null, loaiLenh: 'Lệnh thu hồi', typeCt: 2, lenhGoc: k.lenhSX, dept: 'M9' },
+        { ...k, lenhSX: `${k.lenhSX}-MOI`, soLuong: null, loaiLenh: 'Lệnh gốc', typeCt: 0, dept: 'M1' },
+        { ...k, lenhSX: `${k.lenhSX}-DC`, slLenh: 5, soLuong: null, loaiLenh: 'Lệnh điều chỉnh', typeCt: 1, lenhGoc: `${k.lenhSX}-MOI`, dept: 'M1' },
       ])),
   keHoachTheoSize: ({ xn, tuNgay, denNgay }) => keHoach
     .filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)

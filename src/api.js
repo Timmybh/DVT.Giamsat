@@ -97,7 +97,25 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     const pk = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
     const n = await xnNum(req.query.xn);
     // PO đã có lệnh cho xí nghiệp (DeptCode M<n>) nhưng chưa phân bổ cho tổ nào: hiện cuối bảng, tổ trống, SL kế hoạch trống
-    const [rows, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? run('keHoachChuaPhanBo', { ...pk, dept: `M${n}` }) : []]);
+    const [rows0, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? run('keHoachChuaPhanBo', { ...pk, dept: `M${n}` }) : []]);
+    // Mỗi tổ x PO: ưu tiên lệnh đúng DeptCode của XN (theoXN), rồi ẩn lệnh gốc đã thu hồi về 0 (gốc + điều chỉnh / thu hồi = 0)
+    // khi còn lệnh khác > 0; SL kế hoạch chuyển về dòng đầu còn lại.
+    const nhomTP = new Map();
+    rows0.forEach((r) => { const k = `${r.maTo}|${r.po}`; (nhomTP.get(k) || nhomTP.set(k, []).get(k)).push(r); });
+    const rows = [];
+    nhomTP.forEach((rs) => {
+      const sl = rs.find((r) => r.soLuong != null)?.soLuong ?? null;
+      const coLenh = rs.filter((r) => r.lenhSX);
+      if (!coLenh.length) { rows.push(...rs); return; }
+      const gocCua = (r) => (Number(r.typeCt) > 0 && r.lenhGoc ? r.lenhGoc : r.lenhSX);
+      // lọc XN theo lệnh gốc: lệnh điều chỉnh / thu hồi đi theo lệnh gốc
+      const gocs = new Map();
+      coLenh.forEach((r) => { const g = gocCua(r); const x = gocs.get(g) || { lenhSX: g, dept: '', slLenh: 0, ds: [] }; x.ds.push(r); x.slLenh += Number(r.slLenh || 0); if (gocCua(r) === r.lenhSX) x.dept = r.dept; gocs.set(g, x); });
+      const giu = boLenh0(theoXN([...gocs.values()], n));
+      const ds = giu.flatMap((g) => g.ds);
+      ds.forEach((r, i) => { r.soLuong = i === 0 ? sl : null; });
+      rows.push(...ds);
+    });
     const dongChua = chua.map((l) => ({
       maTo: '', tenTo: '', maHang: l.maHang, po: l.po, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), loaiLenh: 'Lệnh gốc',
       soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true,
