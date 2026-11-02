@@ -1,4 +1,4 @@
-// Kiểm tra (CHỈ ĐỌC) một PO: kế hoạch eGMF (Đã SX, tình trạng) và sản lượng HiPro theo chuyền.
+// Kiểm tra (CHỈ ĐỌC) một PO: kế hoạch eGMF (Đã SX, tình trạng), phân bổ size SBD, lệnh Bravo và sản lượng HiPro theo chuyền.
 // Chạy: npm run kiem-tra-po -- <PO>   -> khao-sat/kiem-tra-po.txt
 require('dotenv').config();
 const fs = require('fs');
@@ -30,6 +30,31 @@ const GIA_TRI = {
     UNION ALL SELECT 'TrangThai', ISNULL(TrangThai, '(null)'), COUNT(*) FROM dbo.OMM_KeHoachThang GROUP BY TrangThai
     UNION ALL SELECT 'SanXuatXong', ISNULL(CAST(SanXuatXong AS varchar(5)), '(null)'), COUNT(*) FROM dbo.OMM_KeHoachThang GROUP BY SanXuatXong`,
 };
+const SBD = {
+  db: 'egmf',
+  text: `
+    SELECT k.KHTId, LTRIM(RTRIM(e.TenCum)) AS maTo, s.TenMau, s.TenSize, SUM(ISNULL(s.SoLuong, 0)) AS soLuong
+    FROM dbo.OMM_KeHoachThang k
+    JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+    JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+    JOIN dbo.OMM_PO po ON po.POId = pct.POId
+    LEFT JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+    WHERE po.PONo = @po
+    GROUP BY k.KHTId, LTRIM(RTRIM(e.TenCum)), s.TenMau, s.TenSize
+    ORDER BY k.KHTId, s.TenMau, s.TenSize`,
+};
+// Mọi lệnh Bravo có PO này, mọi trạng thái (web chỉ dùng DocStatus = 4, bỏ IsActive = 0)
+const BRAVO = {
+  db: 'egmf',
+  text: `
+    SELECT a.DocNo, a.TypeCt, a.ProductionOrderAdjNo, a.DocStatus, a.IsActive,
+           b.PO, b.ProductCode, b.ColorCode, b.SizeCode, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+    FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+    JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+    WHERE b.PO LIKE '%' + @goc + '%'
+    GROUP BY a.DocNo, a.TypeCt, a.ProductionOrderAdjNo, a.DocStatus, a.IsActive, b.PO, b.ProductCode, b.ColorCode, b.SizeCode
+    ORDER BY a.DocNo, b.PO, b.ColorCode, b.SizeCode`,
+};
 const HIPRO = {
   db: 'hipro',
   text: `
@@ -57,6 +82,8 @@ const HIPRO = {
     out.push('');
   };
   await chay(`Kế hoạch eGMF của PO ${po}`, KE_HOACH, { po });
+  await chay(`Phân bổ size (SBD) của PO ${po}`, SBD, { po });
+  await chay(`Lệnh Bravo có PO chứa "${goc}" (mọi trạng thái; web chỉ lấy DocStatus = 4)`, BRAVO, { goc });
   await chay('Giá trị TinhTrang / TrangThai / SanXuatXong (toàn bảng)', GIA_TRI, {});
   await chay(`HiPro: kế hoạch + SL đạt (pro_nscl hiện hành) theo chuyền, PO chứa "${goc}"`, HIPRO, { goc });
   fs.mkdirSync('khao-sat', { recursive: true });
