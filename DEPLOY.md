@@ -20,12 +20,12 @@ Kết quả: `Deploy\dvt-giamsat-<version>-<ngày giờ>.zip`, đã kèm `node_m
 3. Chạy `start.bat` một lần để tạo `.env` từ `.env.example`, tắt đi, sửa `.env`:
    - `USE_MOCK=false`
    - `DB_USER`, `DB_PASSWORD` (tài khoản chỉ đọc eGMF / HiPro)
-   - `PORT=3000` (QR trên trang tổ trưởng dùng `http://10.8.0.94:<PORT>`)
+   - `PORT=8374` (QR trên trang tổ trưởng dùng `http://10.8.0.94:<PORT>`)
 4. Mở cổng tường lửa (PowerShell quyền Admin):
    ```powershell
-   New-NetFirewallRule -DisplayName "DVT Giam sat" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+   New-NetFirewallRule -DisplayName "DVT Giam sat" -Direction Inbound -Protocol TCP -LocalPort 8374 -Action Allow
    ```
-5. Chạy `start.bat`, mở `http://10.8.0.94:3000` từ máy khác trong LAN để kiểm tra.
+5. Chạy `start.bat`, mở `http://10.8.0.94:8374` từ máy khác trong LAN để kiểm tra.
 
 ### Tự chạy khi khởi động máy (Task Scheduler, tài khoản SYSTEM)
 
@@ -45,7 +45,7 @@ Task `DVT Giam sat` được tạo như sau:
 
 Kiểm tra:
 - `Get-ScheduledTask "DVT Giam sat"` → State `Running`.
-- Mở `http://10.8.0.94:3000` từ máy khác.
+- Mở `http://10.8.0.94:8374` từ máy khác.
 - Xem log: `Get-Content C:\Applications\DVT.Giamsat\logs\app.log -Tail 50`.
 - Khởi động lại máy một lần để chắc task tự lên.
 
@@ -60,8 +60,8 @@ IIS không chạy trực tiếp app Node được (iisnode đã ngừng phát tr
 1. Cài trên máy 10.8.0.94 (Web Platform / tải từ trang Microsoft): **URL Rewrite 2.1** và **Application Request Routing 3.0**.
 2. IIS Manager → chọn tên máy (gốc) → **Application Request Routing Cache** → **Server Proxy Settings** → tick **Enable proxy** → Apply.
 3. Tạo site mới (ví dụ `DVT Giam sat`, cổng 80), Physical path: `C:\Applications\DVT.Giamsat\iis` (thư mục này chỉ chứa `web.config`).
-4. `web.config` có sẵn trong gói (`iis\web.config`): chuyển mọi request sang `http://localhost:3000`. Đổi cổng trong file nếu `.env` dùng `PORT` khác.
-5. Mở cổng 80 trên tường lửa thay cho 3000 (cổng 3000 có thể đóng lại, chỉ IIS gọi nội bộ).
+4. `web.config` có sẵn trong gói (`iis\web.config`): chuyển mọi request sang `http://localhost:8374`. Đổi cổng trong file nếu `.env` dùng `PORT` khác.
+5. Mở cổng 80 trên tường lửa thay cho 8374 (cổng 8374 có thể đóng lại, chỉ IIS gọi nội bộ).
 6. Truy cập `http://10.8.0.94/`. QR trên trang tổ trưởng tự bỏ số cổng khi chạy cổng 80.
 
 Ghi chú: IP người dùng trong lượt tương tác lấy từ header `X-Forwarded-For` (ARR gửi kèm khi bật proxy); không có thì ghi IP của IIS.
