@@ -94,9 +94,15 @@ router.get('/to', handle('to', (req) => ({ xn: req.query.xn })));
 // Kế hoạch phân bổ + SL đã sản xuất (HiPro, đạt lũy kế từ ngày vào chuyền sớm nhất đến hôm nay, theo tổ x mã hàng)
 router.get('/ke-hoach-phan-bo', async (req, res) => {
   try {
-    const rows = await run('keHoachPhanBo', { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() });
-    if (!rows.length) return res.json([]);
+    const pk = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
     const n = await xnNum(req.query.xn);
+    // PO đã có lệnh cho xí nghiệp (DeptCode M<n>) nhưng chưa phân bổ cho tổ nào: hiện cuối bảng, tổ trống, SL kế hoạch trống
+    const [rows, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? run('keHoachChuaPhanBo', { ...pk, dept: `M${n}` }) : []]);
+    const dongChua = chua.map((l) => ({
+      maTo: '', tenTo: '', maHang: l.maHang, po: l.po, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), loaiLenh: 'Lệnh gốc',
+      soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true,
+    }));
+    if (!rows.length) return res.json(dongChua);
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
     const sx = await run('sanLuongTheoHang', { tuNgay: tu.toISOString().slice(0, 10), denNgay: today() });
     await napCum();
@@ -117,7 +123,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       if (r.soLuong == null) return r; // dòng lệnh thứ 2 trở đi của cùng tổ x PO: SL kế hoạch / SX đã ghi ở dòng đầu
       const slSX = theoPO.has(kPO) ? theoPO.get(kPO) : (soPO.get(kHang) === 1 ? theoHang.get(kHang) || 0 : 0);
       return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
-    }));
+    }).concat(dongChua));
   } catch (err) {
     console.error('[keHoachPhanBo]', err.message);
     res.status(500).json({ error: err.message });

@@ -44,7 +44,7 @@
   function draw() {
     const data = to.value ? rows.filter((r) => r.maTo === to.value) : rows;
     App.table(result, [
-      { key: 'tenTo', label: 'Tổ' },
+      { key: 'tenTo', label: 'Tổ', render: (r) => (r.chuaPhanBo ? `<span class="tag warn" title="Đã có lệnh${r.ngayLenh ? ` ngày ${App.esc(String(r.ngayLenh).slice(0, 10).split('-').reverse().join('/'))}` : ''} nhưng chưa có kế hoạch phân bổ">Chưa phân bổ</span>` : App.esc(r.tenTo)) },
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'po', label: 'PO' },
       { key: 'lenhSX', label: 'Lệnh SX' },
@@ -57,7 +57,7 @@
       { key: 'ngayVaoChuyen', label: 'Vào chuyền', type: 'date' },
       { key: 'ngayBatDau', label: 'Bắt đầu may', type: 'date' },
       { key: 'ngayKetThuc', label: 'Kết thúc may', type: 'date' },
-    ], data, { footer: true, onClick: loadSize });
+    ], data, { footer: true, onClick: (r) => { if (!r.chuaPhanBo) loadSize(r); } });
   }
   // Bảng ma trận màu x size của dòng kế hoạch
   async function loadSize(r) {

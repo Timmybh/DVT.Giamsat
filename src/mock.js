@@ -141,6 +141,9 @@ const inRange = (d, tu, den) => d.slice(0, 10) >= tu && d.slice(0, 10) <= den;
 module.exports = {
   xiNghiep: () => xiNghiep,
   to: ({ xn }) => to[xn] || [],
+  keHoachChuaPhanBo: ({ dept }) => [
+    { lenhSX: 'TRIHD-0901-2026', ngayLenh: new Date(Date.now() - 5 * 86400000), po: `MAU-${dept}-CHUA-PB`, maHang: 'WJ71Y2NC', slLenh: 1200 },
+  ],
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau))
