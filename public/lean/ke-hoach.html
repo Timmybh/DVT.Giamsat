@@ -49,7 +49,7 @@
       { key: 'po', label: 'PO' },
       { key: 'lenhSX', label: 'Lệnh SX' },
       { key: 'loaiLenh', label: 'Loại lệnh', render: (r) => (r.loaiLenh ? `<span class="tag ${r.loaiLenh === 'Lệnh thu hồi' ? 'bad' : r.loaiLenh === 'Lệnh điều chỉnh' ? 'warn' : ''}" title="${r.lenhGoc ? `Lệnh gốc: ${App.esc(r.lenhGoc)}` : ''}">${App.esc(r.loaiLenh)}</span>` : '') },
-      { key: 'slLenh', label: 'SL PO trong lệnh', type: 'num' },
+      { key: 'slLenh', label: 'SL lệnh (Bravo)', type: 'num' },
       { key: 'soLuong', label: 'SL kế hoạch', type: 'num', sum: true },
       { key: 'slSX', label: 'SL SX', type: 'num', sum: true },
       { key: 'conLai', label: 'Còn lại', type: 'num', sum: true },
@@ -107,7 +107,7 @@
       { key: 'lenhSX', label: 'Lệnh SX' },
       { key: 'mau', label: 'Màu' },
       { key: 'size', label: 'Size' },
-      { key: 'slLenh', label: 'SL KH theo lệnh', type: 'num', total: (rs) => {
+      { key: 'slLenh', label: 'SL lệnh (Bravo)', type: 'num', total: (rs) => {
         // PO chia nhiều tổ thì SL lệnh lặp ở mỗi tổ: cộng 1 lần mỗi lệnh x mã hàng x PO x màu x size
         const m = new Map();
         rs.forEach((r) => { if (r.slLenh != null) m.set([r.lenhSX, r.maHang, r.po, r.mau, r.size].join('|'), Number(r.slLenh)); });
