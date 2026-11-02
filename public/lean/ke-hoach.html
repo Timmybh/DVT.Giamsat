@@ -101,7 +101,7 @@
       (Number(a.maTo) || 999) - (Number(b.maTo) || 999) || String(a.maHang).localeCompare(String(b.maHang)) || String(a.po).localeCompare(String(b.po))
       || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b));
     App.table(theoSize, [
-      { key: 'maTo', label: 'Tổ' },
+      { key: 'maTo', label: 'Tổ', render: (r) => (r.chuaPhanBo ? '<span class="tag warn" title="Đã có lệnh nhưng chưa có kế hoạch phân bổ">Chưa phân bổ</span>' : App.esc(r.maTo)) },
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'po', label: 'PO' },
       { key: 'lenhSX', label: 'Lệnh SX' },

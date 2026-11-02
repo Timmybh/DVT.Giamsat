@@ -134,9 +134,10 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
 router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
   try {
     const p = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
-    const [sbd, lenh] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p)]);
-    const kMau = bangMau(sbd, lenh);
     const nXN = await xnNum(req.query.xn);
+    const [sbd, lenh, chua] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p),
+      nXN ? run('keHoachChuaPhanBoSize', { ...p, dept: `M${nXN}` }) : []]);
+    const kMau = bangMau(sbd, lenh);
     const poS = (po) => String(po ?? '').trim();
     const theoKhoa = new Map();
     lenh.forEach((l) => { const k = `${poS(l.po)}|${khoaMa(l.mau)}|${chuanSize(l.size)}`; (theoKhoa.get(k) || theoKhoa.set(k, []).get(k)).push(l); });
@@ -154,6 +155,11 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     lenh.filter((l) => !daGhep.has(l)).forEach((l) => out.push({
       maTo: '', maHang: l.maHang, po: l.po, mau: l.mau, size: l.size, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: null,
       thuTuSize: tts.get(`${l.maHang}|${chuanSize(l.size)}`) ?? null,
+    }));
+    // PO đã có lệnh cho xí nghiệp nhưng chưa phân bổ cho tổ nào (kể cả chưa đưa vào OMM)
+    chua.forEach((l) => out.push({
+      maTo: '', maHang: l.maHang, po: l.po, mau: l.mau, size: l.size, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: null,
+      thuTuSize: tts.get(`${l.maHang}|${chuanSize(l.size)}`) ?? null, chuaPhanBo: true, ngayLenh: l.ngayLenh,
     }));
     res.json(out);
   } catch (err) {

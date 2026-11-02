@@ -60,6 +60,49 @@ const poDatToSQL = `
 // Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
 const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
 
+// PO đã có lệnh Bravo cho xí nghiệp (DeptCode = @dept, vd 'M2') nhưng chưa có kế hoạch phân bổ (OMM_KeHoachThang SoLuong > 0)
+// ở tổ nào của xí nghiệp (gồm cả PO chưa đưa vào OMM). Lệnh gốc (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh
+// từ @tuNgay - 60 ngày đến @denNgay; SL = lệnh gốc + điều chỉnh / thu hồi, bỏ lệnh x PO đã thu hồi hết.
+// theoSize: tách theo màu x size. Tham số: @xn, @dept, @tuNgay, @denNgay
+function chuaPhanBoSQL(theoSize) {
+  const ms = theoSize ? ", ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size" : '';
+  const gms = theoSize ? ", ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')" : '';
+  return `
+      WITH goc AS (
+        SELECT a.DocNo, MIN(m.DocDate) AS ngayLenh
+        FROM dbo.Bravo_LenhSanXuat_Detail a
+        JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
+        WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+          AND LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) = @dept
+          AND m.DocDate >= DATEADD(day, -60, @tuNgay) AND m.DocDate < DATEADD(day, 1, @denNgay)
+        GROUP BY a.DocNo
+      ),
+      d AS (
+        SELECT g.DocNo AS lenhSX, g.ngayLenh, LTRIM(RTRIM(b.PO)) AS po, b.ProductCode, ISNULL(b.Quantity, 0) AS sl${ms}
+        FROM dbo.Bravo_LenhSanXuat_Detail a
+        JOIN dbo.Bravo_LenhSanXuat_Detail_PO b ON b.IdDetail = a.Id
+        JOIN goc g ON g.DocNo = CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END
+        WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+      ),
+      l AS (
+        SELECT lenhSX, MIN(ngayLenh) AS ngayLenh, po, MAX(ProductCode) AS maHang, SUM(sl) AS slLenh${theoSize ? ', mau, size' : ''}
+        FROM d
+        GROUP BY lenhSX, po${theoSize ? ', mau, size' : ''}
+      )
+      SELECT l.*
+      FROM l
+      WHERE (SELECT SUM(x.sl) FROM d x WHERE x.lenhSX = l.lenhSX AND x.po = l.po) > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM dbo.OMM_KeHoachThang k
+          JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+          JOIN dbo.OMM_PO po ON po.POId = ct.POId
+          JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+          JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+          WHERE px.XNId = @xn AND k.SoLuong > 0 AND po.PONo = l.po)
+      ORDER BY l.ngayLenh, l.lenhSX, l.po`;
+}
+
 module.exports = {
   // PO của tổ (tính 1 lần, API truyền danh sách cho các câu kế hoạch tổ bên dưới): chay = PO kế hoạch (poChayToSQL), dat = PO có phiếu đặt 30 ngày
   poToMay: {
@@ -141,40 +184,9 @@ module.exports = {
   // PO đã có lệnh Bravo cho xí nghiệp (DeptCode = @dept, vd 'M2') nhưng chưa có kế hoạch phân bổ (OMM_KeHoachThang SoLuong > 0)
   // ở tổ nào của xí nghiệp. Lệnh gốc (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh từ @tuNgay - 60 ngày đến @denNgay;
   // SL = lệnh gốc + điều chỉnh / thu hồi (bỏ PO đã thu hồi hết). Tham số: @xn, @dept, @tuNgay, @denNgay
-  keHoachChuaPhanBo: {
-    db: 'egmf',
-    text: `
-      WITH goc AS (
-        SELECT a.DocNo, MIN(m.DocDate) AS ngayLenh
-        FROM dbo.Bravo_LenhSanXuat_Detail a
-        JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
-        WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
-          AND LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) = @dept
-          AND m.DocDate >= DATEADD(day, -60, @tuNgay) AND m.DocDate < DATEADD(day, 1, @denNgay)
-        GROUP BY a.DocNo
-      ),
-      l AS (
-        SELECT g.DocNo AS lenhSX, MIN(g.ngayLenh) AS ngayLenh, LTRIM(RTRIM(b.PO)) AS po, MAX(b.ProductCode) AS maHang,
-               SUM(ISNULL(b.Quantity, 0)) AS slLenh
-        FROM dbo.Bravo_LenhSanXuat_Detail a
-        JOIN dbo.Bravo_LenhSanXuat_Detail_PO b ON b.IdDetail = a.Id
-        JOIN goc g ON g.DocNo = CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END
-        WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
-        GROUP BY g.DocNo, LTRIM(RTRIM(b.PO))
-      )
-      SELECT l.lenhSX, l.ngayLenh, l.po, l.maHang, l.slLenh
-      FROM l
-      WHERE l.slLenh > 0
-        AND NOT EXISTS (
-          SELECT 1
-          FROM dbo.OMM_KeHoachThang k
-          JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
-          JOIN dbo.OMM_PO po ON po.POId = ct.POId
-          JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
-          JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
-          WHERE px.XNId = @xn AND k.SoLuong > 0 AND po.PONo = l.po)
-      ORDER BY l.ngayLenh, l.lenhSX, l.po`,
-  },
+  keHoachChuaPhanBo: { db: 'egmf', text: chuaPhanBoSQL(false) },
+  // Như keHoachChuaPhanBo, chi tiết theo màu x size (cho tab Theo size)
+  keHoachChuaPhanBoSize: { db: 'egmf', text: chuaPhanBoSQL(true) },
 
   // Kế hoạch phân bổ theo size: tổ x mã hàng x PO x màu x size (OMM_KeHoachThang_SBD), cùng điều kiện ngày với keHoachPhanBo.
   // thuTuSize: STT size trên phiếu điều tiết của mã hàng. Lệnh ghép ở API từ lenhTheoSize. Tham số: @xn, @tuNgay, @denNgay

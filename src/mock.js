@@ -141,6 +141,7 @@ const inRange = (d, tu, den) => d.slice(0, 10) >= tu && d.slice(0, 10) <= den;
 module.exports = {
   xiNghiep: () => xiNghiep,
   to: ({ xn }) => to[xn] || [],
+  keHoachChuaPhanBoSize: (p) => module.exports.keHoachChuaPhanBo(p).flatMap((l) => [['BK', 'S', 500], ['BK', 'M', 700]].map(([mau, size, sl]) => ({ ...l, mau, size, slLenh: sl }))),
   keHoachChuaPhanBo: ({ dept }) => [
     { lenhSX: 'TRIHD-0901-2026', ngayLenh: new Date(Date.now() - 5 * 86400000), po: `MAU-${dept}-CHUA-PB`, maHang: 'WJ71Y2NC', slLenh: 1200 },
   ],
