@@ -4,6 +4,7 @@ require('dotenv').config();
 process.env.DB_REQUEST_TIMEOUT = process.env.DB_REQUEST_TIMEOUT || '300000';
 const db = require('../src/db');
 const queries = require('../src/queries');
+const { docChuaPhanBo } = require('../src/chuaPhanBo');
 
 const [xn, tuNgay, denNgay] = process.argv.slice(2);
 if (!xn || !tuNgay || !denNgay) { console.error('Ví dụ: npm run do-thoi-gian -- 8 2026-09-01 2026-11-29 (xnId lấy trên URL ?xn=)'); process.exit(1); }
@@ -14,10 +15,17 @@ if (!xn || !tuNgay || !denNgay) { console.error('Ví dụ: npm run do-thoi-gian 
   const dept = process.argv[5] || (so ? `M${Number(so)}` : '');
   console.log(`xn=${xn} dept=${dept} ${tuNgay} -> ${denNgay}`);
   const p = { xn, tuNgay, denNgay, dept };
-  for (const name of ['keHoachPhanBo', 'keHoachChuaPhanBo', 'keHoachTheoSize', 'lenhTheoSize', 'keHoachChuaPhanBoSize']) {
+  const chay = {
+    keHoachPhanBo: () => db.query(queries.keHoachPhanBo, p),
+    'chuaPhanBo (Theo PO)': () => docChuaPhanBo(p, false),
+    keHoachTheoSize: () => db.query(queries.keHoachTheoSize, p),
+    lenhTheoSize: () => db.query(queries.lenhTheoSize, p),
+    'chuaPhanBo (Theo size)': () => docChuaPhanBo(p, true),
+  };
+  for (const [name, f] of Object.entries(chay)) {
     const t0 = Date.now();
     try {
-      const rows = await db.query(queries[name], p);
+      const rows = await f();
       console.log(`${name.padEnd(24)} ${String(Date.now() - t0).padStart(7)} ms  ${rows.length} dòng`);
     } catch (e) { console.log(`${name.padEnd(24)} ${String(Date.now() - t0).padStart(7)} ms  LỖI ${e.message}`); }
   }

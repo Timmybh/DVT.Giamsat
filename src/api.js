@@ -20,6 +20,10 @@ async function run(name, params, arg) {
   }
 }
 
+// PO có lệnh cho XN nhưng chưa phân bổ (src/chuaPhanBo.js); dữ liệu mẫu dùng mock keHoachChuaPhanBo(Size)
+const { docChuaPhanBo } = require('./chuaPhanBo');
+const chuaPB = (p, theoSize) => (db.useMock() ? mock[theoSize ? 'keHoachChuaPhanBoSize' : 'keHoachChuaPhanBo'](p) : docChuaPhanBo(p, theoSize));
+
 function handle(name, getParams) {
   return async (req, res) => {
     try {
@@ -104,7 +108,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     const pk = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
     const n = await xnNum(req.query.xn);
     // PO đã có lệnh cho xí nghiệp (DeptCode M<n>) nhưng chưa phân bổ cho tổ nào: hiện cuối bảng, tổ trống, SL kế hoạch trống
-    const [rows0, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? run('keHoachChuaPhanBo', { ...pk, dept: `M${n}` }) : []]);
+    const [rows0, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? chuaPB({ ...pk, dept: `M${n}` }, false) : []]);
     // Mỗi tổ x PO: ưu tiên lệnh đúng DeptCode của XN (theoXN), rồi ẩn lệnh gốc đã thu hồi về 0 (gốc + điều chỉnh / thu hồi = 0)
     // khi còn lệnh khác > 0; SL kế hoạch chuyển về dòng đầu còn lại.
     const nhomTP = new Map();
@@ -161,7 +165,7 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     const p = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
     const nXN = await xnNum(req.query.xn);
     const [sbd, lenh, chua] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p),
-      nXN ? run('keHoachChuaPhanBoSize', { ...p, dept: `M${nXN}` }) : []]);
+      nXN ? chuaPB({ ...p, dept: `M${nXN}` }, true) : []]);
     const kMau = bangMau(sbd, lenh);
     const poS = (po) => String(po ?? '').trim();
     const theoKhoa = new Map();
