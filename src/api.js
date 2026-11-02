@@ -176,10 +176,34 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     const poS = (po) => String(po ?? '').trim();
     const theoKhoa = new Map();
     lenh.forEach((l) => { const k = `${poS(l.po)}|${khoaMa(l.mau)}|${chuanSize(l.size)}`; (theoKhoa.get(k) || theoKhoa.set(k, []).get(k)).push(l); });
+    // SBD nhập theo màu, không có size (vd PO 4558955102FOA409991): ghép theo PO x màu, SL lệnh = tổng các size của màu đó theo từng lệnh
+    const theoMau = new Map();
+    lenh.forEach((l) => { const k = `${poS(l.po)}|${khoaMa(l.mau)}`; (theoMau.get(k) || theoMau.set(k, []).get(k)).push(l); });
+    const gopSize = (ls) => {
+      const m = new Map();
+      ls.forEach((l) => {
+        const g = m.get(l.lenhSX);
+        if (!g) m.set(l.lenhSX, { ...l, size: '', slLenh: Number(l.slLenh || 0) });
+        else {
+          g.slLenh += Number(l.slLenh || 0);
+          if (l.ngayLenh && (!g.ngayLenh || l.ngayLenh < g.ngayLenh)) g.ngayLenh = l.ngayLenh;
+        }
+      });
+      return [...m.values()];
+    };
     const daGhep = new Set();
     const out = [];
     sbd.forEach((r) => {
-      const tatCa = theoKhoa.get(`${poS(r.po)}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`) || [];
+      const tatCa = chuanSize(r.size)
+        ? theoKhoa.get(`${poS(r.po)}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`) || []
+        : theoMau.get(`${poS(r.po)}|${kMau(r.po, r.mau)}`) || [];
+      tatCa.forEach((l) => daGhep.add(l));
+      if (!chuanSize(r.size)) {
+        const ls = boLenh0(theoXN(gopSize(tatCa), nXN));
+        if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });
+        ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, ngayLenh: l.ngayLenh, slLenh: l.slLenh, slPhanBo: Number(r.soLuong || 0) }));
+        return;
+      }
       tatCa.forEach((l) => daGhep.add(l));
       const ls = boLenh0(theoXN(tatCa, nXN));
       if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });

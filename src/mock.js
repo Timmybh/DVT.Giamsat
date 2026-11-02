@@ -155,7 +155,19 @@ module.exports = {
         { ...k, lenhSX: `${k.lenhSX}-MOI`, soLuong: null, loaiLenh: 'Lệnh gốc', typeCt: 0, dept: 'M1' },
         { ...k, lenhSX: `${k.lenhSX}-DC`, slLenh: 5, soLuong: null, loaiLenh: 'Lệnh điều chỉnh', typeCt: 1, lenhGoc: `${k.lenhSX}-MOI`, dept: 'M1' },
       ])),
-  keHoachTheoSize: ({ xn, tuNgay, denNgay }) => keHoach
+  // PO đầu tiên của mỗi XN: SBD nhập theo màu, không có size (như PO 4558955102FOA409991)
+  keHoachTheoSize: (p) => {
+    const rs = module.exports.sbdDuSize(p);
+    const po0 = rs[0]?.po;
+    const m = new Map();
+    return rs.flatMap((r) => {
+      if (r.po !== po0) return [r];
+      const k = `${r.maTo}|${r.mau}`;
+      if (m.has(k)) { m.get(k).soLuong += r.soLuong; return []; }
+      const g = { ...r, size: '' }; m.set(k, g); return [g];
+    });
+  },
+  sbdDuSize: ({ xn, tuNgay, denNgay }) => keHoach
     .filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
     .flatMap((k) => {
       const maus = mauList.slice(0, 1 + (Number(k.maHang) % 2));
@@ -163,7 +175,7 @@ module.exports = {
         maTo: k.maTo, maHang: k.maHang, po: k.po, mau, size, soLuong: Math.round(k.soLuong / maus.length / 5), thuTuSize: null,
       })));
     }),
-  lenhTheoSize: (p) => module.exports.keHoachTheoSize(p).filter((r) => r.size !== 'XS').map((r) => ({
+  lenhTheoSize: (p) => module.exports.sbdDuSize(p).filter((r) => r.size !== 'XS').map((r) => ({
     lenhSX: keHoach.find((k) => k.po === r.po).lenhSX, po: r.po, maHang: r.maHang, mau: r.mau.split(' ')[0], size: r.size,
     slLenh: r.soLuong + (r.size === 'M' ? 10 : 0), ngayLenh: '2026-10-16T00:00:00.000Z',
   })),
