@@ -574,7 +574,11 @@ router.get('/to-may/ke-hoach', async (req, res) => {
           });
         }),
       };
-    }).sort((a, b) => String(a.ngayVaoChuyen).localeCompare(String(b.ngayVaoChuyen)));
+    }).sort((a, b) => {
+      // Ngày kết thúc may gần ngày đang xem nhất lên trước (trễ hay sắp tới đều tính theo khoảng cách), bằng nhau thì theo ngày vào chuyền
+      const kc = (t) => (t.ngayKetThuc ? Math.abs(Date.parse(ymd(t.ngayKetThuc)) - Date.parse(d)) : Infinity);
+      return kc(a) - kc(b) || String(a.ngayVaoChuyen).localeCompare(String(b.ngayVaoChuyen));
+    });
     sizes.forEach((r) => delete r.tatCaPhieu);
     res.json({ the, sai: sai.sort((a, b) => String(b.ngayTao).localeCompare(String(a.ngayTao))) });
   } catch (err) {
