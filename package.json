@@ -1,6 +1,6 @@
 {
   "name": "dvt-giamsat",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Web giám sát xưởng may - kết nối eGMF và HiPro (SQL Server)",
   "main": "server.js",
   "scripts": {

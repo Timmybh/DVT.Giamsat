@@ -40,10 +40,10 @@ Dòng ghép sai: sửa `xn` / `to` trong file json và thêm `"khoa": true` đ�
 ## Triển khai production (máy khác trong LAN)
 
 ```powershell
-npm run build:zip           # tạo dist\dvt-giamsat-<version>.zip, đã kèm node_modules
+npm.cmd run build:zip       # tạo Deploy\dvt-giamsat-<version>-<ngày giờ>.zip, đã kèm node_modules
 ```
 
-Trên máy đích: cài Node.js 18+, giải nén, sửa `.env` (lần đầu `start.bat` tự tạo từ `.env.example`), chạy `start.bat`.
+Các bước cài / cập nhật trên máy production (10.8.0.94, `C:\Applications\DVT.Giamsat`): xem [DEPLOY.md](DEPLOY.md).
 
 ## Nguồn dữ liệu (eGMF)
 
