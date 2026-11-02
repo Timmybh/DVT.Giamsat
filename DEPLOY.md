@@ -27,13 +27,31 @@ Kết quả: `Deploy\dvt-giamsat-<version>-<ngày giờ>.zip`, đã kèm `node_m
    ```
 5. Chạy `start.bat`, mở `http://10.8.0.94:3000` từ máy khác trong LAN để kiểm tra.
 
-### Tự chạy khi khởi động máy (Task Scheduler)
+### Tự chạy khi khởi động máy (Task Scheduler, tài khoản SYSTEM)
+
+Sau khi bước 5 chạy được, tắt cửa sổ `start.bat` rồi mở PowerShell **quyền Admin**:
 
 ```powershell
-$a = New-ScheduledTaskAction -Execute "C:\Applications\DVT.Giamsat\start.bat" -WorkingDirectory "C:\Applications\DVT.Giamsat"
-$t = New-ScheduledTaskTrigger -AtStartup
-Register-ScheduledTask -TaskName "DVT Giam sat" -Action $a -Trigger $t -User "SYSTEM" -RunLevel Highest
+cd C:\Applications\DVT.Giamsat
+powershell -ExecutionPolicy Bypass -File scripts\cai-task.ps1
+Start-ScheduledTask "DVT Giam sat"
 ```
+
+Task `DVT Giam sat` được tạo như sau:
+- Chạy bằng **SYSTEM**, không cần ai đăng nhập máy, không hiện cửa sổ.
+- Tự chạy **khi bật máy** (đợi 30 giây cho mạng lên).
+- Không giới hạn thời gian chạy (mặc định Windows tự tắt task sau 72 giờ, script đã tắt giới hạn này).
+- Chạy `chay-nen.bat`: ghi log vào `logs\app.log`, node bị thoát thì tự chạy lại sau 10 giây.
+
+Kiểm tra:
+- `Get-ScheduledTask "DVT Giam sat"` → State `Running`.
+- Mở `http://10.8.0.94:3000` từ máy khác.
+- Xem log: `Get-Content C:\Applications\DVT.Giamsat\logs\app.log -Tail 50`.
+- Khởi động lại máy một lần để chắc task tự lên.
+
+Dừng hẳn (task + node): `powershell -ExecutionPolicy Bypass -File scripts\dung-task.ps1`. Chạy lại: `Start-ScheduledTask "DVT Giam sat"`.
+
+Lưu ý: SYSTEM dùng PATH của máy, nên Node phải cài bằng bộ cài `.msi` cho mọi user (mặc định vào `C:\Program Files\nodejs`, `chay-nen.bat` tự tìm ở đó). Không dùng nvm hay bản Node cài riêng cho một user.
 
 ## 2b. Chạy sau IIS (tùy chọn)
 
@@ -50,10 +68,10 @@ Ghi chú: IP người dùng trong lượt tương tác lấy từ header `X-Forw
 
 ## 3. Cập nhật bản mới
 
-1. Dừng ứng dụng (tắt cửa sổ `start.bat` hoặc `Stop-ScheduledTask "DVT Giam sat"`).
+1. Dừng ứng dụng: `powershell -ExecutionPolicy Bypass -File scripts\dung-task.ps1` (PowerShell Admin, trong `C:\Applications\DVT.Giamsat`).
 2. Giải nén zip mới đè lên `C:\Applications\DVT.Giamsat`.
-3. **Giữ nguyên**: `.env`, `data\` (số lượt tương tác, SQLite), `config\ma-to-hipro.json` (nếu có). Gói zip không chứa các file này nên giải nén đè không mất. Nếu đã sửa `iis\web.config` (đổi cổng) thì sửa lại sau khi giải nén.
-4. Chạy lại `start.bat` (hoặc `Start-ScheduledTask "DVT Giam sat"`).
+3. **Giữ nguyên**: `.env`, `data\` (số lượt tương tác, SQLite), `logs\`, `config\ma-to-hipro.json` (nếu có). Gói zip không chứa các file này nên giải nén đè không mất. Nếu đã sửa `iis\web.config` (đổi cổng) thì sửa lại sau khi giải nén.
+4. Chạy lại: `Start-ScheduledTask "DVT Giam sat"`. Task không cần đăng ký lại.
 
 ## Ghi chú
 
