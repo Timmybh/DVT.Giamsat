@@ -78,3 +78,13 @@ Mọi truy vấn chạy `READ UNCOMMITTED` (đọc không khóa, tương đươn
 | `public/index.html` | Trang chính: chọn xí nghiệp + 4 vai trò |
 | `public/lean/` | Kế hoạch phân bổ, Tình hình đặt BTP, Nhập xuất tồn BTP cắt |
 | `public/role/` | Tổ trưởng may, Tổ trưởng QC, Giám đốc XN |
+
+## Lượt tương tác
+
+Mỗi lần mở trang, bấm (nút, liên kết, tab, dòng bảng, thẻ...) hoặc đổi bộ lọc (xí nghiệp, tổ, ngày...) được tính 1 lượt.
+Số đếm hiện ở chân trang: tổng và hôm nay.
+
+- Lưu SQLite tại `data/tuong-tac.sqlite` (đổi bằng biến `TUONG_TAC_DB` trong `.env`). Dùng `sql.js` nên không cần build native, chạy được trên Node 18+.
+- Bảng `tuong_tac`: thời gian, ngày, trang, loại (`xem` / `bam` / `doi`), chi tiết, xí nghiệp, IP, trình duyệt.
+- Xem thống kê nhanh: `GET /api/tuong-tac/thong-ke?tuNgay=2026-11-01&denNgay=2026-11-30` (theo ngày x trang x loại).
+- Khi cập nhật bản mới, giữ nguyên thư mục `data/` để không mất số đếm.

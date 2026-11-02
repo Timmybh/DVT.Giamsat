@@ -3,3 +3,4 @@ node_modules/
 dist/
 khao-sat/
 config/ma-to-hipro.json
+data/

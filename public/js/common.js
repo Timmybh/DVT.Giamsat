@@ -29,7 +29,8 @@ const App = {
     document.body.prepend(h);
     const f = document.createElement('footer');
     f.className = 'chan-trang';
-    f.textContent = 'Author Nguyễn Vĩnh Thịnh - Phòng IT - Dovitec';
+    f.innerHTML = 'Author Nguyễn Vĩnh Thịnh - Phòng IT - Dovitec <span id="demTuongTac"></span>';
+    TuongTac.veDem();
     document.body.appendChild(f);
     const sel = h.querySelector('#xnSelect');
     const [list, status] = await Promise.all([App.api('xi-nghiep'), App.api('status')]);
@@ -255,3 +256,52 @@ const App = {
   loading(el) { el.innerHTML = '<div class="empty">Đang tải…</div>'; },
   error(el, err) { el.innerHTML = `<div class="empty" style="color:var(--bad)">Lỗi: ${App.esc(err.message)}</div>`; },
 };
+
+// Đếm lượt tương tác: mỗi lần mở trang, bấm (nút, liên kết, tab, dòng bảng...) hoặc đổi bộ lọc là 1 lượt.
+// Gom các lượt và gửi về /api/tuong-tac (lưu SQLite trên máy chủ); số đếm hiện ở chân trang.
+const TuongTac = {
+  hang: [],
+  dem: null,
+  hen: null,
+  them(loai, chiTiet) {
+    this.hang.push({ trang: location.pathname, loai, chiTiet: chiTiet ? String(chiTiet).replace(/\s+/g, ' ').trim().slice(0, 200) : null, xn: App.xn || null });
+    if (this.dem) { this.dem.tong += 1; this.dem.homNay += 1; this.ve(); }
+    clearTimeout(this.hen);
+    this.hen = setTimeout(() => this.gui(), 1000);
+  },
+  gui(dongTrang) {
+    if (!this.hang.length) return;
+    const ds = this.hang.splice(0);
+    const body = JSON.stringify(ds);
+    if (dongTrang && navigator.sendBeacon) { navigator.sendBeacon('/api/tuong-tac', new Blob([body], { type: 'text/plain' })); return; }
+    fetch('/api/tuong-tac', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body, keepalive: true })
+      .then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && !this.hang.length) { this.dem = d; this.ve(); } }).catch(() => {});
+  },
+  ve() {
+    const el = document.getElementById('demTuongTac');
+    if (el && this.dem) el.textContent = `· Lượt tương tác: ${App.num(this.dem.tong)} (hôm nay ${App.num(this.dem.homNay)})`;
+  },
+  veDem() {
+    fetch('/api/tuong-tac/dem').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return;
+      this.dem = { tong: d.tong + this.hang.length, homNay: d.homNay + this.hang.length };
+      this.ve();
+    }).catch(() => {});
+  },
+  ten(el) {
+    return el.id || el.dataset.tab || el.getAttribute('aria-label') || el.title || el.textContent || el.tagName;
+  },
+};
+TuongTac.them('xem', document.title);
+document.addEventListener('click', (e) => {
+  // select / ô nhập tính khi đổi giá trị (change), không tính lúc bấm vào
+  const el = e.target.closest('a, button, summary, label, tr, [data-tab], [onclick], .clickable, .the-po, .nut');
+  if (!el || el.closest('select, input, textarea')) return;
+  TuongTac.them('bam', `${el.tagName.toLowerCase()}: ${TuongTac.ten(el)}`);
+}, true);
+document.addEventListener('change', (e) => {
+  const el = e.target;
+  if (!el.matches('select, input, textarea')) return;
+  TuongTac.them('doi', `${el.id || el.name || el.tagName.toLowerCase()} = ${el.type === 'checkbox' ? el.checked : el.value}`);
+}, true);
+window.addEventListener('pagehide', () => TuongTac.gui(true));
