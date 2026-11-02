@@ -79,6 +79,16 @@ module.exports = {
       ORDER BY XNId`,
   },
 
+  // Tổ eGMF theo CumId: HiPro nối sang qua pro_chuyen.oid_mapping -> DM_Chuyen.IdChuyenOMM (= Lib_CumChuyen.CumId)
+  cumChuyen: {
+    db: 'egmf',
+    text: `
+      SELECT e.CumId AS cumId, LTRIM(RTRIM(e.TenCum)) AS maTo, x.TenXiNghiep AS xnTen
+      FROM dbo.Lib_CumChuyen e
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      JOIN dbo.Lib_XiNghiep x ON x.XNId = px.XNId`,
+  },
+
   // Danh sách tổ theo xí nghiệp. Tham số: @xn (XNId). ma = số tổ (khớp CUTTING_PhieuCapBTP.TenCum)
   to: {
     db: 'egmf',
@@ -440,34 +450,36 @@ module.exports = {
   sanLuongGio: {
     db: 'hipro',
     text: `
-      SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang,
+      SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, sp.ma_san_pham AS maHang,
              ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.qty_${i + 1}_h, 0)) AS h${i + 1}`).join(', ')},
              ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.reject_${i + 1}_h, 0)) AS r${i + 1}`).join(', ')},
              ${Array.from({ length: 14 }, (_, i) => `SUM(ISNULL(n.fix_${i + 1}_h, 0)) AS f${i + 1}`).join(', ')}
       FROM dbo.pro_nscl n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
       JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
       JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       WHERE k.ngay_san_xuat >= @d0 AND k.ngay_san_xuat < DATEADD(day, 1, @d0)
-      GROUP BY nm.ten, c.ten, sp.ma_san_pham`,
+      GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, sp.ma_san_pham`,
   },
 
   // Sản lượng đạt (qty) lũy kế theo xí nghiệp x chuyền x mã hàng x PO trong khoảng ngày (pro_nscl hiện hành). Tham số: @tuNgay, @denNgay
   sanLuongTheoHang: {
     db: 'hipro',
     text: `
-      SELECT nm.ten AS xn, c.ten AS line, sp.ma_san_pham AS maHang, sp.po AS po,
+      SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, sp.ma_san_pham AS maHang, sp.po AS po,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS slSX
       FROM dbo.pro_nscl n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
       JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
       JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
-      GROUP BY nm.ten, c.ten, sp.ma_san_pham, sp.po`,
+      GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, sp.ma_san_pham, sp.po`,
   },
 
   // Lao động theo chuyền trong ngày. Tham số: @d0. API lọc xí nghiệp theo tên.
@@ -485,34 +497,36 @@ module.exports = {
   qcNscl: {
     db: 'hipro',
     text: `
-      SELECT CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line,
+      SELECT CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS dat,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.reject_${i + 1}_h, 0)`).join(' + ')}) AS loi,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.fix_${i + 1}_h, 0)`).join(' + ')}) AS sua
       FROM dbo.pro_nscl n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
       JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
-      GROUP BY CAST(k.ngay_san_xuat AS date), nm.ten, c.ten`,
+      GROUP BY CAST(k.ngay_san_xuat AS date), nm.ten, c.ten, dmc.IdChuyenOMM`,
   },
 
   // Chi tiết lỗi theo tổ x mã lỗi (pro_nscl_chi_tiet_loi -> pro_loi -> pro_cum_loi). Tham số: @tuNgay, @denNgay
   qcLoiChiTiet: {
     db: 'hipro',
     text: `
-      SELECT nm.ten AS xn, c.ten AS line, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi, cl.ten AS cumLoi, COUNT(*) AS soLan
+      SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi, cl.ten AS cumLoi, COUNT(*) AS soLan
       FROM dbo.pro_nscl_chi_tiet_loi d
       JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
       JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       LEFT JOIN dbo.pro_loi l ON l.id = d.pro_loi_id
       LEFT JOIN dbo.pro_cum_loi cl ON cl.id = l.pro_cum_loi_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
-      GROUP BY nm.ten, c.ten, ISNULL(l.ma_loi, d.ma_loi), l.ten_loi, cl.ten`,
+      GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, ISNULL(l.ma_loi, d.ma_loi), l.ten_loi, cl.ten`,
   },
 
   // Doanh thu xí nghiệp theo ngày (màn hình ERP "DOANH THU XÍ NGHIỆP"). Dữ liệu nhập tay nên có thể trùng ngày:
@@ -732,7 +746,7 @@ module.exports = {
     return {
       db: 'hipro',
       text: `
-      SELECT nm.ten AS xn, c.ten AS line, sp.po AS po, MAX(sp.ma_san_pham) AS maHang,
+      SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, sp.po AS po, MAX(sp.ma_san_pham) AS maHang,
              SUM(CASE WHEN k.ngay_san_xuat >= @tuNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaKy,
              SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaNgay,
              SUM(n.dat + n.sua + n.dc) AS mayRaLK,
@@ -741,12 +755,13 @@ module.exports = {
       FROM (${nguon.join('\n        UNION ALL ')}) n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
       JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
       JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       WHERE k.ngay_san_xuat >= @tuLK AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)${nPO ? `
         AND sp.po IN (${dsThamSo('hp', nPO)})` : ''}
-      GROUP BY nm.ten, c.ten, sp.po`,
+      GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, sp.po`,
     };
   },
 

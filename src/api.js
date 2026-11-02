@@ -55,8 +55,18 @@ const lineOf = (raw) => {
   return m ? String(Number(m[1])) : String(raw ?? '').trim();
 };
 
-// Nhà máy / chuyền HiPro -> xí nghiệp / tổ eGMF (theo config/ma-to-hipro.json, không có thì lấy số trong tên)
-const hp = (r) => doiMa(r.xn, r.line, xnOf, lineOf);
+// Chuyền HiPro -> xí nghiệp / tổ eGMF: ưu tiên khóa nối CumId (DM_Chuyen.IdChuyenOMM) của HiPro,
+// không có thì theo config/ma-to-hipro.json, cuối cùng lấy số trong tên. Danh mục tổ nạp lại mỗi 10 phút.
+let cumMap = new Map();
+let cumLuc = 0;
+async function napCum() {
+  if (Date.now() - cumLuc < 600000) return;
+  cumLuc = Date.now();
+  try {
+    cumMap = new Map((await run('cumChuyen', {})).map((r) => [String(r.cumId), { xn: xnOf(r.xnTen), to: lineOf(r.maTo) }]));
+  } catch (e) { console.error('[cumChuyen]', e.message); }
+}
+const hp = (r) => (r.cumId != null && cumMap.get(String(r.cumId))) || doiMa(r.xn, r.line, xnOf, lineOf);
 
 // Chạy truy vấn rồi lọc theo xí nghiệp (cột xn dạng tên) và chuẩn hóa số tổ. laHiPro: đổi mã HiPro sang eGMF
 function handleXn(name, getParams, laHiPro = false) {
@@ -65,6 +75,7 @@ function handleXn(name, getParams, laHiPro = false) {
       const n = await xnNum(req.query.xn);
       const rows = await run(name, await getParams(req));
       if (laHiPro) {
+        await napCum();
         res.json(rows.map((r) => { const m = hp(r); return { ...r, xn: m.xn, line: m.to }; }).filter((r) => r.xn === n));
         return;
       }
@@ -88,6 +99,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     const n = await xnNum(req.query.xn);
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
     const sx = await run('sanLuongTheoHang', { tuNgay: tu.toISOString().slice(0, 10), denNgay: today() });
+    await napCum();
     // Khớp HiPro theo tổ x PO; nếu tổ x mã hàng chỉ có 1 PO kế hoạch mà không khớp PO thì lấy tổng theo tổ x mã hàng
     const up = (v) => String(v ?? '').trim().toUpperCase();
     const theoPO = new Map();
@@ -309,6 +321,7 @@ const mocLK = (ngays, d) => ngays.map(ymd).filter(Boolean)
   .reduce((m, x) => (x < m ? x : m), ymd(new Date(new Date(d) - LUI_LK * 86400000)));
 // May ra HiPro (nhà máy x chuyền x PO) từ tuLK, đọc cả bảng lưu trữ pro_nscl_MM_YYYY của các tháng tuLK..denNgay
 async function docMayRa(tuLK, tuNgay, denNgay, pos = []) {
+  await napCum();
   const bang = (await run('nsclLuuTru', {})).map((x) => x.name).filter((b) => {
     const m = /^pro_nscl_(\d{2})_(\d{4})$/.exec(b);
     return m && `${m[2]}-${m[1]}` >= tuLK.slice(0, 7) && `${m[2]}-${m[1]}` <= denNgay.slice(0, 7);
