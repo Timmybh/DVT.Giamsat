@@ -35,11 +35,24 @@ $t = New-ScheduledTaskTrigger -AtStartup
 Register-ScheduledTask -TaskName "DVT Giam sat" -Action $a -Trigger $t -User "SYSTEM" -RunLevel Highest
 ```
 
+## 2b. Chạy sau IIS (tùy chọn)
+
+IIS không chạy trực tiếp app Node được (iisnode đã ngừng phát triển, không khuyên dùng). Cách chuẩn: app Node vẫn chạy bằng `start.bat` / Task Scheduler như mục 2, IIS đứng trước làm **reverse proxy** (cổng 80, tên miền, HTTPS, chung IIS với web khác).
+
+1. Cài trên máy 10.8.0.94 (Web Platform / tải từ trang Microsoft): **URL Rewrite 2.1** và **Application Request Routing 3.0**.
+2. IIS Manager → chọn tên máy (gốc) → **Application Request Routing Cache** → **Server Proxy Settings** → tick **Enable proxy** → Apply.
+3. Tạo site mới (ví dụ `DVT Giam sat`, cổng 80), Physical path: `C:\Applications\DVT.Giamsat\iis` (thư mục này chỉ chứa `web.config`).
+4. `web.config` có sẵn trong gói (`iis\web.config`): chuyển mọi request sang `http://localhost:3000`. Đổi cổng trong file nếu `.env` dùng `PORT` khác.
+5. Mở cổng 80 trên tường lửa thay cho 3000 (cổng 3000 có thể đóng lại, chỉ IIS gọi nội bộ).
+6. Truy cập `http://10.8.0.94/`. QR trên trang tổ trưởng tự bỏ số cổng khi chạy cổng 80.
+
+Ghi chú: IP người dùng trong lượt tương tác lấy từ header `X-Forwarded-For` (ARR gửi kèm khi bật proxy); không có thì ghi IP của IIS.
+
 ## 3. Cập nhật bản mới
 
 1. Dừng ứng dụng (tắt cửa sổ `start.bat` hoặc `Stop-ScheduledTask "DVT Giam sat"`).
 2. Giải nén zip mới đè lên `C:\Applications\DVT.Giamsat`.
-3. **Giữ nguyên**: `.env`, `data\` (số lượt tương tác, SQLite), `config\ma-to-hipro.json` (nếu có). Gói zip không chứa các file này nên giải nén đè không mất.
+3. **Giữ nguyên**: `.env`, `data\` (số lượt tương tác, SQLite), `config\ma-to-hipro.json` (nếu có). Gói zip không chứa các file này nên giải nén đè không mất. Nếu đã sửa `iis\web.config` (đổi cổng) thì sửa lại sau khi giải nén.
 4. Chạy lại `start.bat` (hoặc `Start-ScheduledTask "DVT Giam sat"`).
 
 ## Ghi chú

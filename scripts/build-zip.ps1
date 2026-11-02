@@ -11,7 +11,7 @@ $zip = Join-Path $outDir "dvt-giamsat-$version-$stamp.zip"
 
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage | Out-Null
-foreach ($item in 'server.js', 'package.json', 'package-lock.json', '.env.example', 'start.bat', 'README.md', 'DEPLOY.md', 'src', 'public', 'scripts') {
+foreach ($item in 'server.js', 'package.json', 'package-lock.json', '.env.example', 'start.bat', 'README.md', 'DEPLOY.md', 'iis', 'src', 'public', 'scripts') {
   Copy-Item (Join-Path $root $item) $stage -Recurse
 }
 # Bảng đối chiếu tổ HiPro (nếu có) để máy production dùng luôn
