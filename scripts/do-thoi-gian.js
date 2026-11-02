@@ -22,6 +22,21 @@ if (!xn || !tuNgay || !denNgay) { console.error('Ví dụ: npm run do-thoi-gian 
     lenhTheoSize: () => db.query(queries.lenhTheoSize, p),
     'chuaPhanBo (Theo size)': () => docChuaPhanBo(p, true),
   };
+  // SL SX HiPro của trang: cũ (mọi PO, chỉ bảng hiện hành) và mới (PO của bảng, kèm bảng lưu trữ)
+  const kh = await db.query(queries.keHoachPhanBo, p);
+  const tu = kh.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
+  const tuS = `${tu.getFullYear()}-${String(tu.getMonth() + 1).padStart(2, '0')}-${String(tu.getDate()).padStart(2, '0')}`;
+  const homNay = new Date().toISOString().slice(0, 10);
+  const dsPO = [...new Set(kh.map((r) => String(r.po ?? '').trim()).filter(Boolean))];
+  chay[`HiPro cũ sanLuongTheoHang (${tuS})`] = () => db.query(queries.sanLuongTheoHang, { tuNgay: tuS, denNgay: homNay });
+  chay[`HiPro mới mayRaHiPro (${dsPO.length} PO)`] = async () => {
+    const bang = (await db.query(queries.nsclLuuTru, {})).map((x) => x.name).filter((b) => {
+      const m = /^pro_nscl_(\d{2})_(\d{4})$/.exec(b);
+      return m && `${m[2]}-${m[1]}` >= tuS.slice(0, 7);
+    });
+    const pp = { tuLK: tuS, tuNgay: tuS, denNgay: homNay, ...Object.fromEntries(dsPO.map((v, i) => [`hp${i}`, v])) };
+    return db.query(queries.mayRaHiPro({ bang, nPO: dsPO.length }), pp);
+  };
   for (const [name, f] of Object.entries(chay)) {
     const t0 = Date.now();
     try {

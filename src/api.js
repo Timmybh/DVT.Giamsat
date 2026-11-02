@@ -133,8 +133,14 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     }));
     if (!rows.length) return res.json(dongChua);
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
-    const sx = await run('sanLuongTheoHang', { tuNgay: tu.toISOString().slice(0, 10), denNgay: today() });
-    await napCum();
+    // SL SX = may ra HiPro (đạt + sửa + điều chỉnh lũy kế), chỉ đọc các PO của bảng và cả bảng lưu trữ pro_nscl_MM_YYYY
+    // (trước đây đọc mọi PO mọi nhà máy, chỉ bảng tháng hiện hành nên PO may từ tháng trước bị thiếu SL)
+    const dsPO = [...new Set(rows.map((r) => String(r.po ?? '').trim()).filter(Boolean))];
+    const tuNgaySX = ymd(tu);
+    const { sx: sx0 } = db.useMock()
+      ? { sx: (await run('sanLuongTheoHang', {})).map((r) => ({ ...r, mayRaLK: r.slSX })) }
+      : await docMayRa(tuNgaySX, tuNgaySX, today(), dsPO.length <= 2000 ? dsPO : []);
+    const sx = sx0.map((r) => ({ ...r, slSX: Number(r.mayRaLK || 0) }));
     // Khớp HiPro theo tổ x PO; nếu tổ x mã hàng chỉ có 1 PO kế hoạch mà không khớp PO thì lấy tổng theo tổ x mã hàng
     const up = (v) => String(v ?? '').trim().toUpperCase();
     const theoPO = new Map();
