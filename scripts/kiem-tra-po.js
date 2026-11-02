@@ -47,12 +47,12 @@ const SBD = {
 const BRAVO = {
   db: 'egmf',
   text: `
-    SELECT a.DocNo, a.TypeCt, a.ProductionOrderAdjNo, a.DocStatus, a.IsActive,
+    SELECT a.DocNo, a.DeptCode, a.TypeCt, a.ProductionOrderAdjNo, a.DocStatus, a.IsActive,
            b.PO, b.ProductCode, b.ColorCode, b.SizeCode, SUM(ISNULL(b.Quantity, 0)) AS slLenh
     FROM dbo.Bravo_LenhSanXuat_Detail_PO b
     JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
     WHERE b.PO LIKE '%' + @goc + '%'
-    GROUP BY a.DocNo, a.TypeCt, a.ProductionOrderAdjNo, a.DocStatus, a.IsActive, b.PO, b.ProductCode, b.ColorCode, b.SizeCode
+    GROUP BY a.DocNo, a.DeptCode, a.TypeCt, a.ProductionOrderAdjNo, a.DocStatus, a.IsActive, b.PO, b.ProductCode, b.ColorCode, b.SizeCode
     ORDER BY a.DocNo, b.PO, b.ColorCode, b.SizeCode`,
 };
 const HIPRO = {
