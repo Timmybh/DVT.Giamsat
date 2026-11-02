@@ -130,6 +130,7 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     const p = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
     const [sbd, lenh] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p)]);
     const kMau = bangMau(sbd, lenh);
+    const nXN = await xnNum(req.query.xn);
     const poS = (po) => String(po ?? '').trim();
     const theoKhoa = new Map();
     lenh.forEach((l) => { const k = `${poS(l.po)}|${khoaMa(l.mau)}|${chuanSize(l.size)}`; (theoKhoa.get(k) || theoKhoa.set(k, []).get(k)).push(l); });
@@ -138,7 +139,7 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     sbd.forEach((r) => {
       const tatCa = theoKhoa.get(`${poS(r.po)}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`) || [];
       tatCa.forEach((l) => daGhep.add(l));
-      const ls = boLenh0(tatCa);
+      const ls = boLenh0(theoXN(tatCa, nXN));
       if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });
       ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: Number(r.soLuong || 0) }));
     });
@@ -174,6 +175,13 @@ const chuanMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, '');
 // Lệnh bị thu hồi hết (lệnh gốc + lệnh thu hồi TypeCt 2 cộng về 0) mà cùng PO x màu x size đã có lệnh khác > 0 thì bỏ,
 // vd LYLT-0141 (539) + LYLT-0169 thu hồi (-539) = 0, thay bằng LYLT-0170 (539). Nếu chỉ có lệnh 0 thì giữ để thấy đã thu hồi.
 const boLenh0 = (ls) => (ls.some((l) => Number(l.slLenh || 0) !== 0) ? ls.filter((l) => Number(l.slLenh || 0) !== 0) : ls);
+// Lệnh Bravo ghi xí nghiệp may ở DeptCode ('M1' = XN1, 'M2' = XN2…). Cùng PO x màu x size có lệnh của đúng XN thì chỉ lấy lệnh đó,
+// không có thì giữ tất cả (lệnh chưa ghi DeptCode / ghi kiểu khác).
+const theoXN = (ls, n) => {
+  if (!n) return ls;
+  const dung = ls.filter((l) => String(l.dept ?? '').trim().toUpperCase() === `M${n}`);
+  return dung.length ? dung : ls;
+};
 const hoaMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
 const khopMau = (ten, ma) => {
   const t = hoaMau(ten); const m = hoaMau(ma);
@@ -526,7 +534,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
         hoanThanh: N(x.hoanThanh) === 1, nangLuc: N(x.nangLuc),
         sxNgay: m.ngay, sxLK: m.lk, kiemNgay: m.dat + m.loi, datLanDau: m.dat, loiNgay: m.loi, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
         sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
-          const ls = boLenh0(lenhTheoKhoa.get(`${po}|${kMau(po, r.mau)}|${chuanSize(r.size)}`) || []);
+          const ls = boLenh0(theoXN(lenhTheoKhoa.get(`${po}|${kMau(po, r.mau)}|${chuanSize(r.size)}`) || [], n));
           const goc = { mau: r.mau, size: r.size, kh: r.kh };
           if (ls.length <= 1) return [{ ...goc, lenhSX: ls[0] ? ls[0].lenhSX : null, slLenh: ls[0] ? N(ls[0].slLenh) : null, datNgay: r.datNgay, nhanNgay: r.nhanNgay, datLK: r.datLK }];
           // PO có nhiều lệnh: tách đặt theo lệnh ghi trên phiếu cấp

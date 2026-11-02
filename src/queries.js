@@ -188,7 +188,8 @@ module.exports = {
       )
       SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, MAX(b.ProductCode) AS maHang, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size,
-             SUM(ISNULL(b.Quantity, 0)) AS slLenh
+             SUM(ISNULL(b.Quantity, 0)) AS slLenh,
+             MAX(LTRIM(RTRIM(ISNULL(a.DeptCode, '')))) AS dept
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
       WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
@@ -834,7 +835,8 @@ module.exports = {
     db: 'egmf',
     text: `
       SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
-             b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+             b.PO AS po, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh,
+             MAX(LTRIM(RTRIM(ISNULL(a.DeptCode, '')))) AS dept
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
       WHERE (b.PO IN (${dsThamSo('pc', nChay)}) OR b.PO IN (${dsThamSo('pd', nDat)})) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
