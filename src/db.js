@@ -21,6 +21,8 @@ async function getPool(dbKey) {
         trustServerCertificate: process.env.DB_TRUST_CERT !== 'false',
         useUTC: false, // giờ trong eGMF là giờ Việt Nam
       },
+      // Mặc định 15 giây; script khảo sát nặng đặt DB_REQUEST_TIMEOUT lớn hơn
+      requestTimeout: Number(process.env.DB_REQUEST_TIMEOUT || 15000),
       pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
     }).connect();
   }

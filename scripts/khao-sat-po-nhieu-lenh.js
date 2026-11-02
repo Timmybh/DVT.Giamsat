@@ -4,13 +4,18 @@
 // 3) Kế hoạch OMM của các PO mẫu: số dòng kế hoạch / tổ, SL, LSX (xem có khớp số lệnh không)
 // 4) Phiếu cấp BTP của các PO mẫu: lệnh ghi trên phiếu + SL đặt theo lệnh
 // 5) Các cột có tên giống lệnh trong eGMF (OMM_ / NV_ / CUTTING_) và HiPro
+// 6) HiPro: các bảng LCD_Truc_Quan_Chuyen_* có cột lệnh: cột + dòng của các PO mẫu (xem HiPro có SL theo lệnh không)
+// Chạy lại phần 6 riêng (nhanh): npm run khao-sat-po-nhieu-lenh -- 120 chi6 <PO...>
 // Chạy: npm run khao-sat-po-nhieu-lenh -- [soNgay=120]   -> khao-sat/khao-sat-po-nhieu-lenh.txt
 require('dotenv').config();
+process.env.DB_REQUEST_TIMEOUT = process.env.DB_REQUEST_TIMEOUT || '300000'; // câu 1, 2 quét lệnh 120 ngày, cho 5 phút
 const fs = require('fs');
 const path = require('path');
 const db = require('../src/db');
 
 const soNgay = Number(process.argv[2]) || 120;
+const chi6 = process.argv[3] === 'chi6';
+const poThem = chi6 ? process.argv.slice(4).map((x) => String(x).trim()).filter(Boolean) : [];
 const q = (dbKey, text, p = {}) => db.query({ db: dbKey, text }, p);
 const LENH = `
   WITH goc AS (
@@ -38,7 +43,7 @@ const LENH = `
   const out = [];
   const muc = async (ten, f) => { out.push(`=== ${ten} ===`); try { out.push(...fmt(await f())); } catch (e) { out.push(`LỖI: ${e.message}`); } out.push(''); };
 
-  await muc(`1. Tổng quan (lệnh gốc trong ${soNgay} ngày)`, () => q('egmf', `${LENH}
+  if (!chi6) await muc(`1. Tổng quan (lệnh gốc trong ${soNgay} ngày)`, () => q('egmf', `${LENH}
     SELECT (SELECT COUNT(DISTINCT po + '|' + dept) FROM lp) AS soPO_XN,
            (SELECT COUNT(*) FROM po2) AS soPO_XN_NhieuLenh,
            (SELECT COUNT(*) FROM po2 p WHERE EXISTS (
@@ -46,13 +51,13 @@ const LENH = `
               WHERE x.po = p.po AND x.dept = p.dept AND x.sl > 0
               GROUP BY x.mau, x.size HAVING COUNT(DISTINCT x.lenh) > 1)) AS soPO_TrungMauSize`, { soNgay }));
 
-  const mau = await q('egmf', `${LENH}
+  const mau = chi6 ? poThem.map((po) => ({ po })) : await q('egmf', `${LENH}
     SELECT TOP 30 p.po, p.dept, p.soLenh, p.tongSL FROM po2 p ORDER BY p.soLenh DESC, p.tongSL DESC`, { soNgay }).catch(() => []);
   const dsPO = mau.map((r) => r.po);
   const thamSo = Object.fromEntries(dsPO.map((v, i) => [`p${i}`, v]));
   const inPO = dsPO.length ? dsPO.map((_, i) => `@p${i}`).join(', ') : 'NULL';
 
-  await muc('2. 30 PO mẫu: SL từng lệnh, số màu x size, số màu x size trùng với lệnh khác', () => q('egmf', `${LENH}
+  if (!chi6) await muc('2. 30 PO mẫu: SL từng lệnh, số màu x size, số màu x size trùng với lệnh khác', () => q('egmf', `${LENH}
     SELECT y.po, y.dept, y.lenh, y.ngayLenh, y.sl,
            (SELECT COUNT(*) FROM l x WHERE x.po = y.po AND x.dept = y.dept AND x.lenh = y.lenh AND x.sl > 0) AS soMauSize,
            (SELECT COUNT(*) FROM l x WHERE x.po = y.po AND x.dept = y.dept AND x.lenh = y.lenh AND x.sl > 0
@@ -61,7 +66,7 @@ const LENH = `
     FROM lp y WHERE y.po IN (${inPO})
     ORDER BY y.po, y.dept, y.ngayLenh, y.lenh`, { soNgay, ...thamSo }));
 
-  await muc('3. Kế hoạch OMM của các PO mẫu (mỗi dòng kế hoạch)', () => q('egmf', `
+  if (!chi6) await muc('3. Kế hoạch OMM của các PO mẫu (mỗi dòng kế hoạch)', () => q('egmf', `
     SELECT po.PONo AS po, k.KHTId, px.TenPhanXuong AS xn, LTRIM(RTRIM(e.TenCum)) AS maTo, k.SoLuong, k.LSX, k.TinhTrang,
            k.NgayVaoChuyenKeHoachBatDau AS vaoChuyen, k.NgayMayKeHoachKetThuc AS ketThuc,
            (SELECT SUM(ISNULL(s.SoLuong, 0)) FROM dbo.OMM_KeHoachThang_SBD s WHERE s.KHTId = k.KHTId) AS slSBD
@@ -73,7 +78,7 @@ const LENH = `
     WHERE po.PONo IN (${inPO}) AND k.SoLuong > 0
     ORDER BY po.PONo, k.NgayVaoChuyenKeHoachBatDau, k.KHTId`, thamSo));
 
-  await muc('4. Phiếu cấp BTP của các PO mẫu: lệnh ghi trên phiếu, SL đặt', () => q('egmf', `
+  if (!chi6) await muc('4. Phiếu cấp BTP của các PO mẫu: lệnh ghi trên phiếu, SL đặt', () => q('egmf', `
     SELECT ct.PO AS po, pc.TenPhanXuong AS xn, LTRIM(RTRIM(pc.TenCum)) AS maTo, ISNULL(NULLIF(ct.LenhSanXuat, ''), pc.LenhSanXuat) AS lenhTrenPhieu,
            COUNT(DISTINCT pc.IdCapBTP) AS soPhieu, SUM(ISNULL(ct.SoLuongCanCap, 0)) AS slDat
     FROM dbo.CUTTING_PhieuCapBTP pc
@@ -88,12 +93,33 @@ const LENH = `
     WHERE (c.name LIKE '%LSX%' OR c.name LIKE '%Lenh%' OR c.name LIKE '%lenh%' OR c.name LIKE 'ProductionOrder%' OR c.name LIKE '%production_order%')
       ${ten}
     ORDER BY t.name, c.name`;
-  await muc('5a. eGMF: cột giống lệnh trong bảng OMM_ / NV_ / CUTTING_ / DM_', () => q('egmf', cotLenh(`AND (t.name LIKE 'OMM[_]%' OR t.name LIKE 'NV[_]%' OR t.name LIKE 'CUTTING[_]%' OR t.name LIKE 'DM[_]%')`)));
-  await muc('5b. HiPro: cột giống lệnh', () => q('hipro', cotLenh('')));
-  await muc('5c. HiPro: cột của pro_san_pham và pro_ke_hoach_san_xuat', () => q('hipro', `
+  if (!chi6) await muc('5a. eGMF: cột giống lệnh trong bảng OMM_ / NV_ / CUTTING_ / DM_', () => q('egmf', cotLenh(`AND (t.name LIKE 'OMM[_]%' OR t.name LIKE 'NV[_]%' OR t.name LIKE 'CUTTING[_]%' OR t.name LIKE 'DM[_]%')`)));
+  if (!chi6) await muc('5b. HiPro: cột giống lệnh', () => q('hipro', cotLenh('')));
+  if (!chi6) await muc('5c. HiPro: cột của pro_san_pham và pro_ke_hoach_san_xuat', () => q('hipro', `
     SELECT t.name AS bang, c.name AS cot, ty.name AS kieu
     FROM sys.tables t JOIN sys.columns c ON c.object_id = t.object_id JOIN sys.types ty ON ty.user_type_id = c.user_type_id
     WHERE t.name IN ('pro_san_pham', 'pro_ke_hoach_san_xuat') ORDER BY t.name, c.column_id`));
+
+  // 6. HiPro LCD_Truc_Quan_Chuyen_*: bảng có cột lệnh -> cột + dòng của các PO mẫu (lọc theo cột PO nếu có)
+  try {
+    const bangs = await q('hipro', `
+      SELECT t.name AS bang, t.type_desc AS loai,
+             STUFF((SELECT ', ' + c.name FROM sys.columns c WHERE c.object_id = t.object_id ORDER BY c.column_id FOR XML PATH('')), 1, 2, '') AS cot
+      FROM sys.objects t WHERE t.type IN ('U', 'V') AND t.name LIKE 'LCD[_]Truc[_]Quan[_]Chuyen%' ORDER BY t.name`);
+    for (const b of bangs) {
+      out.push(`=== 6. HiPro ${b.bang} (${b.loai}) ===`, `Cột: ${b.cot}`);
+      const cot = String(b.cot).split(', ');
+      const cPO = cot.find((c) => /^po$/i.test(c)) || cot.find((c) => /po/i.test(c) && !/pro/i.test(c));
+      try {
+        const rows = cPO && dsPO.length
+          ? await q('hipro', `SELECT TOP 40 * FROM dbo.[${b.bang}] WHERE [${cPO}] IN (${inPO})`, thamSo)
+          : await q('hipro', `SELECT TOP 10 * FROM dbo.[${b.bang}]`);
+        out.push(cPO && dsPO.length ? `Dòng của PO mẫu (cột ${cPO}):` : '10 dòng mẫu:', ...fmt(rows));
+      } catch (e) { out.push(`LỖI: ${e.message}`); }
+      out.push('');
+    }
+    if (!bangs.length) out.push('=== 6. HiPro: không có bảng LCD_Truc_Quan_Chuyen_* ===', '');
+  } catch (e) { out.push(`=== 6. LỖI: ${e.message} ===`, ''); }
 
   fs.mkdirSync('khao-sat', { recursive: true });
   fs.writeFileSync(path.join('khao-sat', 'khao-sat-po-nhieu-lenh.txt'), `${out.join('\n')}\n`);
