@@ -148,12 +148,12 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
       tatCa.forEach((l) => daGhep.add(l));
       const ls = boLenh0(theoXN(tatCa, nXN));
       if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });
-      ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: Number(r.soLuong || 0) }));
+      ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, ngayLenh: l.ngayLenh, slLenh: Number(l.slLenh || 0), slPhanBo: Number(r.soLuong || 0) }));
     });
     // thứ tự size cho dòng lệnh lẻ: lấy theo size cùng mã hàng nếu có
     const tts = new Map(sbd.map((r) => [`${r.maHang}|${chuanSize(r.size)}`, r.thuTuSize]));
     lenh.filter((l) => !daGhep.has(l)).forEach((l) => out.push({
-      maTo: '', maHang: l.maHang, po: l.po, mau: l.mau, size: l.size, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: null,
+      maTo: '', maHang: l.maHang, po: l.po, mau: l.mau, size: l.size, lenhSX: l.lenhSX, ngayLenh: l.ngayLenh, slLenh: Number(l.slLenh || 0), slPhanBo: null,
       thuTuSize: tts.get(`${l.maHang}|${chuanSize(l.size)}`) ?? null,
     }));
     // PO đã có lệnh cho xí nghiệp nhưng chưa phân bổ cho tổ nào (kể cả chưa đưa vào OMM)

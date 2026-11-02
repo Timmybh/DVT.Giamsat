@@ -163,7 +163,7 @@ module.exports = {
     }),
   lenhTheoSize: (p) => module.exports.keHoachTheoSize(p).filter((r) => r.size !== 'XS').map((r) => ({
     lenhSX: keHoach.find((k) => k.po === r.po).lenhSX, po: r.po, maHang: r.maHang, mau: r.mau.split(' ')[0], size: r.size,
-    slLenh: r.soLuong + (r.size === 'M' ? 10 : 0),
+    slLenh: r.soLuong + (r.size === 'M' ? 10 : 0), ngayLenh: '2026-10-16T00:00:00.000Z',
   })),
   keHoachSize: ({ xn, to: maTo, maHang, po }) => {
     const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang && (!po || x.po === po));

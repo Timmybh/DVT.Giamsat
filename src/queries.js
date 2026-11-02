@@ -149,7 +149,7 @@ module.exports = {
   keHoachPhanBo: {
     db: 'egmf',
     text: `
-      SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.slLenh, l.lenhGoc,
+      SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.ngayLenh, l.slLenh, l.lenhGoc,
              CASE l.typeCt WHEN 2 THEN N'Lệnh thu hồi' WHEN 1 THEN N'Lệnh điều chỉnh' WHEN 0 THEN N'Lệnh gốc' END AS loaiLenh,
              CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY ISNULL(l.typeCt, 0), l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
              x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc
@@ -172,7 +172,7 @@ module.exports = {
       LEFT JOIN (
         -- Mỗi lệnh (DocNo) 1 dòng. Loại lệnh theo Bravo TypeCt: 0 lệnh sản xuất (gốc), 1 điều chỉnh, 2 thu hồi; IsActive = 0 là đình chỉ (bỏ); chỉ lấy lệnh DocStatus = 4 (đã hoàn thiện)
         SELECT b.PO, a.DocNo AS lenhSX, MAX(ISNULL(a.TypeCt, 0)) AS typeCt, MAX(ISNULL(a.ProductionOrderAdjNo, '')) AS lenhGoc,
-               SUM(ISNULL(b.Quantity, 0)) AS slLenh
+               MIN(a.DocDate) AS ngayLenh, SUM(ISNULL(b.Quantity, 0)) AS slLenh
         FROM dbo.Bravo_LenhSanXuat_Detail_PO b
         JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
         WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
@@ -239,7 +239,8 @@ module.exports = {
       SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, MAX(b.ProductCode) AS maHang, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size,
              SUM(ISNULL(b.Quantity, 0)) AS slLenh,
-             MAX(LTRIM(RTRIM(ISNULL(a.DeptCode, '')))) AS dept
+             MAX(LTRIM(RTRIM(ISNULL(a.DeptCode, '')))) AS dept,
+             MIN(CASE WHEN ISNULL(a.TypeCt, 0) = 0 THEN a.DocDate END) AS ngayLenh
       FROM dbo.Bravo_LenhSanXuat_Detail_PO b
       JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
       WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4

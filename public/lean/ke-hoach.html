@@ -48,6 +48,7 @@
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'po', label: 'PO' },
       { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'ngayLenh', label: 'Ngày lệnh', type: 'date' },
       { key: 'loaiLenh', label: 'Loại lệnh', render: (r) => (r.loaiLenh ? `<span class="tag ${r.loaiLenh === 'Lệnh thu hồi' ? 'bad' : r.loaiLenh === 'Lệnh điều chỉnh' ? 'warn' : ''}" title="${r.lenhGoc ? `Lệnh gốc: ${App.esc(r.lenhGoc)}` : ''}">${App.esc(r.loaiLenh)}</span>` : '') },
       { key: 'slLenh', label: 'SL lệnh (Bravo)', type: 'num' },
       { key: 'soLuong', label: 'SL kế hoạch', type: 'num', sum: true },
@@ -105,6 +106,7 @@
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'po', label: 'PO' },
       { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'ngayLenh', label: 'Ngày lệnh', type: 'date' },
       { key: 'mau', label: 'Màu' },
       { key: 'size', label: 'Size' },
       { key: 'slLenh', label: 'SL lệnh (Bravo)', type: 'num', total: (rs) => {
