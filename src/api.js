@@ -124,18 +124,19 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
   }
 });
 // Kế hoạch theo size: SL phân bổ (SBD, theo tổ) ghép với SL kế hoạch của lệnh (Bravo, theo PO x màu x size).
-// Ghép theo PO + mã màu (chữ đầu của tên màu SBD) + size chuẩn hóa; mỗi lệnh 1 dòng. Dòng lệnh không ghép được SBD vẫn hiện (tổ trống).
+// Ghép theo PO + màu (bangMau: tên SBD -> mã màu Bravo) + size chuẩn hóa; mỗi lệnh 1 dòng. Dòng lệnh không ghép được SBD vẫn hiện (tổ trống).
 router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
   try {
     const p = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
     const [sbd, lenh] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p)]);
-    const khoa = (po, mau, size) => `${String(po ?? '').trim()}|${maMau(mau)}|${chuanSize(size)}`;
+    const kMau = bangMau(sbd, lenh);
+    const poS = (po) => String(po ?? '').trim();
     const theoKhoa = new Map();
-    lenh.forEach((l) => { const k = khoa(l.po, l.mau, l.size); (theoKhoa.get(k) || theoKhoa.set(k, []).get(k)).push(l); });
+    lenh.forEach((l) => { const k = `${poS(l.po)}|${khoaMa(l.mau)}|${chuanSize(l.size)}`; (theoKhoa.get(k) || theoKhoa.set(k, []).get(k)).push(l); });
     const daGhep = new Set();
     const out = [];
     sbd.forEach((r) => {
-      const ls = theoKhoa.get(khoa(r.po, r.mau, r.size)) || [];
+      const ls = theoKhoa.get(`${poS(r.po)}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`) || [];
       ls.forEach((l) => daGhep.add(l));
       if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });
       ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: Number(r.soLuong || 0) }));
@@ -161,10 +162,50 @@ router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
 })));
 // Chi tiết đặt BTP + SL KH (SBD) theo tổ x PO x màu x size.
 // Màu / size giữa phiếu cấp và SBD ghi khác kiểu ('UK6-8/EUS(L31)' vs 'UK 6-8 / EU S'): bỏ khoảng trắng, bỏ '(...)' cuối, so chữ hoa;
-// màu không khớp nguyên văn thì so mã màu đầu (chữ đầu tiên).
+// màu không khớp nguyên văn thì ghép qua mã màu Bravo (bangMau).
 const chuanSize = (v) => String(v ?? '').toUpperCase().replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, '');
 const chuanMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, '');
-const maMau = (v) => String(v ?? '').trim().toUpperCase().split(/[\s/]+/)[0];
+// Ghép màu tên (SBD / phiếu cấp: '8990370-JERSEY …', '8380664 LS TS …', '01-PUMARED', 'MID SKI 900 …')
+// với mã màu Bravo (ColorCode: '8990370', '01-PUMARED', '8995516'). Thứ tự:
+//  (a) trùng hẳn (bỏ khoảng trắng, không phân biệt hoa thường)
+//  (b) tên = mã + khoảng trắng / '-' / '/' + phần tên (mã phải khớp nguyên cụm: '54' không khớp mã '5')
+//  (c) trong 1 PO, sau (a)(b) còn đúng 1 tên và 1 mã chưa ghép thì ghép với nhau (trừ tên mở đầu bằng mã số riêng); nhiều hơn thì để trống
+const hoaMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+const khopMau = (ten, ma) => {
+  const t = hoaMau(ten); const m = hoaMau(ma);
+  if (!m) return 0;
+  if (t.replace(/ /g, '') === m.replace(/ /g, '')) return 2;
+  return t.startsWith(m) && /^[ \-/]/.test(t.slice(m.length)) ? 1 : 0;
+};
+const khoaMa = (ma) => `MA:${chuanMau(ma)}`;
+// tens: [{ po, mau }] (SBD), mas: [{ po, mau }] (Bravo). Trả hàm (po, ten) -> khóa màu, so được với khoaMa(mã Bravo).
+// Tên chưa có trong tens (vd màu trên phiếu cấp) thì: trùng chuỗi với tên SBD -> khóa của tên đó, không thì (a)(b), không thì theo chuỗi.
+function bangMau(tens, mas, poKey = (v) => String(v ?? '').trim()) {
+  const theoPO = new Map();
+  const lay = (po) => theoPO.get(po) || theoPO.set(po, { tens: new Map(), mas: new Set() }).get(po);
+  tens.forEach((r) => { if (String(r.mau ?? '').trim()) lay(poKey(r.po)).tens.set(chuanMau(r.mau), r.mau); });
+  mas.forEach((r) => { if (String(r.mau ?? '').trim()) lay(poKey(r.po)).mas.add(hoaMau(r.mau)); });
+  const timMa = (ten, mas) => {
+    let tot = null; let diem = 0;
+    mas.forEach((m) => { const d = khopMau(ten, m); if (d > diem || (d && d === diem && m.length > tot.length)) { tot = m; diem = d; } });
+    return tot;
+  };
+  const kq = new Map();
+  theoPO.forEach((g, po) => {
+    const conTen = []; const daDung = new Set();
+    g.tens.forEach((ten, k) => { const m = timMa(ten, g.mas); if (m) { kq.set(`${po}|${k}`, khoaMa(m)); daDung.add(m); } else conTen.push(k); });
+    const conMa = [...g.mas].filter((m) => !daDung.has(m));
+    // tên có mã số riêng ở đầu ('8976516 BOXER…') mà không khớp mã nào thì là màu khác, không ghép kiểu (c)
+    if (conTen.length === 1 && conMa.length === 1 && !/^\d{5,}(?=[ \-/]|$)/.test(hoaMau(g.tens.get(conTen[0])))) kq.set(`${po}|${conTen[0]}`, khoaMa(conMa[0]));
+  });
+  return (po0, ten) => {
+    const po = poKey(po0); const k = chuanMau(ten);
+    if (kq.has(`${po}|${k}`)) return kq.get(`${po}|${k}`);
+    const g = theoPO.get(po);
+    const m = g && timMa(ten, g.mas);
+    return m ? khoaMa(m) : `TEN:${k}`;
+  };
+}
 router.get('/chi-tiet-dat-btp', async (req, res) => {
   try {
     const p = {
@@ -177,10 +218,10 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     // Tổng SL lệnh (Bravo) và tổng SL đặt của tất cả tổ theo lệnh x PO x màu x size; lệnh phiếu ghi 'A;B' thì cộng các lệnh
     const goLenh = (v) => String(v ?? '').toUpperCase().split(';').map((x) => x.replace(/\s+/g, '')).filter(Boolean);
     const khoaLMS = (lenh, po, mau, size, mauFn) => `${lenh}|${String(po ?? '').trim()}|${mauFn(mau)}|${chuanSize(size)}`;
-    const slLenh = { day: new Map(), ma: new Map() };
+    const kMau = bangMau(kh, lenhs);
+    const slLenh = new Map();
     lenhs.forEach((l) => goLenh(l.lenhSX).forEach((x) => {
-      cong(slLenh.day, khoaLMS(x, l.po, l.mau, l.size, chuanMau), Number(l.slLenh || 0));
-      cong(slLenh.ma, khoaLMS(x, l.po, l.mau, l.size, maMau), Number(l.slLenh || 0));
+      cong(slLenh, khoaLMS(x, l.po, l.mau, l.size, khoaMa), Number(l.slLenh || 0));
     }));
     // Tổ đã đặt: tổ cùng xí nghiệp ghi số tổ, xí nghiệp khác ghi kèm mã xí nghiệp (XN2-6)
     const slDatAll = new Map();
@@ -196,7 +237,7 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     const tongLenh = (r) => {
       let t = null;
       goLenh(r.lenhSX).forEach((x) => {
-        const v = slLenh.day.get(khoaLMS(x, r.po, r.mau, r.size, chuanMau)) ?? slLenh.ma.get(khoaLMS(x, r.po, r.mau, r.size, maMau));
+        const v = slLenh.get(khoaLMS(x, r.po, r.mau, r.size, (m) => kMau(r.po, m)));
         if (v != null) t = (t || 0) + v;
       });
       return t;
@@ -206,11 +247,11 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     kh.forEach((k) => {
       const g = `${lineOf(k.maTo)}|${String(k.po).trim()}|${chuanSize(k.size)}`;
       cong(day, `${g}|${chuanMau(k.mau)}`, Number(k.soLuong || 0));
-      cong(theoMa, `${g}|${maMau(k.mau)}`, Number(k.soLuong || 0));
+      cong(theoMa, `${g}|${kMau(k.po, k.mau)}`, Number(k.soLuong || 0));
     });
     res.json(rows.map((r) => {
       const g = `${lineOf(r.maTo)}|${String(r.po).trim()}|${chuanSize(r.size)}`;
-      const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${maMau(r.mau)}`);
+      const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${kMau(r.po, r.mau)}`);
       const tLenh = tongLenh(r);
       const kDat = khoaLMS(goLenh(r.lenhSX).join(';'), r.po, r.mau, r.size, chuanMau);
       const tDat = slDatAll.get(kDat) ?? 0;
@@ -427,11 +468,13 @@ router.get('/to-may/ke-hoach', async (req, res) => {
 
     // Dòng size kế hoạch, khóa đầy đủ và khóa theo mã màu
     const sizes = sbd.map((r) => ({ ...r, po: poKey(r.po), kh: N(r.soLuong), datNgay: 0, nhanNgay: 0, datLK: 0, phieu: [], tatCaPhieu: [] }));
+    const kMau = bangMau(sbd, lenhs, poKey);
     const day = new Map();
     const theoMa = new Map();
     sizes.forEach((r) => {
       day.set(`${r.po}|${chuanMau(r.mau)}|${chuanSize(r.size)}`, r);
-      if (!theoMa.has(`${r.po}|${maMau(r.mau)}|${chuanSize(r.size)}`)) theoMa.set(`${r.po}|${maMau(r.mau)}|${chuanSize(r.size)}`, r);
+      const km = `${r.po}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`;
+      if (!theoMa.has(km)) theoMa.set(km, r);
     });
     const coPO = new Set(sizes.map((r) => r.po));
     const tu30 = ymd(new Date(new Date(d) - 30 * 86400000));
@@ -440,7 +483,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
       const po = poKey(x.po);
       const ngay = ymd(x.ngayTao);
       const dong = { soPhieu: x.soPhieu, ngayTao: x.ngayTao, ngayNhan: x.ngayNhan, lenhSX: x.lenhSX, po, maHang: x.maHang, mau: x.mau, size: x.size, slDat: N(x.slDat), slNhan: N(x.slNhan) };
-      const r = day.get(`${po}|${chuanMau(x.mau)}|${chuanSize(x.size)}`) || theoMa.get(`${po}|${maMau(x.mau)}|${chuanSize(x.size)}`);
+      const r = day.get(`${po}|${chuanMau(x.mau)}|${chuanSize(x.size)}`) || theoMa.get(`${po}|${kMau(po, x.mau)}|${chuanSize(x.size)}`);
       if (!r) {
         if (ngay >= tu30) sai.push({ ...dong, lyDo: coPO.has(po) ? 'Màu / size không có trong kế hoạch phân bổ của tổ' : 'PO không có kế hoạch phân bổ ở tổ' });
         return;
@@ -464,7 +507,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     // Lệnh của từng tổ hợp PO x màu x size (Bravo, ghép theo mã màu + size chuẩn hóa)
     const lenhTheoKhoa = new Map();
     lenhs.forEach((l) => {
-      const k = `${poKey(l.po)}|${maMau(l.mau)}|${chuanSize(l.size)}`;
+      const k = `${poKey(l.po)}|${khoaMa(l.mau)}|${chuanSize(l.size)}`;
       (lenhTheoKhoa.get(k) || lenhTheoKhoa.set(k, []).get(k)).push(l);
     });
     const goLenh = (v) => String(v ?? '').toUpperCase().replace(/[\s;]+/g, '');
@@ -479,7 +522,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
         hoanThanh: N(x.hoanThanh) === 1, nangLuc: N(x.nangLuc),
         sxNgay: m.ngay, sxLK: m.lk, kiemNgay: m.dat + m.loi, datLanDau: m.dat, loiNgay: m.loi, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
         sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
-          const ls = lenhTheoKhoa.get(`${po}|${maMau(r.mau)}|${chuanSize(r.size)}`) || [];
+          const ls = lenhTheoKhoa.get(`${po}|${kMau(po, r.mau)}|${chuanSize(r.size)}`) || [];
           const goc = { mau: r.mau, size: r.size, kh: r.kh };
           if (ls.length <= 1) return [{ ...goc, lenhSX: ls[0] ? ls[0].lenhSX : null, slLenh: ls[0] ? N(ls[0].slLenh) : null, datNgay: r.datNgay, nhanNgay: r.nhanNgay, datLK: r.datLK }];
           // PO có nhiều lệnh: tách đặt theo lệnh ghi trên phiếu cấp
