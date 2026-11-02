@@ -319,11 +319,21 @@ async function docMayRa(tuLK, tuNgay, denNgay, pos = []) {
 }
 async function tinhMayRa(xn, tuNgay, denNgay) {
   const n = await xnNum(xn);
-  const rows = await run('mayRa', { xn, xnCode: n ? `XN${n}` : '', tuNgay, denNgay });
+  const p = { xn, xnCode: n ? `XN${n}` : '', tuNgay, denNgay };
+  let rows = await run('mayRa', p);
   const tuLK = mocLK(rows.map((r) => r.ngayBatDau), tuNgay);
   const { bang, sx } = await docMayRa(tuLK, tuNgay, denNgay);
 
   const key = (line, po) => `${lineOf(line)}|${String(po ?? '').trim()}`;
+  // Tổ x PO có may ra HiPro trong kỳ mà kế hoạch không rơi vào kỳ (may sớm / trễ so với KH): đọc lại để có SL, vào chuyền, lệnh
+  const coKH = new Set(rows.map((r) => key(r.maTo, r.po)));
+  const them = [...new Map(sx.map((r) => ({ ...r, ...hp(r) }))
+    .filter((r) => r.xn === n && Number(r.mayRaKy) && !coKH.has(key(r.to, r.po)))
+    .map((r) => [key(r.to, r.po), r])).values()];
+  if (them.length) {
+    them.forEach((r, i) => { p[`tt${i}`] = String(r.to); p[`tp${i}`] = String(r.po ?? '').trim(); });
+    rows = await run('mayRa', p, { nThem: them.length });
+  }
   const map = new Map();
   rows.forEach((r) => map.set(key(r.maTo, r.po), { ...r, maTo: lineOf(r.maTo), po: String(r.po ?? '').trim(), mayRaKy: 0, mayRaNgay: 0, mayRaLK: 0 }));
   sx.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n).forEach((r) => {

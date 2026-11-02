@@ -632,7 +632,8 @@ module.exports = {
   //   SL: tổng phân bổ OMM_KeHoachThang của tổ x PO (mọi tháng), không cắt trần lũy kế theo SL như store cũ.
   // Dòng được lấy khi tổ x PO có kế hoạch vào chuyền / may giao với kỳ, hoặc có vào chuyền / nhập kho trong kỳ.
   // Tham số: @xn (XNId), @xnCode ('XN1'), @tuNgay, @denNgay. May ra (HiPro) ghép ở API theo tổ x PO.
-  mayRa: {
+  // nThem: số cặp tổ x PO có may ra HiPro trong kỳ nhưng kế hoạch không rơi vào kỳ (@tt0/@tp0..): vẫn lấy SL, vào chuyền, lệnh
+  mayRa: ({ nThem = 0 } = {}) => ({
     db: 'egmf',
     text: `
       WITH kh AS (
@@ -672,7 +673,8 @@ module.exports = {
       keys AS (
         SELECT maTo, po FROM kh WHERE trongKy = 1
         UNION SELECT maTo, po FROM nhan WHERE luc >= @tuNgay
-        UNION SELECT maTo, po FROM giao WHERE ngay >= @tuNgay
+        UNION SELECT maTo, po FROM giao WHERE ngay >= @tuNgay${nThem ? `
+        UNION SELECT maTo, po FROM kh WHERE ${Array.from({ length: nThem }, (_, i) => `(maTo = @tt${i} AND po = @tp${i})`).join(' OR ')}` : ''}
       ),
       vc AS (
         SELECT n.maTo, n.po, MAX(n.maHang) AS maHang, MAX(n.lenhSX) AS lenhSX, MIN(n.luc) AS ngayDau,
@@ -686,7 +688,7 @@ module.exports = {
         FROM giao g JOIN keys k ON k.maTo = g.maTo AND k.po = g.po
         GROUP BY g.maTo, g.po
       )
-      SELECT k.maTo, k.po, COALESCE(vc.maHang, kh.maHang, nk.maHang) AS maHang, vc.lenhSX, kh.soLuong,
+      SELECT k.maTo, k.po, COALESCE(vc.maHang, kh.maHang, nk.maHang) AS maHang, COALESCE(vc.lenhSX, lb.lenhSX) AS lenhSX, kh.soLuong,
              vc.vaoKy, vc.vaoLK, nk.nhapKy, nk.nhapLK,
              CASE WHEN vc.ngayDau IS NULL OR kh.ngayKH < vc.ngayDau THEN kh.ngayKH ELSE vc.ngayDau END AS ngayBatDau,
              xh.ngayXuat, kc.khachHang
@@ -702,8 +704,15 @@ module.exports = {
         JOIN dbo.Lib_KhachHang l ON l.MaKhachHang = a.CustomerCode
         WHERE b.PO = k.po
       ) kc
+      OUTER APPLY (
+        SELECT STUFF((SELECT DISTINCT ', ' + a.DocNo
+                      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+                      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+                      WHERE b.PO = k.po AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4 AND ISNULL(a.TypeCt, 0) = 0
+                      FOR XML PATH('')), 1, 2, '') AS lenhSX
+      ) lb
       ORDER BY LEN(k.maTo), k.maTo, k.po`,
-  },
+  }),
 
   // Các bảng lưu trữ NSCL theo tháng của HiPro (pro_nscl_MM_YYYY): dữ liệu tháng cũ bị chuyển khỏi pro_nscl
   nsclLuuTru: {
