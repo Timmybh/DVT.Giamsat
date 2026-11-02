@@ -67,6 +67,8 @@ const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}
 function chuaPhanBoSQL(theoSize) {
   const ms = theoSize ? ", ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size" : '';
   const gms = theoSize ? ", ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')" : '';
+  // Các bước gom sẵn (GROUP BY) rồi mới JOIN, tránh subquery lặp lại theo từng dòng; lệnh điều chỉnh / thu hồi nối về gốc
+  // bằng 2 nhánh UNION ALL (DocNo = gốc | ProductionOrderAdjNo = gốc) thay cho JOIN theo biểu thức CASE.
   return `
       WITH goc AS (
         SELECT a.DocNo, MIN(m.DocDate) AS ngayLenh
@@ -77,30 +79,36 @@ function chuaPhanBoSQL(theoSize) {
           AND m.DocDate >= DATEADD(day, -60, @tuNgay) AND m.DocDate < DATEADD(day, 1, @denNgay)
         GROUP BY a.DocNo
       ),
-      d AS (
-        SELECT g.DocNo AS lenhSX, g.ngayLenh, LTRIM(RTRIM(b.PO)) AS po, b.ProductCode, ISNULL(b.Quantity, 0) AS sl${ms}
-        FROM dbo.Bravo_LenhSanXuat_Detail a
-        JOIN dbo.Bravo_LenhSanXuat_Detail_PO b ON b.IdDetail = a.Id
-        JOIN goc g ON g.DocNo = CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END
+      ct AS (
+        SELECT g.DocNo AS lenhSX, a.Id AS idDetail
+        FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.DocNo = g.DocNo
         WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+        UNION ALL
+        SELECT g.DocNo, a.Id
+        FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.ProductionOrderAdjNo = g.DocNo
+        WHERE a.TypeCt IN (1, 2) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
       ),
       l AS (
-        SELECT lenhSX, MIN(ngayLenh) AS ngayLenh, po, MAX(ProductCode) AS maHang, SUM(sl) AS slLenh${theoSize ? ', mau, size' : ''}
-        FROM d
-        GROUP BY lenhSX, po${theoSize ? ', mau, size' : ''}
+        SELECT c.lenhSX, LTRIM(RTRIM(b.PO)) AS po, MAX(b.ProductCode) AS maHang, SUM(ISNULL(b.Quantity, 0)) AS slLenh${ms}
+        FROM ct c JOIN dbo.Bravo_LenhSanXuat_Detail_PO b ON b.IdDetail = c.idDetail
+        GROUP BY c.lenhSX, LTRIM(RTRIM(b.PO))${gms}
+      ),
+      tongPO AS (SELECT lenhSX, po FROM l GROUP BY lenhSX, po HAVING SUM(slLenh) > 0),
+      daPB AS (
+        SELECT DISTINCT po.PONo AS po
+        FROM dbo.OMM_KeHoachThang k
+        JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
+        JOIN dbo.OMM_PO po ON po.POId = pct.POId
+        JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+        JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+        WHERE px.XNId = @xn AND k.SoLuong > 0 AND po.PONo IN (SELECT po FROM tongPO)
       )
-      SELECT l.*
+      SELECT l.*, g.ngayLenh
       FROM l
-      WHERE (SELECT SUM(x.sl) FROM d x WHERE x.lenhSX = l.lenhSX AND x.po = l.po) > 0
-        AND NOT EXISTS (
-          SELECT 1
-          FROM dbo.OMM_KeHoachThang k
-          JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
-          JOIN dbo.OMM_PO po ON po.POId = ct.POId
-          JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
-          JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
-          WHERE px.XNId = @xn AND k.SoLuong > 0 AND po.PONo = l.po)
-      ORDER BY l.ngayLenh, l.lenhSX, l.po`;
+      JOIN tongPO t ON t.lenhSX = l.lenhSX AND t.po = l.po
+      JOIN goc g ON g.DocNo = l.lenhSX
+      WHERE l.po NOT IN (SELECT po FROM daPB)
+      ORDER BY g.ngayLenh, l.lenhSX, l.po`;
 }
 
 module.exports = {

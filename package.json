@@ -15,6 +15,7 @@
     "khao-sat-lenh": "node scripts/khao-sat-lenh.js",
     "khao-sat-bravo": "node scripts/khao-sat-bravo.js",
     "khao-sat-po-nhieu-lenh": "node scripts/khao-sat-po-nhieu-lenh.js",
+    "do-thoi-gian": "node scripts/do-thoi-gian.js",
     "kiem-tra-loi": "node scripts/kiem-tra-loi.js",
     "kiem-tra-khop": "node scripts/kiem-tra-khop.js"
   },

@@ -10,7 +10,14 @@ const router = express.Router();
 async function run(name, params, arg) {
   if (db.useMock()) return mock[name](params, arg);
   const q = queries[name];
-  return db.query(typeof q === 'function' ? q(arg) : q, params);
+  const t0 = Date.now();
+  try {
+    return await db.query(typeof q === 'function' ? q(arg) : q, params);
+  } finally {
+    // câu chạy chậm (> 3 giây) ghi ra log để biết câu nào nặng
+    const ms = Date.now() - t0;
+    if (ms > 3000) console.log(`[cham] ${name} ${ms} ms ${JSON.stringify(params).slice(0, 200)}`);
+  }
 }
 
 function handle(name, getParams) {
