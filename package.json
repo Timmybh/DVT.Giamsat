@@ -12,6 +12,7 @@
     "kiem-tra-po": "node scripts/kiem-tra-po.js",
     "xem-cot": "node scripts/xem-cot.js",
     "khao-sat-mau": "node scripts/khao-sat-mau.js",
+    "khao-sat-lenh": "node scripts/khao-sat-lenh.js",
     "kiem-tra-loi": "node scripts/kiem-tra-loi.js",
     "kiem-tra-khop": "node scripts/kiem-tra-khop.js"
   },
