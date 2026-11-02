@@ -136,8 +136,9 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     const daGhep = new Set();
     const out = [];
     sbd.forEach((r) => {
-      const ls = theoKhoa.get(`${poS(r.po)}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`) || [];
-      ls.forEach((l) => daGhep.add(l));
+      const tatCa = theoKhoa.get(`${poS(r.po)}|${kMau(r.po, r.mau)}|${chuanSize(r.size)}`) || [];
+      tatCa.forEach((l) => daGhep.add(l));
+      const ls = boLenh0(tatCa);
       if (!ls.length) out.push({ ...r, lenhSX: null, slLenh: null, slPhanBo: Number(r.soLuong || 0) });
       ls.forEach((l) => out.push({ ...r, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), slPhanBo: Number(r.soLuong || 0) }));
     });
@@ -170,6 +171,9 @@ const chuanMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, '');
 //  (a) trùng hẳn (bỏ khoảng trắng, không phân biệt hoa thường)
 //  (b) tên = mã + khoảng trắng / '-' / '/' + phần tên (mã phải khớp nguyên cụm: '54' không khớp mã '5')
 //  (c) trong 1 PO, sau (a)(b) còn đúng 1 tên và 1 mã chưa ghép thì ghép với nhau (trừ tên mở đầu bằng mã số riêng); nhiều hơn thì để trống
+// Lệnh bị thu hồi hết (lệnh gốc + lệnh thu hồi TypeCt 2 cộng về 0) mà cùng PO x màu x size đã có lệnh khác > 0 thì bỏ,
+// vd LYLT-0141 (539) + LYLT-0169 thu hồi (-539) = 0, thay bằng LYLT-0170 (539). Nếu chỉ có lệnh 0 thì giữ để thấy đã thu hồi.
+const boLenh0 = (ls) => (ls.some((l) => Number(l.slLenh || 0) !== 0) ? ls.filter((l) => Number(l.slLenh || 0) !== 0) : ls);
 const hoaMau = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
 const khopMau = (ten, ma) => {
   const t = hoaMau(ten); const m = hoaMau(ma);
@@ -522,7 +526,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
         hoanThanh: N(x.hoanThanh) === 1, nangLuc: N(x.nangLuc),
         sxNgay: m.ngay, sxLK: m.lk, kiemNgay: m.dat + m.loi, datLanDau: m.dat, loiNgay: m.loi, conLaiNgay: Math.max(khNgay - m.ngay, 0), conLai: Math.max(N(x.soLuong) - m.lk, 0),
         sizes: sizes.filter((r) => r.po === po).flatMap((r) => {
-          const ls = lenhTheoKhoa.get(`${po}|${kMau(po, r.mau)}|${chuanSize(r.size)}`) || [];
+          const ls = boLenh0(lenhTheoKhoa.get(`${po}|${kMau(po, r.mau)}|${chuanSize(r.size)}`) || []);
           const goc = { mau: r.mau, size: r.size, kh: r.kh };
           if (ls.length <= 1) return [{ ...goc, lenhSX: ls[0] ? ls[0].lenhSX : null, slLenh: ls[0] ? N(ls[0].slLenh) : null, datNgay: r.datNgay, nhanNgay: r.nhanNgay, datLK: r.datLK }];
           // PO có nhiều lệnh: tách đặt theo lệnh ghi trên phiếu cấp

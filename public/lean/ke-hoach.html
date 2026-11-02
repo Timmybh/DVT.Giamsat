@@ -113,7 +113,12 @@
         rs.forEach((r) => { if (r.slLenh != null) m.set([r.lenhSX, r.maHang, r.po, r.mau, r.size].join('|'), Number(r.slLenh)); });
         return App.num([...m.values()].reduce((s, v) => s + v, 0));
       } },
-      { key: 'slPhanBo', label: 'SL phân bổ (SBD)', type: 'num', sum: true },
+      { key: 'slPhanBo', label: 'SL phân bổ (SBD)', type: 'num', total: (rs) => {
+        // 1 dòng SBD ghép nhiều lệnh thì SL phân bổ lặp ở mỗi dòng lệnh: cộng 1 lần mỗi tổ x mã hàng x PO x màu x size
+        const m = new Map();
+        rs.forEach((r) => { if (r.slPhanBo != null) m.set([r.maTo, r.maHang, r.po, r.mau, r.size].join('|'), Number(r.slPhanBo)); });
+        return App.num([...m.values()].reduce((s, v) => s + v, 0));
+      } },
     ], data, { footer: true, maxRows: 2000, empty: 'Không có kế hoạch theo size trong khoảng ngày này' });
   }
   async function loadSizeTab() {
