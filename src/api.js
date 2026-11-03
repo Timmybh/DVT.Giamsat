@@ -226,6 +226,30 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Chi tiết size theo lệnh Bravo của 1 dòng Theo PO: lệnh đã chọn (gom cả điều chỉnh / thu hồi);
+// dòng không có lệnh thì lấy lệnh của PO theo XN, bỏ lệnh đã thu hồi về 0.
+router.get('/ke-hoach-phan-bo/lenh-size', async (req, res) => {
+  try {
+    const po = String(req.query.po || '').trim();
+    const lenhSX = String(req.query.lenh || '').trim();
+    if (!po) return res.json([]);
+    const rows = await run('lenhSizePO', { po });
+    let ds;
+    if (lenhSX) ds = [lenhSX];
+    else {
+      const theoLenh = new Map();
+      rows.forEach((r) => {
+        const g = theoLenh.get(r.lenhSX) || theoLenh.set(r.lenhSX, { lenhSX: r.lenhSX, dept: r.dept, slLenh: 0 }).get(r.lenhSX);
+        g.slLenh += Number(r.slLenh || 0);
+      });
+      ds = boLenh0(theoXN([...theoLenh.values()], await xnNum(req.query.xn))).map((l) => l.lenhSX);
+    }
+    res.json(rows.filter((r) => ds.includes(r.lenhSX)).map((r) => ({ lenhSX: r.lenhSX, mau: r.mau, size: r.size, slLenh: Number(r.slLenh || 0) })));
+  } catch (err) {
+    console.error('[lenhSize]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', (req) => ({
   xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));

@@ -179,6 +179,14 @@ module.exports = {
     lenhSX: keHoach.find((k) => k.po === r.po).lenhSX, po: r.po, maHang: r.maHang, mau: r.mau.split(' ')[0], size: r.size,
     slLenh: r.soLuong + (r.size === 'M' ? 10 : 0), ngayLenh: '2026-10-16T00:00:00.000Z',
   })),
+  lenhSizePO: ({ po }) => {
+    const k = keHoach.find((x) => x.po === po) || (/-CHUA-PB$/.test(po) && { lenhSX: 'TRIHD-0901-2026', maHang: '1', soLuong: 1200 });
+    if (!k) return [];
+    const maus = mauList.slice(0, 1 + (Number(k.maHang) % 2)).map((m) => m.split(' ')[0]);
+    // lệnh gốc M9 đã thu hồi về 0, lệnh mới M1 (bán PO) như mock keHoachPhanBo
+    return [[k.lenhSX, 'M1', 1], [`${k.lenhSX}-MOI`, 'M1', 1], [`${k.lenhSX}-CU`, 'M9', 0]].flatMap(([lenhSX, dept, h]) => maus.flatMap((mau) =>
+      ['XS', 'S', 'M', 'L', 'XL'].map((size) => ({ lenhSX, mau, size, slLenh: h * (Math.round(k.soLuong / maus.length / 5) + (size === 'M' ? 10 : 0)), dept }))));
+  },
   keHoachSize: ({ xn, to: maTo, maHang, po }) => {
     const k = keHoach.find((x) => x.xn === xn && x.maTo === maTo && x.maHang === maHang && (!po || x.po === po));
     if (!k) return [];

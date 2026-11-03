@@ -247,6 +247,20 @@ module.exports = {
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
 
+  // Chi tiết màu x size của 1 PO trên lệnh Bravo (lệnh điều chỉnh / thu hồi gom về lệnh gốc). Tham số: @po
+  lenhSizePO: {
+    db: 'egmf',
+    text: `
+      SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
+             ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS slLenh,
+             MAX(LTRIM(RTRIM(ISNULL(a.DeptCode, '')))) AS dept
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE b.PO = @po AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+      GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
+               ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
+  },
+
   // Size breakdown kế hoạch của 1 tổ x mã hàng (OMM_KeHoachThang_SBD theo KHTId), gom theo màu x size.
   // thuTuSize = STT size trên phiếu điều tiết của mã hàng (Cutting_PhieuDieuTietGiacSoDo_ThuTuSize), null nếu chưa có điều tiết.
   // Cùng điều kiện với keHoachPhanBo. Tham số: @xn, @tuNgay, @denNgay, @to, @maHang, @po ('' = mọi PO)
