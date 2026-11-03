@@ -12,12 +12,49 @@ async function run(name, params, arg) {
   const q = queries[name];
   const t0 = Date.now();
   try {
-    return await db.query(typeof q === 'function' ? q(arg) : q, params);
+    const rows = await db.query(typeof q === 'function' ? q(arg) : q, params);
+    return rows.length && 'moCtpo' in rows[0] ? await moRongSBD(rows) : rows;
   } finally {
     // câu chạy chậm (> 3 giây) ghi ra log để biết câu nào nặng
     const ms = Date.now() - t0;
     if (ms > 3000) console.log(`[cham] ${name} ${ms} ms ${JSON.stringify(params).slice(0, 200)}`);
   }
+}
+
+// Dòng SBD "Lấy tất cả SIZE" để trống size (queries.js SBD_MO): tách theo size breakdown PO chi tiết x TiLe,
+// màu so theo chuanMau; PO chi tiết không có màu đó thì giữ nguyên dòng. Sau đó gộp lại các dòng trùng (cộng soLuong).
+async function moRongSBD(rows) {
+  const can = rows.filter((r) => r.moCtpo != null);
+  let theoMau = new Map();
+  if (can.length) {
+    const ids = [...new Set(can.map((r) => r.moCtpo))];
+    const po = [];
+    for (let i = 0; i < ids.length; i += 1000) {
+      const phan = ids.slice(i, i + 1000);
+      po.push(...await db.query(queries.poSBD({ n: phan.length }), Object.fromEntries(phan.map((v, j) => [`c${j}`, v]))));
+    }
+    theoMau = po.reduce((m, x) => { const k = `${x.ctpo}|${chuanMau(x.mau)}`; (m.get(k) || m.set(k, []).get(k)).push(x); return m; }, new Map());
+  }
+  const tts = new Map(rows.filter((r) => r.thuTuSize != null).map((r) => [`${r.maHang ?? ''}|${chuanSize(r.size)}`, r.thuTuSize]));
+  const gop = new Map();
+  const bo = new Set(['soLuong', 'moCtpo', 'moTiLe', 'thuTu', 'thuTuSize']);
+  const them = (r) => {
+    const k = JSON.stringify(Object.keys(r).filter((c) => !bo.has(c)).map((c) => r[c]));
+    const g = gop.get(k);
+    if (!g) { gop.set(k, r); return; }
+    g.soLuong = Number(g.soLuong || 0) + Number(r.soLuong || 0);
+    ['thuTu', 'thuTuSize'].forEach((c) => { if (r[c] != null && (g[c] == null || r[c] < g[c])) g[c] = r[c]; });
+  };
+  rows.forEach(({ moCtpo, moTiLe, ...r }) => {
+    const ps = moCtpo != null ? theoMau.get(`${moCtpo}|${chuanMau(r.mau)}`) : null;
+    if (!ps) { them(r); return; }
+    ps.forEach((x) => them({
+      ...r, size: x.size, soLuong: Math.round(Number(x.sl || 0) * Number(moTiLe ?? 100) / 100),
+      ...('thuTu' in r ? { thuTu: x.thuTu } : {}),
+      ...('thuTuSize' in r ? { thuTuSize: tts.get(`${r.maHang ?? ''}|${chuanSize(x.size)}`) ?? null } : {}),
+    }));
+  });
+  return [...gop.values()];
 }
 
 // PO có lệnh cho XN nhưng chưa phân bổ (src/chuaPhanBo.js); dữ liệu mẫu dùng mock keHoachChuaPhanBo(Size)

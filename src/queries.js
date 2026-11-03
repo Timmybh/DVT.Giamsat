@@ -59,6 +59,12 @@ const poDatToSQL = `
 
 // Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
 const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
+// Dòng SBD nhập "Lấy tất cả SIZE" mà để trống size (vd PO 4558955102FOA409991): SoLuong lưu lệch (chỉ bằng 1 size),
+// API tách lại theo size breakdown của PO (OMM_PO_ChiTiet_SizeBreakDown) x TiLe. moCtpo / moTiLe chỉ có ở các dòng này.
+const SBD_MO = `CASE WHEN ISNULL(s.TenSize, '') = '' AND s.ThaoTacNhap = N'Lấy tất cả SIZE' THEN k.CTPOId END`;
+const SBD_MO_TL = `CASE WHEN ISNULL(s.TenSize, '') = '' AND s.ThaoTacNhap = N'Lấy tất cả SIZE' THEN ISNULL(s.TiLe, 100) END`;
+const sbdMoCot = `, ${SBD_MO} AS moCtpo, ${SBD_MO_TL} AS moTiLe`;
+const sbdMoNhom = `, ${SBD_MO}, ${SBD_MO_TL}`;
 
 
 module.exports = {
@@ -110,13 +116,14 @@ module.exports = {
       SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.ngayLenh, l.slLenh, l.lenhGoc, l.dept, l.typeCt,
              CASE l.typeCt WHEN 2 THEN N'Lệnh thu hồi' WHEN 1 THEN N'Lệnh điều chỉnh' WHEN 0 THEN N'Lệnh gốc' END AS loaiLenh,
              CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY ISNULL(l.typeCt, 0), l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
-             x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc
+             x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc, x.daChiaTo
       FROM (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
                dh.MaHang AS maHang, po.PONo AS po, SUM(k.SoLuong) AS soLuong,
                MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
                MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau,
-               MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+               MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
+               MIN(CASE WHEN k.DaChiaTacNghiepChiaTo = 1 THEN 1 ELSE 0 END) AS daChiaTo
         FROM dbo.OMM_KeHoachThang k
         JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
         JOIN dbo.OMM_PO po ON po.POId = ct.POId
@@ -194,7 +201,7 @@ module.exports = {
     text: `
       WITH sbd AS (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, dh.MaHang AS maHang, po.PONo AS po,
-               ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong
+               ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong${sbdMoCot}
         FROM dbo.OMM_KeHoachThang k
         JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
         JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
@@ -204,7 +211,7 @@ module.exports = {
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND k.SoLuong > 0
           AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
-        GROUP BY LTRIM(RTRIM(e.TenCum)), dh.MaHang, po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')
+        GROUP BY LTRIM(RTRIM(e.TenCum)), dh.MaHang, po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}
       ),
       tt AS (
         SELECT p.MaHang, ts.SizeName, ts.SizeCode, MIN(ts.STT) AS stt
@@ -247,6 +254,16 @@ module.exports = {
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
   },
 
+  // Size breakdown của PO chi tiết (theo POCTId) để tách dòng SBD "Lấy tất cả SIZE" trống size. @c0.. = POCTId
+  poSBD: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT POCTId AS ctpo, ISNULL(TenMau, '') AS mau, ISNULL(TenSize, '') AS size, SUM(ISNULL(SoLuong, 0)) AS sl, MIN(SBDChiTietId) AS thuTu
+      FROM dbo.OMM_PO_ChiTiet_SizeBreakDown
+      WHERE POCTId IN (${dsThamSo('c', n)})
+      GROUP BY POCTId, ISNULL(TenMau, ''), ISNULL(TenSize, '')`,
+  }),
+
   // Chi tiết màu x size của 1 PO trên lệnh Bravo (lệnh điều chỉnh / thu hồi gom về lệnh gốc). Tham số: @po
   lenhSizePO: {
     db: 'egmf',
@@ -271,7 +288,7 @@ module.exports = {
              (SELECT MIN(ts.STT) FROM dbo.Cutting_PhieuDieuTietGiacSoDo_ThuTuSize ts
               JOIN dbo.Cutting_PhieuDieuTietGiacSoDo p ON p.Id = ts.PhieuDieuTietId
               WHERE p.MaHang = @maHang
-                AND (ts.SizeName = ISNULL(s.TenSize, '') OR ts.SizeCode = REPLACE(ISNULL(s.TenSize, ''), ' ', ''))) AS thuTuSize
+                AND (ts.SizeName = ISNULL(s.TenSize, '') OR ts.SizeCode = REPLACE(ISNULL(s.TenSize, ''), ' ', ''))) AS thuTuSize${sbdMoCot}
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
       JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
@@ -281,7 +298,7 @@ module.exports = {
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND k.SoLuong > 0 AND LTRIM(RTRIM(e.TenCum)) = @to AND dh.MaHang = @maHang AND (@po = '' OR po.PONo = @po)
         AND k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)
-      GROUP BY ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+      GROUP BY ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}`,
   },
 
   // Phiếu cấp BTP của 1 tổ. Tham số: @xnCode ('XN1'), @to (số tổ), @tuNgay, @denNgay (theo ngày nhận BTP)
@@ -291,7 +308,7 @@ module.exports = {
     db: 'egmf',
     text: `
       SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, po.PONo AS po, ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size,
-             SUM(ISNULL(s.SoLuong, 0)) AS soLuong
+             SUM(ISNULL(s.SoLuong, 0)) AS soLuong${sbdMoCot}
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
       JOIN dbo.OMM_PO_ChiTiet pct ON pct.POCTId = k.CTPOId
@@ -308,7 +325,7 @@ module.exports = {
             AND pc.NgayNhanBTP >= @tuNgay AND pc.NgayNhanBTP < DATEADD(day, 1, @denNgay)
             AND (@lenhSX = '' OR pc.LenhSanXuat LIKE '%' + @lenhSX + '%' OR ct.LenhSanXuat LIKE '%' + @lenhSX + '%')
             AND (@po = '' OR ct.PO LIKE '%' + @po + '%'))
-      GROUP BY LTRIM(RTRIM(e.TenCum)), po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+      GROUP BY LTRIM(RTRIM(e.TenCum)), po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}`,
   },
 
   // Tổng SL lệnh (Bravo) theo lệnh x PO x màu x size của các PO có trong lưới chi tiết đặt BTP (cùng điều kiện lọc)
@@ -836,7 +853,7 @@ module.exports = {
     db: 'egmf',
     text: `
       SELECT po.PONo AS po, dh.MaHang AS maHang, ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size,
-             SUM(ISNULL(s.SoLuong, 0)) AS soLuong,
+             SUM(ISNULL(s.SoLuong, 0)) AS soLuong${sbdMoCot},
              CASE WHEN po.PONo IN (${dsThamSo('pc', nChay)}) THEN 1 ELSE 0 END AS dangChay
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
@@ -847,7 +864,7 @@ module.exports = {
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND LTRIM(RTRIM(e.TenCum)) = @to AND k.SoLuong > 0
         AND (po.PONo IN (${dsThamSo('pc', nChay)}) OR po.PONo IN (${dsThamSo('pd', nDat)}))
-      GROUP BY po.PONo, dh.MaHang, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')`,
+      GROUP BY po.PONo, dh.MaHang, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}`,
   }),
 
   // Theo PO đang chạy của tổ: SL kế hoạch, KH ngày @d (như keHoachNgay), ngày vào chuyền / kết thúc may, lệnh SX (Bravo),

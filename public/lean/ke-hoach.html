@@ -63,6 +63,7 @@
       { key: 'slSX', label: 'SL SX', type: 'num', sum: true },
       { key: 'conLai', label: 'Còn lại', type: 'num', sum: true },
       { key: 'tl', label: '% hoàn thành', render: (r) => (r.soLuong == null ? '' : App.pctTag(r.slSX, r.soLuong)), total: (rs) => App.pctTag(rs.reduce((s, r) => s + Number(r.slSX || 0), 0), rs.reduce((s, r) => s + Number(r.soLuong || 0), 0)) },
+      { key: 'daChiaTo', label: 'Đã chia tổ', render: (r) => (r.chuaPhanBo || r.daChiaTo == null ? '' : Number(r.daChiaTo) ? '<span class="tag">Đã chia</span>' : '<span class="tag warn" title="XN chưa làm Tác nghiệp chia tổ (DaChiaTacNghiepChiaTo)">Chưa chia</span>') },
       { key: 'ngayVaoChuyen', label: 'Vào chuyền', type: 'date' },
       { key: 'ngayBatDau', label: 'Bắt đầu may', type: 'date' },
       { key: 'ngayKetThuc', label: 'Kết thúc may', type: 'date' },
