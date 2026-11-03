@@ -148,7 +148,7 @@ module.exports = {
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau))
-      .flatMap((k, i) => (i % 5 ? [{ ...k, loaiLenh: 'Lệnh gốc', daChiaTo: i % 3 ? 1 : 0 }] : [
+      .flatMap((k, i) => (i % 5 ? [{ ...k, loaiLenh: 'Lệnh gốc' }] : [
         // lệnh ra cho XN khác rồi thu hồi hết, ra lệnh mới cho XN này (bán PO)
         { ...k, loaiLenh: 'Lệnh gốc', typeCt: 0, dept: 'M9' },
         { ...k, lenhSX: `${k.lenhSX}-TH`, slLenh: -k.slLenh, soLuong: null, loaiLenh: 'Lệnh thu hồi', typeCt: 2, lenhGoc: k.lenhSX, dept: 'M9' },

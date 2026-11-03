@@ -116,14 +116,13 @@ module.exports = {
       SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.ngayLenh, l.slLenh, l.lenhGoc, l.dept, l.typeCt,
              CASE l.typeCt WHEN 2 THEN N'Lệnh thu hồi' WHEN 1 THEN N'Lệnh điều chỉnh' WHEN 0 THEN N'Lệnh gốc' END AS loaiLenh,
              CASE WHEN ROW_NUMBER() OVER (PARTITION BY x.maTo, x.po ORDER BY ISNULL(l.typeCt, 0), l.lenhSX) = 1 THEN x.soLuong END AS soLuong,
-             x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc, x.daChiaTo
+             x.ngayVaoChuyen, x.ngayBatDau, x.ngayKetThuc
       FROM (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo,
                dh.MaHang AS maHang, po.PONo AS po, SUM(k.SoLuong) AS soLuong,
                MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
                MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau,
-               MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
-               MIN(CASE WHEN k.DaChiaTacNghiepChiaTo = 1 THEN 1 ELSE 0 END) AS daChiaTo
+               MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
         FROM dbo.OMM_KeHoachThang k
         JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
         JOIN dbo.OMM_PO po ON po.POId = ct.POId
