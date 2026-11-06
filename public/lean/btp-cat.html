@@ -91,13 +91,13 @@
     if (v) loadDieuTiet(v);
   }
 
-  // Lưới tem (detail): lọc theo lệnh x loại NL của dòng tổng hợp đang chọn
+  // Lưới tem (detail): lọc theo lệnh x mã hàng của dòng tổng hợp đang chọn
   let tatCa = [];
   let chon = null;
   let gop = false;     // đang xem tổng hợp mọi lệnh (bỏ trống lệnh)
   let temChon = null;  // chế độ gộp: tem của lệnh đang chọn, tải khi bấm dòng
   async function chonDong(g) {
-    chon = chon && chon.lenhSX === g.lenhSX && chon.loaiNL === g.loaiNL ? null : { lenhSX: g.lenhSX, loaiNL: g.loaiNL };
+    chon = chon && chon.lenhSX === g.lenhSX && chon.maHang === g.maHang ? null : { lenhSX: g.lenhSX, maHang: g.maHang };
     if (gop && chon) {
       const c = chon;
       App.loading(nxt);
@@ -112,14 +112,14 @@
   function veTem() {
     if (gop && !chon) {
       dangLoc.hidden = true;
-      nxt.innerHTML = '<div class="empty">Bấm 1 dòng ở bảng tổng hợp phía trên để xem tem của lệnh x loại NL đó</div>';
+      nxt.innerHTML = '<div class="empty">Bấm 1 dòng ở bảng tổng hợp phía trên để xem tem của lệnh đó</div>';
       return;
     }
     const nguon = gop ? (temChon || []) : tatCa;
-    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX && r.loaiNL === chon.loaiNL) : nguon;
+    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX && r.maHang === chon.maHang) : nguon;
     dangLoc.hidden = !chon;
     if (chon) {
-      dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, loại NL <b>${App.esc(chon.loaiNL)}</b> <button id="boLoc">Bỏ lọc</button>`;
+      dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, mã hàng <b>${App.esc(chon.maHang)}</b> <button id="boLoc">Bỏ lọc</button>`;
       boLoc.onclick = () => { chon = null; temChon = null; veTem(); };
     }
     App.table(nxt, [
@@ -157,7 +157,7 @@
     });
   }
 
-  // Ô tổng hợp + bảng gọn theo lệnh x loại NL x chi tiết (tính trên mọi dòng đã tải). Bấm dòng để lọc lưới tem
+  // Ô tổng hợp + bảng gọn theo lệnh x mã hàng (tính trên mọi dòng đã tải). Bấm dòng để lọc lưới tem
   function veTomTat(data) {
     if (!data.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = ''; return; }
     const tem = new Set(data.map((r) => r.barcode));
@@ -174,8 +174,8 @@
     ]);
     const nhom = new Map();
     data.forEach((r) => {
-      const k = `${r.lenhSX}|${r.loaiNL}|${r.chiTiet}`;
-      const g = nhom.get(k) || { lenhSX: r.lenhSX, maHang: r.maHang, loaiNL: r.loaiNL, chiTiet: r.chiTiet, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 };
+      const k = `${r.lenhSX}|${r.maHang}`;
+      const g = nhom.get(k) || { lenhSX: r.lenhSX, maHang: r.maHang, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 };
       g.tem.add(r.barcode); g.slCat += Number(r.slCat || 0); g.slXuat += Number(r.slXuat || 0); g.slTon += Number(r.slTon || 0);
       nhom.set(k, g);
     });
@@ -199,8 +199,6 @@
     App.table(tongHop, [
       { key: 'lenhSX', label: 'Lệnh SX' },
       { key: 'maHang', label: 'Mã hàng' },
-      { key: 'loaiNL', label: 'Loại NL' },
-      { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
       { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
       { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },

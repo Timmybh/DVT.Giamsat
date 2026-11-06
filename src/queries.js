@@ -484,19 +484,18 @@ module.exports = {
       ORDER BY t.NgayTao, t.Barcode, bc.ThoiGianQuetXuat`,
   },
 
-  // Tổng hợp NXT BTP cắt khi bỏ trống lệnh (không giới hạn dòng như btpCatNXT): lệnh x loại NL x chi tiết, lọc theo ngày tạo tem.
+  // Tổng hợp NXT BTP cắt khi bỏ trống lệnh (không giới hạn dòng như btpCatNXT): lệnh x mã hàng (cộng mọi loại NL, chi tiết), lọc theo ngày tạo tem.
   // SL xuất = tổng SoLuongDaXuat các lần quét của tem. Tham số: @tuNgay, @denNgay
   btpCatTongHop: {
     db: 'egmf',
     text: `
-      SELECT REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, MAX(REPLACE(ISNULL(t.MaHang, ''), ';', '')) AS maHang,
-             ISNULL(t.LoaiNguyenLieu, '') AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
+      SELECT REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang,
              COUNT(*) AS soTem, SUM(ISNULL(t.SoLuong, 0)) AS slCat, SUM(ISNULL(x.slXuat, 0)) AS slXuat,
              SUM(ISNULL(t.SoLuong, 0) - ISNULL(t.SoLuongThucXuat, 0)) AS slTon
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
       WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
-      GROUP BY REPLACE(ISNULL(t.LenhSanXuat, ''), ';', ''), ISNULL(t.LoaiNguyenLieu, ''), ISNULL(t.TenChiTiet, '')`,
+      GROUP BY REPLACE(ISNULL(t.LenhSanXuat, ''), ';', ''), REPLACE(ISNULL(t.MaHang, ''), ';', '')`,
   },
   // Số phiếu cấp / tổ đã nhận BTP của các tem trong khoảng ngày (ô tóm tắt khi bỏ trống lệnh). Tham số: @tuNgay, @denNgay
   btpCatPhieu: {
