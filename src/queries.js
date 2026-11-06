@@ -362,8 +362,9 @@ module.exports = {
     text: `
       SELECT ld.ngay, ld.xn, ld.line, ld.maHang, ld.tongLD, ld.hienDien, ld.ldTheoMa,
              q.Id AS idQTCN,
-             -- thời gian chuẩn (giây / SP): tick SOT lấy TongThoiGian, còn lại lấy cột SAM (0 = chưa nhập -> trống)
-             CASE WHEN q.TinhOWE = 'SOT' THEN q.TongThoiGian ELSE NULLIF(q.SAM, 0) END AS sot, q.TongThoiGian AS tgSOT, q.SAM AS tgSAM, q.SoLaoDong AS ldQTCN, q.MucTieuNangSuat AS mucTieu, q.NhipDoSanXuat AS nhipDo,
+             -- thời gian chuẩn (giây / SP): tick SOT lấy TongThoiGian (SOT/s); còn lại lấy cột SAM, ô "SAM/Phút" trên màn hình QTCN -> x 60
+             -- (SAM = 0 là chưa nhập -> trống)
+             CASE WHEN q.TinhOWE = 'SOT' THEN q.TongThoiGian ELSE NULLIF(q.SAM, 0) * 60 END AS sot, q.TongThoiGian AS tgSOT, q.SAM AS tgSAM, q.SoLaoDong AS ldQTCN, q.MucTieuNangSuat AS mucTieu, q.NhipDoSanXuat AS nhipDo,
              q.ThoiGianLamViec AS thoiGianLamViec, q.TenKhachHang AS khachHang, q.TenChungLoai AS chungLoai, q.PhienBan AS phienBan, q.TrangThai AS trangThai,
              CASE WHEN q.Id IS NULL THEN NULL WHEN q.TinhOWE = 'SOT' THEN 'SOT' ELSE 'SAM' END AS loaiHS
       FROM (
