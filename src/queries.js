@@ -361,7 +361,9 @@ module.exports = {
     db: 'egmf',
     text: `
       SELECT ld.ngay, ld.xn, ld.line, ld.maHang, ld.tongLD, ld.hienDien, ld.ldTheoMa,
-             q.Id AS idQTCN, q.TongThoiGian AS sot, q.SoLaoDong AS ldQTCN, q.MucTieuNangSuat AS mucTieu, q.NhipDoSanXuat AS nhipDo,
+             q.Id AS idQTCN,
+             -- thời gian chuẩn (giây / SP): tick SOT lấy TongThoiGian, còn lại lấy cột SAM (0 = chưa nhập -> trống)
+             CASE WHEN q.TinhOWE = 'SOT' THEN q.TongThoiGian ELSE NULLIF(q.SAM, 0) END AS sot, q.TongThoiGian AS tgSOT, q.SAM AS tgSAM, q.SoLaoDong AS ldQTCN, q.MucTieuNangSuat AS mucTieu, q.NhipDoSanXuat AS nhipDo,
              q.ThoiGianLamViec AS thoiGianLamViec, q.TenKhachHang AS khachHang, q.TenChungLoai AS chungLoai, q.PhienBan AS phienBan, q.TrangThai AS trangThai,
              CASE WHEN q.Id IS NULL THEN NULL WHEN q.TinhOWE = 'SOT' THEN 'SOT' ELSE 'SAM' END AS loaiHS
       FROM (
@@ -373,7 +375,7 @@ module.exports = {
         GROUP BY CAST(a.Ngay AS date), a.XiNghiep, ISNULL(a.TenChuyen, CAST(a.ToChuyen AS nvarchar(20))), LTRIM(RTRIM(a.MaHang))
       ) ld
       OUTER APPLY (
-        SELECT TOP 1 m.Id, m.TongThoiGian, m.SoLaoDong, m.MucTieuNangSuat, m.NhipDoSanXuat, m.ThoiGianLamViec,
+        SELECT TOP 1 m.Id, m.TongThoiGian, m.SAM, m.SoLaoDong, m.MucTieuNangSuat, m.NhipDoSanXuat, m.ThoiGianLamViec,
                m.TenKhachHang, m.TenChungLoai, m.PhienBan, m.TrangThai, m.TinhOWE
         FROM dbo.QTCN_QuyTrinhCongNghe_Master m
         WHERE LTRIM(RTRIM(m.MaHang)) = ld.maHang
