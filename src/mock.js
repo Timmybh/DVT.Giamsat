@@ -242,7 +242,7 @@ module.exports = {
         const sot = Math.round(1500 + hash(`sot${maHang}`) * 4000);
         rows.push({
           ngay, xn: `XN${xn.ma}`, line: t.ma, maHang, tongLD: tong, hienDien: tong - hInt(`vm${xn.ma}${t.ma}${ngay}`, 0, 4), ldTheoMa: tong - hInt(`lm${t.ma}`, 0, 3),
-          idQTCN: coQT ? 600 : null, sot: coQT ? sot : null, ldQTCN: coQT ? 30 : null, mucTieu: coQT ? Math.round((28800 * 30) / sot) : null,
+          idQTCN: coQT ? 600 : null, loaiHS: coQT ? (hash(`hs${maHang}`) > 0.7 ? 'SAM' : 'SOT') : null, sot: coQT ? sot : null, ldQTCN: coQT ? 30 : null, mucTieu: coQT ? Math.round((28800 * 30) / sot) : null,
           nhipDo: coQT ? Math.round((sot / 30) * 100) / 100 : null, thoiGianLamViec: coQT ? 28800 : null, khachHang: coQT ? pick(khach) : null,
           chungLoai: coQT ? 'ÁO KHOÁC 1 LỚP' : null, phienBan: coQT ? 1 : null, trangThai: coQT ? 'Đã ban hành' : null,
         });
