@@ -355,7 +355,7 @@ module.exports = {
   },
 
   // Mã hàng, lao động, SOT: lao động theo ngày x tổ x mã hàng (LCD_Truc_Quan_ChuyenMay_LaoDong),
-  // ghép quy trình công nghệ (QTCN_QuyTrinhCongNghe_Master) theo mã hàng, chỉ bản có check hiệu suất (TinhOWE = 'SOT' hoặc 'SAM', ghi ra loaiHS), lấy phiên bản mới nhất.
+  // ghép quy trình công nghệ (QTCN_QuyTrinhCongNghe_Master) theo mã hàng, lấy phiên bản mới nhất (mọi TinhOWE); loaiHS = 'SOT' nếu tick SOT, còn lại (SAM / trống) là 'SAM'.
   // SOT = TongThoiGian (giây / sản phẩm). API lọc xí nghiệp theo tên. Tham số: @tuNgay, @denNgay
   sotMaHang: {
     db: 'egmf',
@@ -363,7 +363,7 @@ module.exports = {
       SELECT ld.ngay, ld.xn, ld.line, ld.maHang, ld.tongLD, ld.hienDien, ld.ldTheoMa,
              q.Id AS idQTCN, q.TongThoiGian AS sot, q.SoLaoDong AS ldQTCN, q.MucTieuNangSuat AS mucTieu, q.NhipDoSanXuat AS nhipDo,
              q.ThoiGianLamViec AS thoiGianLamViec, q.TenKhachHang AS khachHang, q.TenChungLoai AS chungLoai, q.PhienBan AS phienBan, q.TrangThai AS trangThai,
-             q.TinhOWE AS loaiHS
+             CASE WHEN q.Id IS NULL THEN NULL WHEN q.TinhOWE = 'SOT' THEN 'SOT' ELSE 'SAM' END AS loaiHS
       FROM (
         SELECT CAST(a.Ngay AS date) AS ngay, a.XiNghiep AS xn, ISNULL(a.TenChuyen, CAST(a.ToChuyen AS nvarchar(20))) AS line,
                LTRIM(RTRIM(a.MaHang)) AS maHang, MAX(a.TongSoLaoDong) AS tongLD, MAX(a.SoLaoDongHienDien) AS hienDien,
@@ -376,7 +376,7 @@ module.exports = {
         SELECT TOP 1 m.Id, m.TongThoiGian, m.SoLaoDong, m.MucTieuNangSuat, m.NhipDoSanXuat, m.ThoiGianLamViec,
                m.TenKhachHang, m.TenChungLoai, m.PhienBan, m.TrangThai, m.TinhOWE
         FROM dbo.QTCN_QuyTrinhCongNghe_Master m
-        WHERE LTRIM(RTRIM(m.MaHang)) = ld.maHang AND m.TinhOWE IN ('SOT', 'SAM')
+        WHERE LTRIM(RTRIM(m.MaHang)) = ld.maHang
         ORDER BY m.PhienBan DESC, m.Id DESC
       ) q
       ORDER BY ld.ngay DESC, ld.line, ld.maHang`,
