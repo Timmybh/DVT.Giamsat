@@ -484,6 +484,32 @@ module.exports = {
       ORDER BY t.NgayTao, t.Barcode, bc.ThoiGianQuetXuat`,
   },
 
+  // Tổng hợp NXT BTP cắt khi bỏ trống lệnh (không giới hạn dòng như btpCatNXT): lệnh x loại NL x chi tiết, lọc theo ngày tạo tem.
+  // SL xuất = tổng SoLuongDaXuat các lần quét của tem. Tham số: @tuNgay, @denNgay
+  btpCatTongHop: {
+    db: 'egmf',
+    text: `
+      SELECT REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, MAX(REPLACE(ISNULL(t.MaHang, ''), ';', '')) AS maHang,
+             ISNULL(t.LoaiNguyenLieu, '') AS loaiNL, ISNULL(t.TenChiTiet, '') AS chiTiet,
+             COUNT(*) AS soTem, SUM(ISNULL(t.SoLuong, 0)) AS slCat, SUM(ISNULL(x.slXuat, 0)) AS slXuat,
+             SUM(ISNULL(t.SoLuong, 0) - ISNULL(t.SoLuongThucXuat, 0)) AS slTon
+      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+      OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
+      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
+      GROUP BY REPLACE(ISNULL(t.LenhSanXuat, ''), ';', ''), ISNULL(t.LoaiNguyenLieu, ''), ISNULL(t.TenChiTiet, '')`,
+  },
+  // Số phiếu cấp / tổ đã nhận BTP của các tem trong khoảng ngày (ô tóm tắt khi bỏ trống lệnh). Tham số: @tuNgay, @denNgay
+  btpCatPhieu: {
+    db: 'egmf',
+    text: `
+      SELECT COUNT(DISTINCT bc.SoPhieuCapBTP) AS soPhieu,
+             COUNT(DISTINCT pc.TenPhanXuong + '-' + LTRIM(RTRIM(pc.TenCum))) AS soTo
+      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
+      JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
+      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)`,
+  },
+
   // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng
   // trong CUTTING_PhieuCapBTP_ChiTiet (nối qua BarcodeChiTiet.IdCapBTPCT).
   // Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size, @tuNgay, @denNgay (ngày tạo tem, '' là không lọc)

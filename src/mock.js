@@ -255,6 +255,19 @@ module.exports = {
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat)),
   lenhSX: ({ q }) => lenhSX.filter((l) => !q || l.lenhSX.includes(q) || l.maHang.includes(q))
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
+  btpCatTongHop: (p) => {
+    const m = new Map();
+    module.exports.btpCatNXT({ ...p, lenhSX: '' }).forEach((r) => {
+      const k = `${r.lenhSX}|${r.loaiNL}|${r.chiTiet}`;
+      const g = m.get(k) || m.set(k, { lenhSX: r.lenhSX, maHang: r.maHang, loaiNL: r.loaiNL, chiTiet: r.chiTiet, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 }).get(k);
+      g.tem.add(r.barcode); g.slCat += Number(r.slCat || 0); g.slXuat += Number(r.slXuat || 0); g.slTon += Number(r.slTon || 0);
+    });
+    return [...m.values()].map(({ tem: t, ...g }) => ({ ...g, soTem: t.size }));
+  },
+  btpCatPhieu: (p) => {
+    const rs = module.exports.btpCatNXT({ ...p, lenhSX: '' }).filter((r) => r.soPhieuCap);
+    return [{ soPhieu: new Set(rs.map((r) => r.soPhieuCap)).size, soTo: new Set(rs.map((r) => `${r.xn}-${r.maTo}`)).size }];
+  },
   btpCatNXT: ({ lenhSX: lenh, tuNgay, denNgay }) => tem
     .filter((t) => (!lenh || t.lenhSX === lenh) && inRange(t.ngayTao, tuNgay, denNgay))
     .flatMap((t) => {

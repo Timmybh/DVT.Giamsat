@@ -413,6 +413,17 @@ router.get('/lenh-sx', handle('lenhSX', (req) => ({ q: (req.query.q || '').trim(
 router.get('/btp-cat', handle('btpCatNXT', (req) => ({
   lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay,
 })));
+// Bỏ trống lệnh: tổng hợp tính ở server (đủ mọi tem), lưới tem tải riêng khi bấm 1 dòng
+router.get('/btp-cat/tong-hop', async (req, res) => {
+  try {
+    const p = { tuNgay: req.query.tuNgay, denNgay: req.query.denNgay };
+    const [rows, [phieu = {}] = []] = await Promise.all([run('btpCatTongHop', p), run('btpCatPhieu', p)]);
+    res.json({ rows, soPhieu: Number(phieu.soPhieu || 0), soTo: Number(phieu.soTo || 0) });
+  } catch (err) {
+    console.error('[btpCatTongHop]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
   lenhSX: (req.query.lenhSX || '').trim(), loaiNL: req.query.loaiNL || '', chiTiet: req.query.chiTiet || '',
   mau: req.query.mau || '', size: req.query.size || '', tuNgay: req.query.tuNgay || '', denNgay: req.query.denNgay || '',
