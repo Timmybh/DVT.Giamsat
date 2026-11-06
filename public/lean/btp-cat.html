@@ -158,6 +158,8 @@
   }
 
   // Ô tổng hợp + bảng gọn theo lệnh x mã hàng (tính trên mọi dòng đã tải). Bấm dòng để lọc lưới tem
+  // Bảng tổng hợp chỉ cộng loại NL vải chính: tên có chữ 'chính' hoặc 'VC' (như btpCatTongHop ở server)
+  const laVaiChinh = (r) => /chính|vc/i.test(String(r.loaiNL || ''));
   function veTomTat(data) {
     if (!data.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = ''; return; }
     const tem = new Set(data.map((r) => r.barcode));
@@ -173,7 +175,7 @@
       { label: 'Phiếu cấp đã xuất', value: App.num(phieu.size), sub: `${App.num(new Set(data.filter((r) => r.maTo).map((r) => `${r.xn}-${r.maTo}`)).size)} tổ nhận` },
     ]);
     const nhom = new Map();
-    data.forEach((r) => {
+    data.filter(laVaiChinh).forEach((r) => {
       const k = `${r.lenhSX}|${r.maHang}`;
       const g = nhom.get(k) || { lenhSX: r.lenhSX, maHang: r.maHang, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 };
       g.tem.add(r.barcode); g.slCat += Number(r.slCat || 0); g.slXuat += Number(r.slXuat || 0); g.slTon += Number(r.slTon || 0);

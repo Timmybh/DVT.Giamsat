@@ -257,7 +257,7 @@ module.exports = {
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
   btpCatTongHop: (p) => {
     const m = new Map();
-    module.exports.btpCatNXT({ ...p, lenhSX: '' }).forEach((r) => {
+    module.exports.btpCatNXT({ ...p, lenhSX: '' }).filter((r) => /chính|vc/i.test(r.loaiNL || '')).forEach((r) => {
       const k = `${r.lenhSX}|${r.maHang}`;
       const g = m.get(k) || m.set(k, { lenhSX: r.lenhSX, maHang: r.maHang, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 }).get(k);
       g.tem.add(r.barcode); g.slCat += Number(r.slCat || 0); g.slXuat += Number(r.slXuat || 0); g.slTon += Number(r.slTon || 0);

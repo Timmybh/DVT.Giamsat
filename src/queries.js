@@ -484,7 +484,7 @@ module.exports = {
       ORDER BY t.NgayTao, t.Barcode, bc.ThoiGianQuetXuat`,
   },
 
-  // Tổng hợp NXT BTP cắt khi bỏ trống lệnh (không giới hạn dòng như btpCatNXT): lệnh x mã hàng (cộng mọi loại NL, chi tiết), lọc theo ngày tạo tem.
+  // Tổng hợp NXT BTP cắt khi bỏ trống lệnh (không giới hạn dòng như btpCatNXT): lệnh x mã hàng, chỉ loại NL vải chính (có chữ 'chính' hoặc 'VC'), cộng mọi chi tiết; lọc theo ngày tạo tem.
   // SL xuất = tổng SoLuongDaXuat các lần quét của tem. Tham số: @tuNgay, @denNgay
   btpCatTongHop: {
     db: 'egmf',
@@ -495,6 +495,7 @@ module.exports = {
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
       WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
+        AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%')
       GROUP BY REPLACE(ISNULL(t.LenhSanXuat, ''), ';', ''), REPLACE(ISNULL(t.MaHang, ''), ';', '')`,
   },
   // Số phiếu cấp / tổ đã nhận BTP của các tem trong khoảng ngày (ô tóm tắt khi bỏ trống lệnh). Tham số: @tuNgay, @denNgay
