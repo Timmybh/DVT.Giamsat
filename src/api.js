@@ -410,13 +410,15 @@ router.get('/sot-ma-hang', handleXn('sotMaHang', (req) => ({ tuNgay: req.query.t
 router.get('/phieu-cap-btp/:soPhieu/chi-tiet', handle('phieuCapChiTiet', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/phieu-cap-btp/:soPhieu/phieu-xuat', handle('phieuXuatTheoPhieuCap', (req) => ({ soPhieu: req.params.soPhieu })));
 router.get('/lenh-sx', handle('lenhSX', (req) => ({ q: (req.query.q || '').trim() })));
-router.get('/btp-cat', handle('btpCatNXT', (req) => ({
-  lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay,
+// theoXN=1: chỉ tem của XN đang chọn (phòng ban trên tem); nhập lệnh thì không lọc XN
+const xnSoCua = async (req) => (req.query.theoXN === '1' ? String((await xnNum(req.query.xn)) || '') : '');
+router.get('/btp-cat', handle('btpCatNXT', async (req) => ({
+  lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay, xnSo: await xnSoCua(req),
 })));
 // Bỏ trống lệnh: tổng hợp tính ở server (đủ mọi tem), lưới tem tải riêng khi bấm 1 dòng
 router.get('/btp-cat/tong-hop', async (req, res) => {
   try {
-    const p = { tuNgay: req.query.tuNgay, denNgay: req.query.denNgay };
+    const p = { tuNgay: req.query.tuNgay, denNgay: req.query.denNgay, xnSo: await xnSoCua(req) };
     const [rows, [phieu = {}] = []] = await Promise.all([run('btpCatTongHop', p), run('btpCatPhieu', p)]);
     res.json({ rows, soPhieu: Number(phieu.soPhieu || 0), soTo: Number(phieu.soTo || 0) });
   } catch (err) {

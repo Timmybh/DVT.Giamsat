@@ -17,6 +17,8 @@
 
 // Điều kiện khớp 1 lệnh SX trong cột dạng 'A;' hoặc 'A; B;'
 const matchLenh = (col) => `';' + REPLACE(${col}, ' ', '') + ';' LIKE '%;' + @lenhSX + ';%'`;
+// Tem cắt thuộc XN theo phòng ban ghi trên tem ('XÍ NGHIỆP MAY 2'): tên kết thúc bằng số XN (cho phép '02'). @xnSo = '' là mọi XN
+const temXN = `(@xnSo = '' OR LTRIM(RTRIM(t.TenPhongBan)) LIKE N'%[^0-9]' + @xnSo OR LTRIM(RTRIM(t.TenPhongBan)) LIKE N'%[^0-9]0' + @xnSo)`;
 
 // Chủng loại vải chính trong cột danh sách 'Vải chính, Keo' (như store báo cáo may ra; XN2 có thêm 'Vải chính B')
 const VAI_CHINH = ['Vải chính', 'Vải chính 1', 'Vải chính A', 'Vải chính G'];
@@ -459,7 +461,7 @@ module.exports = {
 
   // Nhập - xuất - tồn BTP cắt chi tiết từng tem: mỗi dòng = 1 tem x 1 lần quét xuất cho phiếu cấp (tem chưa xuất: 1 dòng trống phần xuất).
   // SL cắt / tồn chỉ ghi ở dòng đầu của tem để cộng không bị trùng. Lọc theo ngày tạo tem; @lenhSX = '' là mọi lệnh.
-  // Tham số: @lenhSX, @tuNgay, @denNgay
+  // Tham số: @lenhSX, @tuNgay, @denNgay, @xnSo ('' = mọi XN)
   btpCatNXT: {
     db: 'egmf',
     text: `
@@ -480,7 +482,7 @@ module.exports = {
       LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
       LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
       WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
-        AND (@lenhSX = '' OR ${matchLenh('t.LenhSanXuat')})
+        AND (@lenhSX = '' OR ${matchLenh('t.LenhSanXuat')}) AND ${temXN}
       ORDER BY t.NgayTao, t.Barcode, bc.ThoiGianQuetXuat`,
   },
 
@@ -495,7 +497,7 @@ module.exports = {
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
       WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
-        AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%')
+        AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%') AND ${temXN}
       GROUP BY REPLACE(ISNULL(t.LenhSanXuat, ''), ';', ''), REPLACE(ISNULL(t.MaHang, ''), ';', '')`,
   },
   // Số phiếu cấp / tổ đã nhận BTP của các tem trong khoảng ngày (ô tóm tắt khi bỏ trống lệnh). Tham số: @tuNgay, @denNgay
@@ -507,7 +509,7 @@ module.exports = {
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
       LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
-      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)`,
+      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay) AND ${temXN}`,
   },
 
   // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng

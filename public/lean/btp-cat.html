@@ -77,7 +77,7 @@
       if (gop) {
         // Bỏ trống lệnh: tổng hợp tính ở server trên mọi tem; lưới tem chỉ tải khi bấm 1 dòng tổng hợp
         App.loading(tongHop);
-        const th = await App.api('btp-cat/tong-hop', khoang);
+        const th = await App.api('btp-cat/tong-hop', { ...khoang, xn: App.xn, theoXN: 1 });
         tatCa = [];
         veBangTongHop(th.rows, th);
         veTem();
@@ -102,7 +102,7 @@
       const c = chon;
       App.loading(nxt);
       try {
-        const rs = await App.api('btp-cat', { lenhSX: c.lenhSX, ...khoang });
+        const rs = await App.api('btp-cat', { lenhSX: c.lenhSX, ...khoang, xn: App.xn, theoXN: 1 });
         if (chon !== c) return;
         temChon = rs;
       } catch (e) { App.error(nxt, e); return; }
@@ -312,7 +312,7 @@
     ], data, { footer: true, filter: true, empty: 'Chưa xuất' })).catch((e) => App.error(xuatDT, e));
   }
 
-  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Nhập xuất tồn BTP cắt']]).then(() => searchLenh());
+  App.header([['Trang chính', '/'], ['Tổ trưởng LEAN', '/lean/'], ['Nhập xuất tồn BTP cắt']], () => { if (gop && khoang.tuNgay) load(); }).then(() => searchLenh());
 </script>
 </body>
 </html>
