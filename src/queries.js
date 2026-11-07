@@ -514,21 +514,34 @@ module.exports = {
       FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.ProductionOrderAdjNo = g.DocNo
       WHERE a.TypeCt IN (1, 2) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4`,
   },
-  // B3: tem cắt của các lệnh (mọi ngày tạo tem): chỉ tem thân chính (TenChiTiet trống) của loại NL vải chính ('chính' hoặc 'VC'),
-  // để SL ra theo sản phẩm. Xuất / vào chuyền = cộng SoLuongDaXuat / SoLuongDaNhan các lần quét tem cho phiếu cấp.
-  // @l0.. = lệnh dạng 'X;' và 'X' (cột LenhSanXuat của tem lưu 'X;')
+  // B3: tem cắt của các lệnh (mọi ngày tạo tem) theo lệnh x loại NL: chỉ tem thân chính (TenChiTiet trống) của loại NL vải chính
+  // ('chính' hoặc 'VC'). Lệnh có nhiều loại vải chính (Vải chính 1, Vải chính 2) thì mỗi loại đều đủ SL lệnh, API lấy loại nhỏ nhất (đồng bộ).
+  // @l0.. = lệnh dạng 'X;' và 'X' (cột LenhSanXuat lưu 'X;')
   btpCatTheoLenh: ({ n = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      SELECT LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))) AS lenhSX,
-             COUNT(*) AS soTem, SUM(ISNULL(t.SoLuong, 0)) AS slBTP,
-             SUM(ISNULL(x.slXuat, 0)) AS slXuat, SUM(ISNULL(x.slNhan, 0)) AS slVaoChuyen
+      SELECT LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))) AS lenhSX, ISNULL(t.LoaiNguyenLieu, '') AS loaiNL,
+             COUNT(*) AS soTem, SUM(ISNULL(t.SoLuong, 0)) AS slBTP
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
-      OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat, SUM(ISNULL(bc.SoLuongDaNhan, 0)) AS slNhan
-                   FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
       WHERE t.LenhSanXuat IN (${dsThamSo('l', n)})
         AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%') AND ISNULL(t.TenChiTiet, '') = ''
-      GROUP BY LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', '')))`,
+      GROUP BY LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))), ISNULL(t.LoaiNguyenLieu, '')`,
+  }),
+  // B4: quét xuất / nhận của các lệnh theo lệnh x loại NL. Kho quét bằng tem cắt (BTP.., CUTTING_PhieuHoachToan_TemBarCode)
+  // hoặc tem tổng hợp phối bộ (BTH.., CUTTING_PhieuHoachToan_TemBarcode_TongHop, gom nhiều bàn máy); chỉ tem thân chính vải chính.
+  // Xuất = SoLuongDaXuat, vào chuyền = SoLuongDaNhan. @l0.. như B3
+  btpXuatTheoLenh: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(REPLACE(bc.LenhSanXuat, ';', ''))) AS lenhSX, ISNULL(t.LoaiNguyenLieu, h.LoaiNguyenLieu) AS loaiNL,
+             SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat, SUM(ISNULL(bc.SoLuongDaNhan, 0)) AS slVaoChuyen
+      FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
+      LEFT JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Barcode = bc.TemBarcodeBTP
+      LEFT JOIN dbo.CUTTING_PhieuHoachToan_TemBarcode_TongHop h ON t.Id IS NULL AND h.Barcode = bc.TemBarcodeBTP
+      WHERE bc.LenhSanXuat IN (${dsThamSo('l', n)}) AND (t.Id IS NOT NULL OR h.IdTemTH IS NOT NULL)
+        AND (ISNULL(t.LoaiNguyenLieu, h.LoaiNguyenLieu) LIKE N'%chính%' OR ISNULL(t.LoaiNguyenLieu, h.LoaiNguyenLieu) LIKE N'%VC%')
+        AND ISNULL(CASE WHEN t.Id IS NOT NULL THEN t.TenChiTiet ELSE h.TenChiTiet END, '') = ''
+      GROUP BY LTRIM(RTRIM(REPLACE(bc.LenhSanXuat, ';', ''))), ISNULL(t.LoaiNguyenLieu, h.LoaiNguyenLieu)`,
   }),
   // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng
   // trong CUTTING_PhieuCapBTP_ChiTiet (nối qua BarcodeChiTiet.IdCapBTPCT).
