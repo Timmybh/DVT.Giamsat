@@ -132,6 +132,7 @@
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
+      { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
       { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
       { key: 'chiTiet', label: 'Chi tiết', render: (r) => (r.chiTiet ? App.esc(r.chiTiet) : '<i>(Thân chính)</i>') },
       { key: 'mau', label: 'Màu SP' },
@@ -156,7 +157,7 @@
       { key: 'idBanMay', label: 'ID bàn may', an: true },
       { key: 'nguoiXuat', label: 'Người xuất', an: true },
     ], rows, {
-      footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-4', coDinh: 1,
+      footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-5', coDinh: 1,
       empty: 'Không có tem BTP cắt trong khoảng ngày này',
     });
   }
