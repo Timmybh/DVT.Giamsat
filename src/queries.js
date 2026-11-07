@@ -60,11 +60,11 @@ const poDatToSQL = `
           AND pc.NgayTao >= DATEADD(day, -30, @d) AND pc.NgayTao < DATEADD(day, 1, @d)`;
 
 // Lọc kế hoạch (OMM_KeHoachThang k, OMM_PO po) theo 2 khoảng ngày, khoảng nào để trống ('') thì không lọc:
-//  - Ngày SX @tuNgay..@denNgay: khoảng may kế hoạch (bắt đầu - kết thúc may) giao với khoảng xem
+//  - Ngày SX @tuNgay..@denNgay: khoảng may kế hoạch (bắt đầu - kết thúc may) giao với khoảng xem; để trống 1 bên thì bỏ điều kiện bên đó
 //  - Ngày lệnh @lenhTu..@lenhDen: PO có lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) ngày lệnh trong khoảng.
 // Ngày lệnh: API đọc trước danh sách PO của các lệnh trong khoảng (lenhGocKy + cpbPO, 2 câu nhỏ; lọc thẳng Detail_PO trong câu lớn bị timeout).
 // nPO > 0: truyền PO thành tham số @p0.. (dùng được chỉ mục PONo, API chạy theo lô 2000 PO); nPO = 0: @dsPO = ';PO1;PO2;' (câu 1 PO như keHoachSize)
-const khLoc = (nPO = 0) => `(@tuNgay = '' OR (k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)))
+const khLoc = (nPO = 0) => `(@tuNgay = '' OR k.NgayMayKeHoachKetThuc >= @tuNgay) AND (@denNgay = '' OR k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay))
           AND ${nPO ? `po.PONo IN (${Array.from({ length: nPO }, (_, i) => `@p${i}`).join(', ')})` : "(@lenhTu = '' OR CHARINDEX(';' + LTRIM(RTRIM(po.PONo)) + ';', @dsPO) > 0)"}`;
 // Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
 const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
@@ -154,16 +154,55 @@ module.exports = {
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
   }),
 
-  // Dòng Detail của lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) có ngày lệnh trong khoảng (bước 1 lọc Ngày lệnh, bước 2 = cpbPO). Tham số: @lenhTu, @lenhDen
+  // Kế hoạch phân bổ đi từ lệnh (src/api.js docKeHoachTheoLenh), 3 câu nhỏ:
+  // B1: IdDetail của lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) có ngày lệnh trong khoảng + dòng điều chỉnh / thu hồi của các lệnh đó. Tham số: @lenhTu, @lenhDen
   lenhGocKy: {
     db: 'egmf',
     text: `
+      WITH goc AS (
+        SELECT DISTINCT a.DocNo
+        FROM dbo.Bravo_LenhSanXuat_Detail a
+        JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
+        WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+          AND m.DocDate >= @lenhTu AND m.DocDate < DATEADD(day, 1, @lenhDen)
+      )
       SELECT a.Id AS idDetail
-      FROM dbo.Bravo_LenhSanXuat_Detail a
-      JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
-      WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
-        AND m.DocDate >= @lenhTu AND m.DocDate < DATEADD(day, 1, @lenhDen)`,
+      FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.DocNo = g.DocNo
+      WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+      UNION
+      SELECT a.Id
+      FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.ProductionOrderAdjNo = g.DocNo
+      WHERE a.TypeCt IN (1, 2) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4`,
   },
+  // B2: PO x lệnh (SL, loại lệnh, lệnh gốc, ngày lệnh, DeptCode) của các IdDetail @d0..
+  lenhPOTheoId: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(b.PO)) AS po, a.DocNo AS lenhSX, ISNULL(a.TypeCt, 0) AS typeCt, ISNULL(a.ProductionOrderAdjNo, '') AS lenhGoc,
+             a.DocDate AS ngayLenh, LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) AS dept, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE b.IdDetail IN (${dsThamSo('d', n)})
+      GROUP BY LTRIM(RTRIM(b.PO)), a.DocNo, ISNULL(a.TypeCt, 0), ISNULL(a.ProductionOrderAdjNo, ''), a.DocDate, LTRIM(RTRIM(ISNULL(a.DeptCode, '')))`,
+  }),
+  // B3: kế hoạch theo tổ x mã hàng x PO của XN cho các PO @p0.. ; Ngày SX từ / đến, để trống bên nào thì không lọc bên đó
+  khTheoPO: ({ nPO = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo, dh.MaHang AS maHang, po.PONo AS po,
+             SUM(k.SoLuong) AS soLuong, MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
+             MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = ct.POId
+      JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND k.SoLuong > 0 AND po.PONo IN (${Array.from({ length: nPO }, (_, i) => `@p${i}`).join(', ') || 'NULL'})
+        AND (@tuNgay = '' OR k.NgayMayKeHoachKetThuc >= @tuNgay)
+        AND (@denNgay = '' OR k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay))
+      GROUP BY e.TenCum, dh.MaHang, po.PONo`,
+  }),
   // PO đã có lệnh Bravo cho xí nghiệp (DeptCode = @dept, vd 'M2') nhưng chưa có kế hoạch phân bổ (OMM_KeHoachThang SoLuong > 0)
   // ở tổ nào của xí nghiệp. Lệnh gốc (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh từ @tuNgay - 60 ngày đến @denNgay;
   // SL = lệnh gốc + điều chỉnh / thu hồi (bỏ PO đã thu hồi hết). Có ngày lệnh @lenhTu..@lenhDen thì lấy đúng khoảng đó. Tham số: @xn, @dept, @tuNgay, @denNgay, @lenhTu, @lenhDen

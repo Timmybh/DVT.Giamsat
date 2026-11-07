@@ -61,8 +61,9 @@
   lenhTu.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60, 12));
   lenhDen.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
   let rows = [];
-  // Ngày SX: khoảng may kế hoạch giao với khoảng chọn; Ngày lệnh: PO có lệnh Bravo ngày lệnh trong khoảng. Để trống khoảng nào là không lọc khoảng đó
-  const khoang = () => ({ tuNgay: tuNgay.value, denNgay: denNgay.value || tuNgay.value, lenhTu: lenhTu.value, lenhDen: lenhDen.value || lenhTu.value });
+  // Đi từ lệnh: Ngày lệnh (bắt buộc) lấy lệnh Bravo, ghép kế hoạch theo PO; Ngày SX từ / đến để trống bên nào thì không lọc bên đó
+  const khoang = () => ({ tuNgay: tuNgay.value, denNgay: denNgay.value, lenhTu: lenhTu.value, lenhDen: lenhDen.value });
+  const thieuLenh = () => !lenhTu.value || !lenhDen.value;
 
   async function loadTo() {
     const list = await App.api('to', { xn: App.xn });
@@ -136,7 +137,7 @@
     size.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div>';
     tenLenh.textContent = ''; lanLenh++;
     sizeLenh.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div>';
-    if (!tuNgay.value && !lenhTu.value) { result.innerHTML = '<div class="empty">Chọn Ngày SX hoặc Ngày lệnh (từ ngày) rồi bấm Xem</div>'; return; }
+    if (thieuLenh()) { result.innerHTML = '<div class="empty">Chọn Ngày lệnh từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
     App.loading(result);
     try {
       rows = await App.api('ke-hoach-phan-bo', { xn: App.xn, ...khoang() });
@@ -172,7 +173,7 @@
     ], data, { footer: true, maxRows: 2000, empty: 'Không có kế hoạch theo size trong khoảng ngày này' });
   }
   async function loadSizeTab() {
-    if (!tuNgay.value && !lenhTu.value) { theoSize.innerHTML = '<div class="empty">Chọn Ngày SX hoặc Ngày lệnh (từ ngày) rồi bấm Xem</div>'; return; }
+    if (thieuLenh()) { theoSize.innerHTML = '<div class="empty">Chọn Ngày lệnh từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
     App.loading(theoSize);
     try {
       sizeRows = await App.api('ke-hoach-phan-bo/theo-size', { xn: App.xn, ...khoang() });
