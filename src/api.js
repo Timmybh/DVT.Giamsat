@@ -161,10 +161,15 @@ async function poTheoNgayLenh(lenhTu, lenhDen) {
   cachePO.set(k, { t: Date.now(), ...kq });
   return kq;
 }
-// Chạy câu kế hoạch: có Ngày lệnh thì truyền PO thành tham số @p0.. theo lô 2000 (SQL Server tối đa 2100 tham số)
+// Chạy câu kế hoạch: chỉ có Ngày lệnh thì truyền PO thành tham số @p0.. theo lô 2000 (SQL Server tối đa 2100 tham số)
 async function chayTheoPO(name, p) {
   const { dsPOList: list, ...pp } = p;
   if (!pp.lenhTu || db.useMock()) return run(name, pp);
+  // Có cả Ngày SX: chạy 1 câu theo Ngày SX (nhanh, ít dòng) rồi lọc PO ở Node, khỏi chạy nhiều lô
+  if (pp.tuNgay) {
+    const coPO = new Set(list);
+    return (await run(name, { ...pp, lenhTu: '', lenhDen: '', dsPO: '' })).filter((r) => coPO.has(String(r.po ?? '').trim()));
+  }
   const out = [];
   for (let i = 0; i < list.length; i += 2000) {
     const lo = list.slice(i, i + 2000);
