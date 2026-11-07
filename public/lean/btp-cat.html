@@ -21,6 +21,7 @@
     </div>
     <div class="cards" id="tomTat" hidden></div>
     <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
+    <div id="ghiChuTH" class="note" hidden>Bỏ trống lệnh: lấy các lệnh sản xuất (Bravo, lệnh gốc đã hoàn thiện, của XN đang chọn) có ngày lệnh trong khoảng xem; SL lệnh = lệnh gốc + điều chỉnh / thu hồi. Ghép tem cắt của lệnh (mọi ngày tạo tem), chỉ tính tem thân chính (chi tiết trống) của loại NL vải chính ('chính' hoặc 'VC') để SL theo sản phẩm. SL xuất / vào chuyền = SL quét xuất / quét nhận của tem cho phiếu cấp. Tồn = SL BTP - SL xuất.</div>
     <div id="dangLoc" class="note" hidden></div>
     <div id="nxt" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày (và lệnh SX nếu cần) rồi bấm Xem</div></div>
     <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
@@ -70,16 +71,16 @@
     lenhDangXem = v;
     const info = lenhs.find((l) => l.lenhSX === v);
     lenhInfo.textContent = info ? [info.maHang, info.khachHang, info.soLuong && `SL lệnh ${App.num(info.soLuong)}`].filter(Boolean).join(' · ') : '';
-    pDT.hidden = pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = true;
+    pDT.hidden = pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = ghiChuTH.hidden = true;
     App.loading(nxt);
     chon = null; temChon = null; gop = !v;
     try {
       if (gop) {
         // Bỏ trống lệnh: tổng hợp tính ở server trên mọi tem; lưới tem chỉ tải khi bấm 1 dòng tổng hợp
         App.loading(tongHop);
-        const th = await App.api('btp-cat/tong-hop', { ...khoang, xn: App.xn, theoXN: 1 });
+        const th = await App.api('btp-cat/tong-hop', { ...khoang, xn: App.xn });
         tatCa = [];
-        veBangTongHop(th.rows, th);
+        veBangTongHop(th.rows);
         veTem();
       } else {
         tatCa = await App.api('btp-cat', { lenhSX: v, ...khoang });
@@ -102,7 +103,8 @@
       const c = chon;
       App.loading(nxt);
       try {
-        const rs = await App.api('btp-cat', { lenhSX: c.lenhSX, ...khoang, xn: App.xn, theoXN: 1 });
+        // mọi tem của lệnh (không theo ngày tạo tem), như bảng tổng hợp
+        const rs = await App.api('btp-cat', { lenhSX: c.lenhSX, tuNgay: '2000-01-01', denNgay: App.today() });
         if (chon !== c) return;
         temChon = rs;
       } catch (e) { App.error(nxt, e); return; }
@@ -116,10 +118,10 @@
       return;
     }
     const nguon = gop ? (temChon || []) : tatCa;
-    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX && r.maHang === chon.maHang) : nguon;
+    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX && (gop || r.maHang === chon.maHang)) : nguon;
     dangLoc.hidden = !chon;
     if (chon) {
-      dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, mã hàng <b>${App.esc(chon.maHang)}</b> <button id="boLoc">Bỏ lọc</button>`;
+      dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, mã hàng <b>${App.esc(chon.maHang)}</b>${gop ? ' (mọi tem của lệnh, mọi ngày tạo)' : ''} <button id="boLoc">Bỏ lọc</button>`;
       boLoc.onclick = () => { chon = null; temChon = null; veTem(); };
     }
     App.table(nxt, [
@@ -183,19 +185,35 @@
     });
     veBang([...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })));
   }
-  // Chế độ gộp: bảng tổng hợp + ô tóm tắt lấy từ server
-  function veBangTongHop(rows, th) {
-    if (!rows.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = '<div class="empty">Không có tem BTP cắt trong khoảng ngày này</div>'; return; }
+  // Chế độ gộp: lệnh sản xuất trong khoảng xem ghép tem cắt (server: src/btpLenh.js)
+  function veBangTongHop(rows) {
+    ghiChuTH.hidden = false;
+    if (!rows.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = '<div class="empty">Không có lệnh sản xuất của XN trong khoảng ngày này</div>'; return; }
     const cong = (k) => rows.reduce((t, r) => t + Number(r[k] || 0), 0);
-    const cat = cong('slCat'); const xuat = cong('slXuat');
+    const lenhSL = cong('slLenh'); const btp = cong('slBTP'); const xuat = cong('slXuat');
     App.cards(document.getElementById('tomTat'), [
-      { label: 'Số tem', value: App.num(cong('soTem')), sub: `${App.num(new Set(rows.map((r) => r.lenhSX)).size)} lệnh` },
-      { label: 'SL cắt', value: App.num(cat) },
-      { label: 'SL đã xuất', value: App.num(xuat), sub: `${App.pct(xuat, cat)} SL cắt` },
+      { label: 'Số lệnh', value: App.num(rows.length), sub: `${App.num(rows.filter((r) => r.soTem).length)} lệnh đã có tem cắt` },
+      { label: 'SL lệnh', value: App.num(lenhSL) },
+      { label: 'SL BTP', value: App.num(btp), sub: `${App.pct(btp, lenhSL)} SL lệnh · ${App.num(cong('soTem'))} tem` },
+      { label: 'SL xuất', value: App.num(xuat), sub: `${App.pct(xuat, btp)} SL BTP` },
+      { label: 'SL vào chuyền', value: App.num(cong('slVaoChuyen')) },
       { label: 'Tồn', value: App.num(cong('slTon')) },
-      { label: 'Phiếu cấp đã xuất', value: App.num(th.soPhieu), sub: `${App.num(th.soTo)} tổ nhận` },
     ]);
-    veBang(rows.map((r) => ({ ...r, soTem: Number(r.soTem || 0), slCat: Number(r.slCat || 0), slXuat: Number(r.slXuat || 0), slTon: Number(r.slTon || 0) })));
+    App.table(tongHop, [
+      { key: 'ngayLenh', label: 'Ngày lệnh', type: 'date' },
+      { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'maHang', label: 'Mã hàng' },
+      { key: 'slLenh', label: 'SL lệnh', type: 'num', sum: true },
+      { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
+      { key: 'slBTP', label: 'SL BTP', type: 'num', sum: true },
+      { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
+      { key: 'slVaoChuyen', label: 'SL vào chuyền', type: 'num', sum: true },
+      { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
+      { key: 'tl', label: '% xuất', render: (r) => App.pctTag(r.slXuat, r.slBTP) },
+    ], rows.map((r) => ({ ...r, ...Object.fromEntries(['slLenh', 'soTem', 'slBTP', 'slXuat', 'slVaoChuyen', 'slTon'].map((k) => [k, Number(r[k] || 0)])) })), {
+      footer: true,
+      onClick: chonDong,
+    });
   }
   function veBang(dong) {
     App.table(tongHop, [

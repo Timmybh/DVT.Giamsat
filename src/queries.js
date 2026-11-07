@@ -490,32 +490,45 @@ module.exports = {
       ORDER BY t.NgayTao, t.Barcode, bc.ThoiGianQuetXuat`,
   },
 
-  // Tổng hợp NXT BTP cắt khi bỏ trống lệnh (không giới hạn dòng như btpCatNXT): lệnh x mã hàng, chỉ loại NL vải chính (có chữ 'chính' hoặc 'VC'), cộng mọi chi tiết; lọc theo ngày tạo tem.
-  // SL xuất = tổng SoLuongDaXuat các lần quét của tem. Tham số: @tuNgay, @denNgay
-  btpCatTongHop: {
+  // NXT BTP cắt theo lệnh (bỏ trống lệnh), đọc 3 bước ở src/btpLenh.js:
+  // B1: lệnh gốc Bravo (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh trong khoảng xem, của XN (@dept 'M1'.., '' = mọi XN),
+  // kèm IdDetail của lệnh gốc + điều chỉnh / thu hồi (B2 dùng cpbPO để cộng SL lệnh). Tham số: @dept, @tuNgay, @denNgay
+  btpLenhKy: {
     db: 'egmf',
     text: `
-      SELECT REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang,
-             COUNT(*) AS soTem, SUM(ISNULL(t.SoLuong, 0)) AS slCat, SUM(ISNULL(x.slXuat, 0)) AS slXuat,
-             SUM(ISNULL(t.SoLuong, 0) - ISNULL(t.SoLuongThucXuat, 0)) AS slTon
-      FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
-      OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
-      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay)
-        AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%') AND ${temXN}
-      GROUP BY REPLACE(ISNULL(t.LenhSanXuat, ''), ';', ''), REPLACE(ISNULL(t.MaHang, ''), ';', '')`,
+      WITH goc AS (
+        SELECT a.DocNo, MIN(m.DocDate) AS ngayLenh
+        FROM dbo.Bravo_LenhSanXuat_Detail a
+        JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
+        WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+          AND (@dept = '' OR LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) = @dept)
+          AND m.DocDate >= @tuNgay AND m.DocDate < DATEADD(day, 1, @denNgay)
+        GROUP BY a.DocNo
+      )
+      SELECT g.DocNo AS lenhSX, g.ngayLenh, a.Id AS idDetail
+      FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.DocNo = g.DocNo
+      WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+      UNION ALL
+      SELECT g.DocNo, g.ngayLenh, a.Id
+      FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.ProductionOrderAdjNo = g.DocNo
+      WHERE a.TypeCt IN (1, 2) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4`,
   },
-  // Số phiếu cấp / tổ đã nhận BTP của các tem trong khoảng ngày (ô tóm tắt khi bỏ trống lệnh). Tham số: @tuNgay, @denNgay
-  btpCatPhieu: {
+  // B3: tem cắt của các lệnh (mọi ngày tạo tem): chỉ tem thân chính (TenChiTiet trống) của loại NL vải chính ('chính' hoặc 'VC'),
+  // để SL ra theo sản phẩm. Xuất / vào chuyền = cộng SoLuongDaXuat / SoLuongDaNhan các lần quét tem cho phiếu cấp.
+  // @l0.. = lệnh dạng 'X;' và 'X' (cột LenhSanXuat của tem lưu 'X;')
+  btpCatTheoLenh: ({ n = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      SELECT COUNT(DISTINCT bc.SoPhieuCapBTP) AS soPhieu,
-             COUNT(DISTINCT pc.TenPhanXuong + '-' + LTRIM(RTRIM(pc.TenCum))) AS soTo
+      SELECT LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))) AS lenhSX,
+             COUNT(*) AS soTem, SUM(ISNULL(t.SoLuong, 0)) AS slBTP,
+             SUM(ISNULL(x.slXuat, 0)) AS slXuat, SUM(ISNULL(x.slNhan, 0)) AS slVaoChuyen
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
-      JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
-      LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
-      WHERE t.NgayTao >= @tuNgay AND t.NgayTao < DATEADD(day, 1, @denNgay) AND ${temXN}`,
-  },
-
+      OUTER APPLY (SELECT SUM(ISNULL(bc.SoLuongDaXuat, 0)) AS slXuat, SUM(ISNULL(bc.SoLuongDaNhan, 0)) AS slNhan
+                   FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc WHERE bc.TemBarcodeBTP = t.Barcode) x
+      WHERE t.LenhSanXuat IN (${dsThamSo('l', n)})
+        AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%') AND ISNULL(t.TenChiTiet, '') = ''
+      GROUP BY LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', '')))`,
+  }),
   // Một dòng BTP cắt đã xuất cho phiếu cấp nào, kèm dòng đặt (PO x màu x size) tương ứng
   // trong CUTTING_PhieuCapBTP_ChiTiet (nối qua BarcodeChiTiet.IdCapBTPCT).
   // Tham số: @lenhSX, @loaiNL, @chiTiet, @mau, @size, @tuNgay, @denNgay (ngày tạo tem, '' là không lọc)

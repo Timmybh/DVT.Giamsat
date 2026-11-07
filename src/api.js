@@ -59,6 +59,7 @@ async function moRongSBD(rows) {
 
 // PO có lệnh cho XN nhưng chưa phân bổ (src/chuaPhanBo.js); dữ liệu mẫu dùng mock keHoachChuaPhanBo(Size)
 const { docChuaPhanBo } = require('./chuaPhanBo');
+const { docBtpLenh } = require('./btpLenh');
 const chuaPB = (p, theoSize) => (db.useMock() ? mock[theoSize ? 'keHoachChuaPhanBoSize' : 'keHoachChuaPhanBo'](p) : docChuaPhanBo(p, theoSize));
 
 function handle(name, getParams) {
@@ -415,14 +416,16 @@ const xnSoCua = async (req) => (req.query.theoXN === '1' ? String((await xnNum(r
 router.get('/btp-cat', handle('btpCatNXT', async (req) => ({
   lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay, xnSo: await xnSoCua(req),
 })));
-// Bỏ trống lệnh: tổng hợp tính ở server (đủ mọi tem), lưới tem tải riêng khi bấm 1 dòng
+// Bỏ trống lệnh: lệnh sản xuất có ngày lệnh trong khoảng xem (của XN đang chọn) ghép với tem cắt (src/btpLenh.js);
+// lưới tem tải riêng khi bấm 1 dòng
 router.get('/btp-cat/tong-hop', async (req, res) => {
   try {
-    const p = { tuNgay: req.query.tuNgay, denNgay: req.query.denNgay, xnSo: await xnSoCua(req) };
-    const [rows, [phieu = {}] = []] = await Promise.all([run('btpCatTongHop', p), run('btpCatPhieu', p)]);
-    res.json({ rows, soPhieu: Number(phieu.soPhieu || 0), soTo: Number(phieu.soTo || 0) });
+    const n = await xnNum(req.query.xn);
+    const p = { dept: n ? `M${n}` : '', tuNgay: req.query.tuNgay, denNgay: req.query.denNgay };
+    const rows = db.useMock() ? mock.btpCatLenh(p) : await docBtpLenh(p);
+    res.json({ rows });
   } catch (err) {
-    console.error('[btpCatTongHop]', err.message);
+    console.error('[btpCatLenh]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
