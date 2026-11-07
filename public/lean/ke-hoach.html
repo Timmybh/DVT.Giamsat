@@ -45,6 +45,9 @@
   const now = new Date();
   tuNgay.value = iso(new Date(now.getFullYear(), now.getMonth(), 1));
   denNgay.value = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  // Ngày lệnh mặc định: 60 ngày trước đến hôm nay
+  lenhTu.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60, 12));
+  lenhDen.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
   let rows = [];
   // Ngày SX: khoảng may kế hoạch giao với khoảng chọn; Ngày lệnh: PO có lệnh Bravo ngày lệnh trong khoảng. Để trống khoảng nào là không lọc khoảng đó
   const khoang = () => ({ tuNgay: tuNgay.value, denNgay: denNgay.value || tuNgay.value, lenhTu: lenhTu.value, lenhDen: lenhDen.value || lenhTu.value });
