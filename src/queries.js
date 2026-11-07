@@ -62,9 +62,10 @@ const poDatToSQL = `
 // Lọc kế hoạch (OMM_KeHoachThang k, OMM_PO po) theo 2 khoảng ngày, khoảng nào để trống ('') thì không lọc:
 //  - Ngày SX @tuNgay..@denNgay: khoảng may kế hoạch (bắt đầu - kết thúc may) giao với khoảng xem
 //  - Ngày lệnh @lenhTu..@lenhDen: PO có lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) ngày lệnh trong khoảng.
-// Danh sách PO (@dsPO = ';PO1;PO2;') do API đọc trước theo 2 bước nhỏ (lenhGocKy + cpbPO): lọc thẳng Detail_PO trong câu lớn chạy quá chậm
-const khLoc = `(@tuNgay = '' OR (k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)))
-          AND (@lenhTu = '' OR CHARINDEX(';' + LTRIM(RTRIM(po.PONo)) + ';', @dsPO) > 0)`;
+// Ngày lệnh: API đọc trước danh sách PO của các lệnh trong khoảng (lenhGocKy + cpbPO, 2 câu nhỏ; lọc thẳng Detail_PO trong câu lớn bị timeout).
+// nPO > 0: truyền PO thành tham số @p0.. (dùng được chỉ mục PONo, API chạy theo lô 2000 PO); nPO = 0: @dsPO = ';PO1;PO2;' (câu 1 PO như keHoachSize)
+const khLoc = (nPO = 0) => `(@tuNgay = '' OR (k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)))
+          AND ${nPO ? `po.PONo IN (${Array.from({ length: nPO }, (_, i) => `@p${i}`).join(', ')})` : "(@lenhTu = '' OR CHARINDEX(';' + LTRIM(RTRIM(po.PONo)) + ';', @dsPO) > 0)"}`;
 // Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
 const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
 // Dòng SBD nhập "Lấy tất cả SIZE" mà để trống size (vd PO 4558955102FOA409991): SoLuong lưu lệch (chỉ bằng 1 size),
@@ -118,7 +119,7 @@ module.exports = {
   // Kế hoạch phân bổ theo tổ x mã hàng x PO x lệnh SX (Bravo_LenhSanXuat_Detail_PO, slLenh = SL của PO trong lệnh).
   // PO có nhiều lệnh thành nhiều dòng; SL kế hoạch (của tổ x PO) chỉ ghi ở dòng đầu để tổng không bị lặp.
   // Tham số: @xn, @tuNgay, @denNgay
-  keHoachPhanBo: {
+  keHoachPhanBo: ({ nPO = 0 } = {}) => ({
     db: 'egmf',
     text: `
       SELECT x.maTo, x.tenTo, x.maHang, x.po, l.lenhSX, l.ngayLenh, l.slLenh, l.lenhGoc, l.dept, l.typeCt,
@@ -138,7 +139,7 @@ module.exports = {
         JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND k.SoLuong > 0
-          AND ${khLoc}
+          AND ${khLoc(nPO)}
         GROUP BY e.TenCum, dh.MaHang, po.PONo
       ) x
       LEFT JOIN (
@@ -151,7 +152,7 @@ module.exports = {
         GROUP BY b.PO, a.DocNo
       ) l ON l.PO = x.po
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
-  },
+  }),
 
   // Dòng Detail của lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) có ngày lệnh trong khoảng (bước 1 lọc Ngày lệnh, bước 2 = cpbPO). Tham số: @lenhTu, @lenhDen
   lenhGocKy: {
@@ -214,7 +215,7 @@ module.exports = {
 
   // Kế hoạch phân bổ theo size: tổ x mã hàng x PO x màu x size (OMM_KeHoachThang_SBD), cùng điều kiện ngày với keHoachPhanBo.
   // thuTuSize: STT size trên phiếu điều tiết của mã hàng. Lệnh ghép ở API từ lenhTheoSize. Tham số: @xn, @tuNgay, @denNgay
-  keHoachTheoSize: {
+  keHoachTheoSize: ({ nPO = 0 } = {}) => ({
     db: 'egmf',
     text: `
       WITH sbd AS (
@@ -228,7 +229,7 @@ module.exports = {
         JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND k.SoLuong > 0
-          AND ${khLoc}
+          AND ${khLoc(nPO)}
         GROUP BY LTRIM(RTRIM(e.TenCum)), dh.MaHang, po.PONo, ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}
       ),
       tt AS (
@@ -241,11 +242,11 @@ module.exports = {
       SELECT x.*,
              (SELECT MIN(t.stt) FROM tt t WHERE t.MaHang = x.maHang AND (t.SizeName = x.size OR t.SizeCode = REPLACE(x.size, ' ', ''))) AS thuTuSize
       FROM sbd x`,
-  },
+  }),
 
   // SL kế hoạch theo lệnh SX x PO x màu x size (Bravo_LenhSanXuat_Detail_PO) cho các PO của keHoachTheoSize.
   // Lệnh điều chỉnh / thu hồi (TypeCt = 1 / 2, ProductionOrderAdjNo = lệnh gốc) cộng vào lệnh gốc; bỏ lệnh IsActive = 0. Tham số như keHoachTheoSize
-  lenhTheoSize: {
+  lenhTheoSize: ({ nPO = 0 } = {}) => ({
     db: 'egmf',
     text: `
       WITH dsPO AS (
@@ -258,7 +259,7 @@ module.exports = {
         JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
         JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
         WHERE px.XNId = @xn AND k.SoLuong > 0
-          AND ${khLoc}
+          AND ${khLoc(nPO)}
       )
       SELECT CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END AS lenhSX,
              b.PO AS po, MAX(b.ProductCode) AS maHang, ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size,
@@ -270,7 +271,7 @@ module.exports = {
       WHERE b.PO IN (SELECT po FROM dsPO) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
       GROUP BY CASE WHEN a.TypeCt IN (1, 2) AND ISNULL(a.ProductionOrderAdjNo, '') <> '' THEN a.ProductionOrderAdjNo ELSE a.DocNo END,
                b.PO, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
-  },
+  }),
 
   // Size breakdown của PO chi tiết (theo POCTId) để tách dòng SBD "Lấy tất cả SIZE" trống size. @c0.. = POCTId
   poSBD: ({ n = 0 } = {}) => ({
@@ -315,7 +316,7 @@ module.exports = {
       JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
       JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
       WHERE px.XNId = @xn AND k.SoLuong > 0 AND LTRIM(RTRIM(e.TenCum)) = @to AND dh.MaHang = @maHang AND (@po = '' OR po.PONo = @po)
-        AND ${khLoc}
+        AND ${khLoc()}
       GROUP BY ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}`,
   },
 

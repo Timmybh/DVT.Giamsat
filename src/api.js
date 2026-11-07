@@ -146,10 +146,10 @@ router.get('/to', handle('to', (req) => ({ xn: req.query.xn })));
 // Có Ngày lệnh: đọc trước danh sách PO của các lệnh gốc trong khoảng (lenhGocKy -> cpbPO theo lô IdDetail), truyền vào @dsPO.
 const cachePO = new Map();
 async function poTheoNgayLenh(lenhTu, lenhDen) {
-  if (db.useMock()) return '';
+  if (db.useMock()) return { ds: '', list: [] };
   const k = `${lenhTu}|${lenhDen}`;
   const c = cachePO.get(k);
-  if (c && Date.now() - c.t < 5 * 60000) return c.ds;
+  if (c && Date.now() - c.t < 5 * 60000) return c;
   const ids = (await db.query(queries.lenhGocKy, { lenhTu, lenhDen })).map((r) => Number(r.idDetail));
   const pos = new Set();
   for (let i = 0; i < ids.length; i += 1000) {
@@ -157,9 +157,20 @@ async function poTheoNgayLenh(lenhTu, lenhDen) {
     (await db.query(queries.cpbPO({ n: lo.length }), Object.fromEntries(lo.map((v, j) => [`d${j}`, v]))))
       .forEach((r) => { if (String(r.po ?? '').trim()) pos.add(String(r.po).trim()); });
   }
-  const ds = `;${[...pos].join(';')};`;
-  cachePO.set(k, { t: Date.now(), ds });
-  return ds;
+  const kq = { ds: `;${[...pos].join(';')};`, list: [...pos] };
+  cachePO.set(k, { t: Date.now(), ...kq });
+  return kq;
+}
+// Chạy câu kế hoạch: có Ngày lệnh thì truyền PO thành tham số @p0.. theo lô 2000 (SQL Server tối đa 2100 tham số)
+async function chayTheoPO(name, p) {
+  const { dsPOList: list, ...pp } = p;
+  if (!pp.lenhTu || db.useMock()) return run(name, pp);
+  const out = [];
+  for (let i = 0; i < list.length; i += 2000) {
+    const lo = list.slice(i, i + 2000);
+    out.push(...await run(name, { ...pp, ...Object.fromEntries(lo.map((v, j) => [`p${j}`, v])) }, { nPO: lo.length }));
+  }
+  return out;
 }
 async function khoangKH(q) {
   let { tuNgay = '', denNgay = '', lenhTu = '', lenhDen = '' } = q;
@@ -168,14 +179,18 @@ async function khoangKH(q) {
   if (!tuNgay) denNgay = '';
   if (lenhTu && !lenhDen) lenhDen = today() < lenhTu ? lenhTu : today();
   if (!lenhTu) lenhDen = '';
-  return { tuNgay, denNgay, lenhTu, lenhDen, dsPO: lenhTu ? await poTheoNgayLenh(lenhTu, lenhDen) : '' };
+  const po = lenhTu ? await poTheoNgayLenh(lenhTu, lenhDen) : { ds: '', list: [] };
+  return { tuNgay, denNgay, lenhTu, lenhDen, dsPO: po.ds, dsPOList: po.list };
 }
+// Thứ tự như ORDER BY của keHoachPhanBo (chạy theo lô PO thì phải sắp lại)
+const sapKH = (rs) => rs.sort((a, b) => String(a.maTo ?? '').length - String(b.maTo ?? '').length || String(a.maTo ?? '').localeCompare(String(b.maTo ?? ''))
+  || new Date(a.ngayBatDau) - new Date(b.ngayBatDau) || String(a.po ?? '').localeCompare(String(b.po ?? '')) || String(a.lenhSX ?? '').localeCompare(String(b.lenhSX ?? '')));
 router.get('/ke-hoach-phan-bo', async (req, res) => {
   try {
-    const pk = { xn: req.query.xn, ...(await khoangKH(req.query)) };
+    const { dsPOList, ...pk } = { xn: req.query.xn, ...(await khoangKH(req.query)) };
     const n = await xnNum(req.query.xn);
     // PO đã có lệnh cho xí nghiệp (DeptCode M<n>) nhưng chưa phân bổ cho tổ nào: hiện cuối bảng, tổ trống, SL kế hoạch trống
-    const [rows0, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? chuaPB({ ...pk, dept: `M${n}` }, false) : []]);
+    const [rows0, chua] = await Promise.all([chayTheoPO('keHoachPhanBo', { ...pk, dsPOList }).then(sapKH), n ? chuaPB({ ...pk, dept: `M${n}` }, false) : []]);
     // Mỗi tổ x PO: ưu tiên lệnh đúng DeptCode của XN (theoXN), rồi ẩn lệnh gốc đã thu hồi về 0 (gốc + điều chỉnh / thu hồi = 0)
     // khi còn lệnh khác > 0; SL kế hoạch chuyển về dòng đầu còn lại.
     const nhomTP = new Map();
@@ -235,9 +250,9 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
 // Ghép theo PO + màu (bangMau: tên SBD -> mã màu Bravo) + size chuẩn hóa; mỗi lệnh 1 dòng. Dòng lệnh không ghép được SBD vẫn hiện (tổ trống).
 router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
   try {
-    const p = { xn: req.query.xn, ...(await khoangKH(req.query)) };
+    const { dsPOList, ...p } = { xn: req.query.xn, ...(await khoangKH(req.query)) };
     const nXN = await xnNum(req.query.xn);
-    const [sbd, lenh, chua] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p),
+    const [sbd, lenh, chua] = await Promise.all([chayTheoPO('keHoachTheoSize', { ...p, dsPOList }), chayTheoPO('lenhTheoSize', { ...p, dsPOList }),
       nXN ? chuaPB({ ...p, dept: `M${nXN}` }, true) : []]);
     const kMau = bangMau(sbd, lenh);
     const poS = (po) => String(po ?? '').trim();
@@ -318,7 +333,7 @@ router.get('/ke-hoach-phan-bo/lenh-size', async (req, res) => {
   }
 });
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', async (req) => ({
-  xn: req.query.xn, ...(await khoangKH(req.query)), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
+  xn: req.query.xn, ...(({ dsPOList, ...k }) => k)(await khoangKH(req.query)), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));
 router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,

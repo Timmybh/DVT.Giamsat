@@ -14,16 +14,16 @@ if (!xn || !tuNgay || !denNgay) { console.error('Ví dụ: npm run do-thoi-gian 
   const so = ten ? (/(\d+)/.exec(String(ten.TenXiNghiep)) || [])[1] : '';
   const dept = process.argv[5] || (so ? `M${Number(so)}` : '');
   console.log(`xn=${xn} dept=${dept} ${tuNgay} -> ${denNgay}`);
-  const p = { xn, tuNgay, denNgay, dept };
+  const p = { xn, tuNgay, denNgay, dept, lenhTu: '', lenhDen: '', dsPO: '' };
   const chay = {
-    keHoachPhanBo: () => db.query(queries.keHoachPhanBo, p),
+    keHoachPhanBo: () => db.query(queries.keHoachPhanBo(), p),
     'chuaPhanBo (Theo PO)': () => docChuaPhanBo(p, false),
-    keHoachTheoSize: () => db.query(queries.keHoachTheoSize, p),
-    lenhTheoSize: () => db.query(queries.lenhTheoSize, p),
+    keHoachTheoSize: () => db.query(queries.keHoachTheoSize(), p),
+    lenhTheoSize: () => db.query(queries.lenhTheoSize(), p),
     'chuaPhanBo (Theo size)': () => docChuaPhanBo(p, true),
   };
   // SL SX HiPro của trang: cũ (mọi PO, chỉ bảng hiện hành) và mới (PO của bảng, kèm bảng lưu trữ)
-  const kh = await db.query(queries.keHoachPhanBo, p);
+  const kh = await db.query(queries.keHoachPhanBo(), p);
   const tu = kh.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
   const tuS = `${tu.getFullYear()}-${String(tu.getMonth() + 1).padStart(2, '0')}-${String(tu.getDate()).padStart(2, '0')}`;
   const homNay = new Date().toISOString().slice(0, 10);
