@@ -141,9 +141,20 @@ router.get('/status', (req, res) => res.json({ mock: db.useMock() }));
 router.get('/xi-nghiep', handle('xiNghiep', () => ({})));
 router.get('/to', handle('to', (req) => ({ xn: req.query.xn })));
 // Kế hoạch phân bổ + SL đã sản xuất (HiPro, đạt lũy kế từ ngày vào chuyền sớm nhất đến hôm nay, theo tổ x mã hàng)
+// Khoảng ngày của màn kế hoạch: Ngày SX (tuNgay..denNgay, khoảng may kế hoạch) và Ngày lệnh (lenhTu..lenhDen, ngày lệnh Bravo).
+// Khoảng để trống là không lọc theo khoảng đó (queries.js khLoc); trống cả hai thì Ngày SX = hôm nay.
+function khoangKH(q) {
+  let { tuNgay = '', denNgay = '', lenhTu = '', lenhDen = '' } = q;
+  if (!tuNgay && !lenhTu) tuNgay = today();
+  if (tuNgay && !denNgay) denNgay = today() < tuNgay ? tuNgay : today();
+  if (!tuNgay) denNgay = '';
+  if (lenhTu && !lenhDen) lenhDen = today() < lenhTu ? lenhTu : today();
+  if (!lenhTu) lenhDen = '';
+  return { tuNgay, denNgay, lenhTu, lenhDen };
+}
 router.get('/ke-hoach-phan-bo', async (req, res) => {
   try {
-    const pk = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
+    const pk = { xn: req.query.xn, ...khoangKH(req.query) };
     const n = await xnNum(req.query.xn);
     // PO đã có lệnh cho xí nghiệp (DeptCode M<n>) nhưng chưa phân bổ cho tổ nào: hiện cuối bảng, tổ trống, SL kế hoạch trống
     const [rows0, chua] = await Promise.all([run('keHoachPhanBo', pk), n ? chuaPB({ ...pk, dept: `M${n}` }, false) : []]);
@@ -206,7 +217,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
 // Ghép theo PO + màu (bangMau: tên SBD -> mã màu Bravo) + size chuẩn hóa; mỗi lệnh 1 dòng. Dòng lệnh không ghép được SBD vẫn hiện (tổ trống).
 router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
   try {
-    const p = { xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today() };
+    const p = { xn: req.query.xn, ...khoangKH(req.query) };
     const nXN = await xnNum(req.query.xn);
     const [sbd, lenh, chua] = await Promise.all([run('keHoachTheoSize', p), run('lenhTheoSize', p),
       nXN ? chuaPB({ ...p, dept: `M${nXN}` }, true) : []]);
@@ -289,7 +300,7 @@ router.get('/ke-hoach-phan-bo/lenh-size', async (req, res) => {
   }
 });
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', (req) => ({
-  xn: req.query.xn, tuNgay: req.query.tuNgay || today(), denNgay: req.query.denNgay || today(), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
+  xn: req.query.xn, ...khoangKH(req.query), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));
 router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
   xnCode: await xnCode(req.query.xn), to: req.query.to,
