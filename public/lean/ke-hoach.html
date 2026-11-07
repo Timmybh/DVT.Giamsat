@@ -20,6 +20,8 @@
   .thanh-chia:hover::before, .thanh-chia.dang-keo::before { background: var(--primary); }
   .panel-duoi h2 { margin-top: 0; }
   .panel-duoi .note { margin: 6px 0 0; }
+  .bat-buoc { color: #c62828; }
+  input.thieu { border-color: #c62828; box-shadow: 0 0 0 2px rgba(198, 40, 40, .2); }
 </style>
 <script src="/js/common.js"></script>
 </head>
@@ -34,8 +36,8 @@
     <div class="filters">
       <label>Ngày SX từ <input type="date" id="tuNgay"></label>
       <label>đến <input type="date" id="denNgay"></label>
-      <label>Ngày lệnh từ <input type="date" id="lenhTu"></label>
-      <label>đến <input type="date" id="lenhDen"></label>
+      <label><span>Ngày lệnh từ <b class="bat-buoc">*</b></span> <input type="date" id="lenhTu" required></label>
+      <label><span>đến <b class="bat-buoc">*</b></span> <input type="date" id="lenhDen" required></label>
       <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <button id="btn">Xem</button>
     </div>
@@ -63,7 +65,14 @@
   let rows = [];
   // Đi từ lệnh: Ngày lệnh (bắt buộc) lấy lệnh Bravo, ghép kế hoạch theo PO; Ngày SX từ / đến để trống bên nào thì không lọc bên đó
   const khoang = () => ({ tuNgay: tuNgay.value, denNgay: denNgay.value, lenhTu: lenhTu.value, lenhDen: lenhDen.value });
-  const thieuLenh = () => !lenhTu.value || !lenhDen.value;
+  // Ngày lệnh bắt buộc: thiếu thì tô đỏ ô thiếu, đưa con trỏ vào ô đó và không tải
+  const thieuLenh = () => {
+    const thieu = [lenhTu, lenhDen].filter((el) => !el.value);
+    [lenhTu, lenhDen].forEach((el) => el.classList.toggle('thieu', !el.value));
+    if (thieu.length) thieu[0].focus();
+    return thieu.length > 0;
+  };
+  [lenhTu, lenhDen].forEach((el) => el.addEventListener('change', () => { if (el.value) el.classList.remove('thieu'); }));
 
   async function loadTo() {
     const list = await App.api('to', { xn: App.xn });
@@ -137,7 +146,7 @@
     size.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div>';
     tenLenh.textContent = ''; lanLenh++;
     sizeLenh.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div>';
-    if (thieuLenh()) { result.innerHTML = '<div class="empty">Chọn Ngày lệnh từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
+    if (thieuLenh()) { result.innerHTML = '<div class="empty">Ngày lệnh là bắt buộc: chọn đủ từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
     App.loading(result);
     try {
       rows = await App.api('ke-hoach-phan-bo', { xn: App.xn, ...khoang() });
@@ -173,7 +182,7 @@
     ], data, { footer: true, maxRows: 2000, empty: 'Không có kế hoạch theo size trong khoảng ngày này' });
   }
   async function loadSizeTab() {
-    if (thieuLenh()) { theoSize.innerHTML = '<div class="empty">Chọn Ngày lệnh từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
+    if (thieuLenh()) { theoSize.innerHTML = '<div class="empty">Ngày lệnh là bắt buộc: chọn đủ từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
     App.loading(theoSize);
     try {
       sizeRows = await App.api('ke-hoach-phan-bo/theo-size', { xn: App.xn, ...khoang() });

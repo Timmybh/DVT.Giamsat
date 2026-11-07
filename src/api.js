@@ -68,7 +68,7 @@ function handle(name, getParams) {
       res.json(await run(name, await getParams(req)));
     } catch (err) {
       console.error(`[${name}]`, err.message);
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message });
     }
   };
 }
@@ -132,7 +132,7 @@ function handleXn(name, getParams, laHiPro = false) {
         .map((r) => (r.line !== undefined ? { ...r, line: lineOf(r.line) } : r)));
     } catch (err) {
       console.error(`[${name}]`, err.message);
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message });
     }
   };
 }
@@ -141,7 +141,7 @@ router.get('/status', (req, res) => res.json({ mock: db.useMock() }));
 router.get('/xi-nghiep', handle('xiNghiep', () => ({})));
 router.get('/to', handle('to', (req) => ({ xn: req.query.xn })));
 // Kế hoạch phân bổ + SL đã sản xuất (HiPro, đạt lũy kế từ ngày vào chuyền sớm nhất đến hôm nay, theo tổ x mã hàng)
-// Màn kế hoạch đi từ lệnh: Ngày lệnh (lenhTu..lenhDen, bắt buộc, mặc định 60 ngày trước đến hôm nay) lấy lệnh gốc Bravo
+// Màn kế hoạch đi từ lệnh: Ngày lệnh (lenhTu..lenhDen, bắt buộc) lấy lệnh gốc Bravo
 // + điều chỉnh / thu hồi và PO của chúng (lenhGocKy -> lenhPOTheoId, giữ 5 phút); rồi ghép kế hoạch theo PO,
 // Ngày SX từ (tuNgay) / đến (denNgay) để trống bên nào thì không lọc bên đó.
 const cacheLenh = new Map();
@@ -209,9 +209,8 @@ async function chayTheoPO(name, p) {
 }
 async function khoangKH(q) {
   const { tuNgay = '', denNgay = '' } = q;
-  let { lenhTu = '', lenhDen = '' } = q;
-  if (!lenhTu) lenhTu = ymd(new Date(Date.now() - 60 * 86400000));
-  if (!lenhDen) lenhDen = today();
+  const { lenhTu = '', lenhDen = '' } = q;
+  if (!lenhTu || !lenhDen) throw Object.assign(new Error('Thiếu Ngày lệnh (từ ngày - đến ngày là bắt buộc)'), { status: 400 });
   const lenh = await lenhTheoNgay(lenhTu, lenhDen);
   return { tuNgay, denNgay, lenhTu, lenhDen, dsPO: lenh.ds, dsPOList: lenh.list, lenh };
 }
@@ -276,7 +275,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     }).concat(dongChua));
   } catch (err) {
     console.error('[keHoachPhanBo]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 // Kế hoạch theo size: SL phân bổ (SBD, theo tổ) ghép với SL kế hoạch của lệnh (Bravo, theo PO x màu x size).
@@ -338,7 +337,7 @@ router.get('/ke-hoach-phan-bo/theo-size', async (req, res) => {
     res.json(out);
   } catch (err) {
     console.error('[keHoachTheoSize]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 // Chi tiết size theo lệnh Bravo của 1 dòng Theo PO: lệnh đã chọn (gom cả điều chỉnh / thu hồi);
@@ -362,7 +361,7 @@ router.get('/ke-hoach-phan-bo/lenh-size', async (req, res) => {
     res.json(rows.filter((r) => ds.includes(r.lenhSX)).map((r) => ({ lenhSX: r.lenhSX, mau: r.mau, size: r.size, slLenh: Number(r.slLenh || 0) })));
   } catch (err) {
     console.error('[lenhSize]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', async (req) => ({
@@ -481,7 +480,7 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
     }));
   } catch (err) {
     console.error('[chiTietDatBTP]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 router.get('/sot-ma-hang', handleXn('sotMaHang', (req) => ({ tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today() })));
@@ -503,7 +502,7 @@ router.get('/btp-cat/tong-hop', async (req, res) => {
     res.json({ rows });
   } catch (err) {
     console.error('[btpCatLenh]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
@@ -570,7 +569,7 @@ router.get('/btp-cat/dieu-tiet', async (req, res) => {
     res.json({ coDieuTiet: true, loaiNLs, loaiMau, loaiChung, nhomLoai, nhomMau });
   } catch (err) {
     console.error('[dieuTiet]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 const dtParams = (req) => ({
@@ -654,7 +653,7 @@ router.get('/may-ra', async (req, res) => {
     res.json(await tinhMayRa(req.query.xn, req.query.tuNgay || today(), req.query.denNgay || today()));
   } catch (err) {
     console.error('[mayRa]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 // PO đang may của tổ trưởng: tự tính như báo cáo may ra với kỳ = ngày d (không đọc bảng Report_BaoCaoMayRa), bỏ PO đã may xong
@@ -668,7 +667,7 @@ router.get('/po-may-ra', async (req, res) => {
     })));
   } catch (err) {
     console.error('[poMayRa]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 // Tổ trưởng may: kế hoạch tổ theo PO (thẻ) x màu x size tại ngày d.
@@ -778,7 +777,7 @@ router.get('/to-may/ke-hoach', async (req, res) => {
     res.json({ the, sai: sai.sort((a, b) => String(b.ngayTao).localeCompare(String(a.ngayTao))) });
   } catch (err) {
     console.error('[toMayKeHoach]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
@@ -799,7 +798,7 @@ router.get('/doanh-thu', async (req, res) => {
     res.json([...byDay.values()]);
   } catch (err) {
     console.error('[doanhThuNgay]', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
