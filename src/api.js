@@ -421,7 +421,7 @@ router.get('/btp-cat', handle('btpCatNXT', async (req) => ({
 router.get('/btp-cat/tong-hop', async (req, res) => {
   try {
     const n = await xnNum(req.query.xn);
-    const p = { dept: n ? `M${n}` : '', tuNgay: req.query.tuNgay, denNgay: req.query.denNgay };
+    const p = { lenhSX: (req.query.lenhSX || '').trim(), dept: n ? `M${n}` : '', tuNgay: req.query.tuNgay, denNgay: req.query.denNgay };
     const rows = db.useMock() ? mock.btpCatLenh(p) : await docBtpLenh(p);
     res.json({ rows });
   } catch (err) {

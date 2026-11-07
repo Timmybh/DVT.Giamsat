@@ -256,7 +256,7 @@ module.exports = {
   lenhSX: ({ q }) => lenhSX.filter((l) => !q || l.lenhSX.includes(q) || l.maHang.includes(q))
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
   // NXT BTP cắt theo lệnh có ngày lệnh trong khoảng (như src/btpLenh.js): tem thân chính vải chính, mọi ngày tạo tem
-  btpCatLenh: ({ tuNgay, denNgay }) => lenhSX.filter((l) => inRange(l.ngay, tuNgay, denNgay)).map((l) => {
+  btpCatLenh: ({ lenhSX: lenh, tuNgay, denNgay }) => lenhSX.filter((l) => (lenh ? l.lenhSX === lenh : inRange(l.ngay, tuNgay, denNgay))).map((l) => {
     const ts = tem.filter((t) => t.lenhSX === l.lenhSX && /chính|vc/i.test(t.loaiNL || '') && t.chiTiet === chiTietList[0][1]); // mẫu không có tem chi tiết trống: lấy chi tiết đầu
     const qs = quetXuat.filter((x) => ts.some((t) => t.barcode === x.barcode));
     const slBTP = ts.reduce((a, t) => a + t.soLuong, 0);

@@ -21,7 +21,6 @@
     </div>
     <div class="cards" id="tomTat" hidden></div>
     <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
-    <div id="ghiChuTH" class="note" hidden>Bỏ trống lệnh: lấy các lệnh sản xuất (Bravo, lệnh gốc đã hoàn thiện, của XN đang chọn) có ngày lệnh trong khoảng xem; SL lệnh = lệnh gốc + điều chỉnh / thu hồi. Ghép tem cắt của lệnh (mọi ngày tạo tem), chỉ tính tem thân chính (chi tiết trống) của loại NL vải chính ('chính' hoặc 'VC') để SL theo sản phẩm. SL xuất / vào chuyền = SL quét xuất / quét nhận của tem cho phiếu cấp. Tồn = SL BTP - SL xuất.</div>
     <div id="dangLoc" class="note" hidden></div>
     <div id="nxt" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày (và lệnh SX nếu cần) rồi bấm Xem</div></div>
     <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
@@ -71,7 +70,7 @@
     lenhDangXem = v;
     const info = lenhs.find((l) => l.lenhSX === v);
     lenhInfo.textContent = info ? [info.maHang, info.khachHang, info.soLuong && `SL lệnh ${App.num(info.soLuong)}`].filter(Boolean).join(' · ') : '';
-    pDT.hidden = pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = ghiChuTH.hidden = true;
+    pDT.hidden = pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = true;
     App.loading(nxt);
     chon = null; temChon = null; gop = !v;
     try {
@@ -83,8 +82,10 @@
         veBangTongHop(th.rows);
         veTem();
       } else {
-        tatCa = await App.api('btp-cat', { lenhSX: v, ...khoang });
-        veTomTat(tatCa);
+        // bảng trên: cùng cách tính với bỏ trống lệnh (SL lệnh, tem thân chính mọi ngày); lưới tem theo ngày tạo tem
+        const [rs, th] = await Promise.all([App.api('btp-cat', { lenhSX: v, ...khoang }), App.api('btp-cat/tong-hop', { lenhSX: v, ...khoang })]);
+        tatCa = rs;
+        veBangTongHop(th.rows);
         veTem();
         if (tatCa.length >= 30000) lenhInfo.textContent = 'Chỉ lấy 30.000 dòng đầu, hãy thu hẹp khoảng ngày.';
       }
@@ -118,7 +119,7 @@
       return;
     }
     const nguon = gop ? (temChon || []) : tatCa;
-    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX && (gop || r.maHang === chon.maHang)) : nguon;
+    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX) : nguon; // mã hàng Bravo có thể khác mã trên tem
     dangLoc.hidden = !chon;
     if (chon) {
       dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, mã hàng <b>${App.esc(chon.maHang)}</b>${gop ? ' (mọi tem của lệnh, mọi ngày tạo)' : ''} <button id="boLoc">Bỏ lọc</button>`;
@@ -159,35 +160,8 @@
     });
   }
 
-  // Ô tổng hợp + bảng gọn theo lệnh x mã hàng (tính trên mọi dòng đã tải). Bấm dòng để lọc lưới tem
-  // Bảng tổng hợp chỉ cộng loại NL vải chính: tên có chữ 'chính' hoặc 'VC' (như btpCatTongHop ở server)
-  const laVaiChinh = (r) => /chính|vc/i.test(String(r.loaiNL || ''));
-  function veTomTat(data) {
-    if (!data.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = ''; return; }
-    const tem = new Set(data.map((r) => r.barcode));
-    const phieu = new Set(data.filter((r) => r.soPhieuCap).map((r) => r.soPhieuCap));
-    const cong = (rows, k) => rows.reduce((t, r) => t + Number(r[k] || 0), 0);
-    const cat = cong(data, 'slCat');
-    const xuat = cong(data, 'slXuat');
-    App.cards(document.getElementById('tomTat'), [
-      { label: 'Số tem', value: App.num(tem.size), sub: `${App.num(new Set(data.map((r) => r.lenhSX)).size)} lệnh` },
-      { label: 'SL cắt', value: App.num(cat) },
-      { label: 'SL đã xuất', value: App.num(xuat), sub: `${App.pct(xuat, cat)} SL cắt` },
-      { label: 'Tồn', value: App.num(cong(data, 'slTon')) },
-      { label: 'Phiếu cấp đã xuất', value: App.num(phieu.size), sub: `${App.num(new Set(data.filter((r) => r.maTo).map((r) => `${r.xn}-${r.maTo}`)).size)} tổ nhận` },
-    ]);
-    const nhom = new Map();
-    data.filter(laVaiChinh).forEach((r) => {
-      const k = `${r.lenhSX}|${r.maHang}`;
-      const g = nhom.get(k) || { lenhSX: r.lenhSX, maHang: r.maHang, tem: new Set(), slCat: 0, slXuat: 0, slTon: 0 };
-      g.tem.add(r.barcode); g.slCat += Number(r.slCat || 0); g.slXuat += Number(r.slXuat || 0); g.slTon += Number(r.slTon || 0);
-      nhom.set(k, g);
-    });
-    veBang([...nhom.values()].map((g) => ({ ...g, soTem: g.tem.size })));
-  }
-  // Chế độ gộp: lệnh sản xuất trong khoảng xem ghép tem cắt (server: src/btpLenh.js)
+  // Bảng trên: lệnh sản xuất (trong khoảng xem, hoặc lệnh đã nhập) ghép tem cắt (server: src/btpLenh.js)
   function veBangTongHop(rows) {
-    ghiChuTH.hidden = false;
     if (!rows.length) { document.getElementById('tomTat').innerHTML = ''; tongHop.innerHTML = '<div class="empty">Không có lệnh sản xuất của XN trong khoảng ngày này</div>'; return; }
     const cong = (k) => rows.reduce((t, r) => t + Number(r[k] || 0), 0);
     const lenhSL = cong('slLenh'); const btp = cong('slBTP'); const xuat = cong('slXuat');
@@ -215,21 +189,6 @@
       onClick: chonDong,
     });
   }
-  function veBang(dong) {
-    App.table(tongHop, [
-      { key: 'lenhSX', label: 'Lệnh SX' },
-      { key: 'maHang', label: 'Mã hàng' },
-      { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
-      { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
-      { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
-      { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
-      { key: 'tl', label: '% xuất', render: (r) => App.pctTag(r.slXuat, r.slCat) },
-    ], dong.sort((a, b) => b.slCat - a.slCat), {
-      footer: true,
-      onClick: chonDong,
-    });
-  }
-
   // Khi chọn 1 lệnh: thêm bảng đồng bộ theo điều tiết (SL sản phẩm đủ mọi chi tiết, mọi loại NL)
   async function loadDieuTiet(v) {
     pDT.hidden = false;

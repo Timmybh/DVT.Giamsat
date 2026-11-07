@@ -491,8 +491,8 @@ module.exports = {
   },
 
   // NXT BTP cắt theo lệnh (bỏ trống lệnh), đọc 3 bước ở src/btpLenh.js:
-  // B1: lệnh gốc Bravo (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh trong khoảng xem, của XN (@dept 'M1'.., '' = mọi XN),
-  // kèm IdDetail của lệnh gốc + điều chỉnh / thu hồi (B2 dùng cpbPO để cộng SL lệnh). Tham số: @dept, @tuNgay, @denNgay
+  // B1: lệnh gốc Bravo (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh trong khoảng xem, của XN (@dept 'M1'.., '' = mọi XN); hoặc đúng 1 lệnh @lenhSX (không xét ngày / XN),
+  // kèm IdDetail của lệnh gốc + điều chỉnh / thu hồi (B2 dùng cpbPO để cộng SL lệnh). Tham số: @lenhSX, @dept, @tuNgay, @denNgay
   btpLenhKy: {
     db: 'egmf',
     text: `
@@ -501,8 +501,9 @@ module.exports = {
         FROM dbo.Bravo_LenhSanXuat_Detail a
         JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
         WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
-          AND (@dept = '' OR LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) = @dept)
-          AND m.DocDate >= @tuNgay AND m.DocDate < DATEADD(day, 1, @denNgay)
+          AND ((@lenhSX <> '' AND a.DocNo = @lenhSX)
+               OR (@lenhSX = '' AND (@dept = '' OR LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) = @dept)
+                   AND m.DocDate >= @tuNgay AND m.DocDate < DATEADD(day, 1, @denNgay)))
         GROUP BY a.DocNo
       )
       SELECT g.DocNo AS lenhSX, g.ngayLenh, a.Id AS idDetail

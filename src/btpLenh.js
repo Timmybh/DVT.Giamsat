@@ -7,8 +7,8 @@ const queries = require('./queries');
 const LO = 1000; // số tham số mỗi lần IN (SQL Server tối đa 2100)
 const chia = (ds, n = LO) => Array.from({ length: Math.ceil(ds.length / n) }, (_, i) => ds.slice(i * n, (i + 1) * n));
 
-async function docBtpLenh({ dept, tuNgay, denNgay }) {
-  const dong = await db.query(queries.btpLenhKy, { dept, tuNgay, denNgay });
+async function docBtpLenh({ lenhSX = '', dept, tuNgay, denNgay }) {
+  const dong = await db.query(queries.btpLenhKy, { lenhSX, dept, tuNgay, denNgay });
   if (!dong.length) return [];
   const cuaId = new Map(dong.map((l) => [String(l.idDetail), l]));
   const lenh = new Map();
@@ -23,7 +23,7 @@ async function docBtpLenh({ dept, tuNgay, denNgay }) {
       if (!l.maHang && r.maHang) l.maHang = String(r.maHang).trim();
     });
   }
-  const ds = [...lenh.values()].filter((l) => l.slLenh > 0); // bỏ lệnh đã thu hồi hết
+  const ds = [...lenh.values()].filter((l) => lenhSX || l.slLenh > 0); // bỏ lệnh đã thu hồi hết (trừ khi xem đúng 1 lệnh)
   // B3: tem cắt theo lệnh
   const tem = new Map();
   for (const lo of chia(ds.map((l) => l.lenhSX), LO / 2)) {
