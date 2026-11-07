@@ -439,7 +439,7 @@ router.get('/btp-cat/xuat', handle('btpCatXuat', (req) => ({
 //  - Cắt theo chủng loại: mọi loại NL (Vải chính, Keo...) -> nhóm con từng loại NL, dòng theo size (cộng mọi màu).
 //  - Cắt theo màu: chỉ loại NL có ghi màu -> nhóm con từng màu, dòng theo size; cắt / xuất đồng bộ = nhỏ nhất giữa các loại NL có màu
 //    (loại NL nào chưa cắt size đó tính 0), tác nghiệp = lớn nhất.
-// Size ghi khác nhau giữa tác nghiệp và bàn máy sẽ thành dòng riêng.
+// Size ghi khác nhau giữa tác nghiệp và bàn may sẽ thành dòng riêng.
 const sizeSort = (a, b) => a.size.localeCompare(b.size, undefined, { numeric: true });
 const tinh = (r) => ({ ...r, slTon: r.slCat - r.slXuat, conPhaiCat: Math.max(r.tacNghiep - r.slCat, 0) });
 router.get('/btp-cat/dieu-tiet', async (req, res) => {

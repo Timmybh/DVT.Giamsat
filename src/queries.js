@@ -528,7 +528,7 @@ module.exports = {
       GROUP BY LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))), ISNULL(t.LoaiNguyenLieu, '')`,
   }),
   // B4: quét xuất / nhận của các lệnh theo lệnh x loại NL. Kho quét bằng tem cắt (BTP.., CUTTING_PhieuHoachToan_TemBarCode)
-  // hoặc tem tổng hợp phối bộ (BTH.., CUTTING_PhieuHoachToan_TemBarcode_TongHop, gom nhiều bàn máy); chỉ tem thân chính vải chính.
+  // hoặc tem tổng hợp phối bộ (BTH.., CUTTING_PhieuHoachToan_TemBarcode_TongHop, gom nhiều bàn may); chỉ tem thân chính vải chính.
   // Xuất = SoLuongDaXuat, vào chuyền = SoLuongDaNhan. @l0.. như B3
   btpXuatTheoLenh: ({ n = 0 } = {}) => ({
     db: 'egmf',
