@@ -9,6 +9,17 @@
   .hai-luoi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; }
   .hai-luoi > div { min-width: 0; }
   .hai-luoi h3 { margin: 0 0 8px; font-size: 15px; }
+  /* Chia màn hình: lưới kế hoạch (trên) và size breakdown (dưới) cao cố định theo màn hình, kéo thanh chia để đổi tỷ lệ */
+  #result, #sizeLenh, #size { display: flex; flex-direction: column; }
+  #result { height: var(--h-tren, 420px); }
+  #sizeLenh, #size { height: var(--h-duoi, 300px); }
+  #result > .table-wrap, #sizeLenh > .table-wrap, #size > .table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+  .panel-tren { margin-bottom: 0; }
+  .thanh-chia { height: 10px; margin: 0 0 0; cursor: row-resize; display: flex; align-items: center; justify-content: center; user-select: none; touch-action: none; }
+  .thanh-chia::before { content: ''; width: 60px; height: 4px; border-radius: 2px; background: var(--line); }
+  .thanh-chia:hover::before, .thanh-chia.dang-keo::before { background: var(--primary); }
+  .panel-duoi h2 { margin-top: 0; }
+  .panel-duoi .note { margin: 6px 0 0; }
 </style>
 <script src="/js/common.js"></script>
 </head>
@@ -19,7 +30,7 @@
     <button data-tab="tabPO" class="active">Theo PO</button>
     <button data-tab="tabSize">Theo size</button>
   </div>
-  <div class="panel">
+  <div class="panel panel-tren" id="panelTren">
     <div class="filters">
       <label>Ngày SX từ <input type="date" id="tuNgay"></label>
       <label>đến <input type="date" id="denNgay"></label>
@@ -28,14 +39,15 @@
       <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <button id="btn">Xem</button>
     </div>
-    <div id="result" class="luoi-cao luoi-10 tab-noi" data-tab="tabPO"></div>
+    <div id="result" class="luoi-cao tab-noi" data-tab="tabPO"></div>
     <div id="theoSize" class="luoi-cao luoi-gon tab-noi" data-tab="tabSize" hidden><div class="empty">Bấm Xem để tải kế hoạch theo size</div></div>
   </div>
-  <div class="panel tab-noi" data-tab="tabPO">
+  <div class="thanh-chia tab-noi" data-tab="tabPO" id="thanhChia" title="Kéo để đổi chiều cao 2 phần"></div>
+  <div class="panel panel-duoi tab-noi" data-tab="tabPO" id="panelDuoi">
     <h2>Size breakdown <span id="tenDong"></span></h2>
     <div class="hai-luoi">
-      <div><h3>Theo lệnh Bravo <span id="tenLenh"></span></h3><div id="sizeLenh"><div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div></div></div>
-      <div><h3>Phân bổ (SBD)</h3><div id="size"><div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div></div></div>
+      <div><h3>Theo lệnh Bravo <span id="tenLenh"></span></h3><div id="sizeLenh" class="luoi-cao"><div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div></div></div>
+      <div><h3>Phân bổ (SBD)</h3><div id="size" class="luoi-cao"><div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div></div></div>
     </div>
     <div class="note">Bên trái: SL lệnh Bravo theo mã màu x size của PO (lệnh điều chỉnh / thu hồi đã cộng vào lệnh gốc). Bên phải: SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD (size trống = chưa phân bổ size). Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
   </div>
@@ -172,7 +184,40 @@
     document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
     document.querySelectorAll('.tab-noi').forEach((el) => (el.hidden = el.dataset.tab !== tab));
     if (tab === 'tabSize' && !sizeRows) loadSizeTab();
+    chiaManHinh();
   });
+
+  // Chia màn hình theo chiều cao cửa sổ: tỷ lệ phần trên (lưu theo máy), phần dưới lấy phần còn lại
+  let tyLe = 0.55;
+  try { const v = Number(localStorage.getItem('ke-hoach-ty-le')); if (v >= 0.15 && v <= 0.85) tyLe = v; } catch (e) { /* bỏ qua */ }
+  function chiaManHinh() {
+    if (tab !== 'tabPO') return;
+    const tren = result.getBoundingClientRect().top + window.scrollY;           // từ đầu trang đến lưới trên
+    const duoiPhu = panelDuoi.offsetHeight - sizeLenh.offsetHeight;             // tiêu đề + ghi chú phần dưới
+    const conLai = window.innerHeight - tren - thanhChia.offsetHeight - duoiPhu - 20 - 40; // 20: lề panel, 40: chân trang
+    const cao = Math.max(conLai, 300);
+    document.documentElement.style.setProperty('--h-tren', `${Math.round(cao * tyLe)}px`);
+    document.documentElement.style.setProperty('--h-duoi', `${Math.round(cao * (1 - tyLe))}px`);
+  }
+  window.addEventListener('resize', chiaManHinh);
+  thanhChia.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    thanhChia.setPointerCapture(e.pointerId);
+    thanhChia.classList.add('dang-keo');
+    const y0 = e.clientY; const h0 = result.offsetHeight; const tong = h0 + sizeLenh.offsetHeight;
+    const keo = (ev) => {
+      tyLe = Math.min(0.85, Math.max(0.15, (h0 + ev.clientY - y0) / tong));
+      chiaManHinh();
+    };
+    const tha = () => {
+      thanhChia.classList.remove('dang-keo');
+      thanhChia.removeEventListener('pointermove', keo);
+      try { localStorage.setItem('ke-hoach-ty-le', String(tyLe)); } catch (err) { /* bỏ qua */ }
+    };
+    thanhChia.addEventListener('pointermove', keo);
+    thanhChia.addEventListener('pointerup', tha, { once: true });
+  });
+  chiaManHinh();
 
   btn.onclick = () => { sizeRows = null; load(); if (tab === 'tabSize') loadSizeTab(); };
   to.onchange = () => { draw(); if (sizeRows) drawSize(); };
