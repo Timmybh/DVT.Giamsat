@@ -35,7 +35,7 @@
       <div><h3>Theo lệnh Bravo <span id="tenLenh"></span></h3><div id="sizeLenh"><div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div></div></div>
       <div><h3>Phân bổ (SBD)</h3><div id="size"><div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div></div></div>
     </div>
-    <div class="note">Bên trái: SL lệnh Bravo theo mã màu x size của PO (lệnh điều chỉnh / thu hồi đã cộng vào lệnh gốc). Bên phải: SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD. Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
+    <div class="note">Bên trái: SL lệnh Bravo theo mã màu x size của PO (lệnh điều chỉnh / thu hồi đã cộng vào lệnh gốc). Bên phải: SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD (size trống = chưa phân bổ size). Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
   </div>
 </main>
 <script>
@@ -72,7 +72,8 @@
   function maTran(el, data, slKey, rong) {
     const dsSize = new Map();
     data.forEach((x) => { const c = dsSize.get(x.size); if (!c || (x.thuTuSize != null && (c.thuTuSize == null || x.thuTuSize < c.thuTuSize))) dsSize.set(x.size, x); });
-    const sizes = [...dsSize.values()].sort(App.sizeCmp).map((x) => x.size);
+    // size trống (SBD chưa chia size) = chưa phân bổ, để cuối
+    const sizes = [...dsSize.values()].sort((x, y) => (!x.size) - (!y.size) || App.sizeCmp(x, y)).map((x) => x.size);
     const maus = new Map();
     data.forEach((x) => {
       const m = maus.get(x.mau) || { mau: x.mau, tong: 0 };
@@ -82,7 +83,7 @@
     });
     App.table(el, [
       { key: 'mau', label: 'Màu' },
-      ...sizes.map((sz) => ({ key: `s:${sz}`, label: App.esc(sz || '(trống)'), type: 'num', sum: true })),
+      ...sizes.map((sz) => ({ key: `s:${sz}`, label: sz ? App.esc(sz) : 'Chưa phân bổ', type: 'num', sum: true })),
       { key: 'tong', label: 'Tổng', type: 'num', sum: true },
     ], [...maus.values()], { footer: true, empty: rong });
   }
