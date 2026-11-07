@@ -23,7 +23,7 @@
     <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
     <div id="dangLoc" class="note" hidden></div>
     <div id="nxt" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày (và lệnh SX nếu cần) rồi bấm Xem</div></div>
-    <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
+    <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Tem tổng hợp (BTH, phối bộ từ nhiều bàn may) chỉ ghi SL xuất, không ghi SL cắt / Tồn vì đã nằm trong các tem cắt. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
   </div>
   <div class="panel" id="pDT" hidden>
     <h2>Đồng bộ theo điều tiết <span id="tenLenhDT"></span></h2>
@@ -128,6 +128,7 @@
     App.table(nxt, [
       { key: 'barcode', label: 'Tem barcode BTP' },
       { key: 'soPhieuCap', label: 'Phiếu cấp BTP' },
+      { key: 'loaiTem', label: 'Loại tem' },
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
@@ -155,7 +156,7 @@
       { key: 'idBanMay', label: 'ID bàn may', an: true },
       { key: 'nguoiXuat', label: 'Người xuất', an: true },
     ], rows, {
-      footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-3', coDinh: 1,
+      footer: true, maxRows: 1000, chonCot: 'btp-cat-tem-4', coDinh: 1,
       empty: 'Không có tem BTP cắt trong khoảng ngày này',
     });
   }
