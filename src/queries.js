@@ -61,13 +61,10 @@ const poDatToSQL = `
 
 // Lọc kế hoạch (OMM_KeHoachThang k, OMM_PO po) theo 2 khoảng ngày, khoảng nào để trống ('') thì không lọc:
 //  - Ngày SX @tuNgay..@denNgay: khoảng may kế hoạch (bắt đầu - kết thúc may) giao với khoảng xem
-//  - Ngày lệnh @lenhTu..@lenhDen: PO có lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) ngày lệnh trong khoảng
+//  - Ngày lệnh @lenhTu..@lenhDen: PO có lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) ngày lệnh trong khoảng.
+// Danh sách PO (@dsPO = ';PO1;PO2;') do API đọc trước theo 2 bước nhỏ (lenhGocKy + cpbPO): lọc thẳng Detail_PO trong câu lớn chạy quá chậm
 const khLoc = `(@tuNgay = '' OR (k.NgayMayKeHoachKetThuc >= @tuNgay AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay)))
-          AND (@lenhTu = '' OR po.PONo IN (
-                SELECT b.PO FROM dbo.Bravo_LenhSanXuat_Detail_PO b
-                WHERE b.IdDetail IN (SELECT a.Id FROM dbo.Bravo_LenhSanXuat_Detail a JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
-                                     WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
-                                       AND m.DocDate >= @lenhTu AND m.DocDate < DATEADD(day, 1, @lenhDen))))`;
+          AND (@lenhTu = '' OR CHARINDEX(';' + LTRIM(RTRIM(po.PONo)) + ';', @dsPO) > 0)`;
 // Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
 const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
 // Dòng SBD nhập "Lấy tất cả SIZE" mà để trống size (vd PO 4558955102FOA409991): SoLuong lưu lệch (chỉ bằng 1 size),
@@ -156,6 +153,16 @@ module.exports = {
       ORDER BY LEN(x.maTo), x.maTo, x.ngayBatDau, x.po, l.lenhSX`,
   },
 
+  // Dòng Detail của lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) có ngày lệnh trong khoảng (bước 1 lọc Ngày lệnh, bước 2 = cpbPO). Tham số: @lenhTu, @lenhDen
+  lenhGocKy: {
+    db: 'egmf',
+    text: `
+      SELECT a.Id AS idDetail
+      FROM dbo.Bravo_LenhSanXuat_Detail a
+      JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
+      WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+        AND m.DocDate >= @lenhTu AND m.DocDate < DATEADD(day, 1, @lenhDen)`,
+  },
   // PO đã có lệnh Bravo cho xí nghiệp (DeptCode = @dept, vd 'M2') nhưng chưa có kế hoạch phân bổ (OMM_KeHoachThang SoLuong > 0)
   // ở tổ nào của xí nghiệp. Lệnh gốc (TypeCt 0, DocStatus 4, không đình chỉ) có ngày lệnh từ @tuNgay - 60 ngày đến @denNgay;
   // SL = lệnh gốc + điều chỉnh / thu hồi (bỏ PO đã thu hồi hết). Có ngày lệnh @lenhTu..@lenhDen thì lấy đúng khoảng đó. Tham số: @xn, @dept, @tuNgay, @denNgay, @lenhTu, @lenhDen
