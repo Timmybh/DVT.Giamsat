@@ -37,7 +37,11 @@ async function query(q, params = {}) {
   const pool = await getPool(q.db);
   const req = pool.request();
   for (const [k, v] of Object.entries(params)) req.input(k, v);
+  const t0 = Date.now();
   const result = await req.query(NO_LOCK + q.text);
+  // ghi log câu chậm (> 2 giây) để biết bước nào nặng: dòng đầu có chữ của câu + số tham số
+  const ms = Date.now() - t0;
+  if (ms > 2000) console.log(`[cham-db] ${ms} ms ${q.db} ${Object.keys(params).length} tham số: ${q.text.replace(/\s+/g, ' ').trim().slice(0, 120)}`);
   return result.recordset;
 }
 

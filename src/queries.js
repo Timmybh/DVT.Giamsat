@@ -75,6 +75,34 @@ const SBD_MO_TL = `CASE WHEN ISNULL(s.TenSize, '') = '' AND s.ThaoTacNhap = N'L�
 const sbdMoCot = `, ${SBD_MO} AS moCtpo, ${SBD_MO_TL} AS moTiLe`;
 const sbdMoNhom = `, ${SBD_MO}, ${SBD_MO_TL}`;
 
+// Lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) có ngày lệnh @lenhTu..@lenhDen + dòng điều chỉnh / thu hồi -> #lenh (PO x lệnh).
+// Chạy trong 1 lần gửi bằng bảng tạm (mssql gửi qua sp_executesql nên bảng tạm tự xóa khi câu xong):
+// trước đây truyền IdDetail / PO thành hàng nghìn tham số @d0.. / @p0.. theo lô, chạy chậm hơn nhiều so với SSMS.
+const LENH_TAM = `
+      IF OBJECT_ID('tempdb..#lenh') IS NOT NULL DROP TABLE #lenh;
+      WITH goc AS (
+        SELECT DISTINCT a.DocNo
+        FROM dbo.Bravo_LenhSanXuat_Detail a
+        JOIN dbo.Bravo_LenhSanXuat_Master m ON m.Id = a.IdMaster
+        WHERE ISNULL(a.TypeCt, 0) = 0 AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+          AND m.DocDate >= @lenhTu AND m.DocDate < DATEADD(day, 1, @lenhDen)
+      ), id AS (
+        SELECT a.Id AS idDetail
+        FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.DocNo = g.DocNo
+        WHERE ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+        UNION
+        SELECT a.Id
+        FROM goc g JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.ProductionOrderAdjNo = g.DocNo
+        WHERE a.TypeCt IN (1, 2) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+      )
+      SELECT LTRIM(RTRIM(b.PO)) AS po, a.DocNo AS lenhSX, ISNULL(a.TypeCt, 0) AS typeCt, ISNULL(a.ProductionOrderAdjNo, '') AS lenhGoc,
+             a.DocDate AS ngayLenh, LTRIM(RTRIM(ISNULL(a.DeptCode, ''))) AS dept, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+      INTO #lenh
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE b.IdDetail IN (SELECT idDetail FROM id)
+      GROUP BY LTRIM(RTRIM(b.PO)), a.DocNo, ISNULL(a.TypeCt, 0), ISNULL(a.ProductionOrderAdjNo, ''), a.DocDate, LTRIM(RTRIM(ISNULL(a.DeptCode, '')));`;
+
 
 module.exports = {
   // PO của tổ (tính 1 lần, API truyền danh sách cho các câu kế hoạch tổ bên dưới): chay = PO kế hoạch (poChayToSQL), dat = PO có phiếu đặt 30 ngày
@@ -156,6 +184,26 @@ module.exports = {
 
   // Kế hoạch phân bổ đi từ lệnh (src/api.js docKeHoachTheoLenh), 3 câu nhỏ:
   // B1: IdDetail của lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) có ngày lệnh trong khoảng + dòng điều chỉnh / thu hồi của các lệnh đó. Tham số: @lenhTu, @lenhDen
+  // PO x lệnh của các lệnh trong khoảng ngày lệnh (1 lần gửi). Tham số: @lenhTu, @lenhDen
+  lenhKy: { db: 'egmf', text: `${LENH_TAM}
+      SELECT * FROM #lenh;` },
+  // Kế hoạch tổ x mã hàng x PO của XN cho các PO có lệnh trong khoảng ngày lệnh (1 lần gửi, như scripts/ke-hoach-theo-lenh.sql).
+  // Ngày SX từ / đến để trống bên nào thì không lọc bên đó. Tham số: @xn, @lenhTu, @lenhDen, @tuNgay, @denNgay
+  khTheoLenhKy: { db: 'egmf', text: `${LENH_TAM}
+      SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo, dh.MaHang AS maHang, po.PONo AS po,
+             SUM(k.SoLuong) AS soLuong, MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
+             MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
+             MIN(LTRIM(RTRIM(ISNULL(k.TinhTrang, '')))) AS ttMin, MAX(LTRIM(RTRIM(ISNULL(k.TinhTrang, '')))) AS ttMax
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = ct.POId
+      JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND k.SoLuong > 0 AND po.PONo IN (SELECT DISTINCT po FROM #lenh)
+        AND (@tuNgay = '' OR k.NgayMayKeHoachKetThuc >= @tuNgay)
+        AND (@denNgay = '' OR k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay))
+      GROUP BY e.TenCum, dh.MaHang, po.PONo;` },
   lenhGocKy: {
     db: 'egmf',
     text: `

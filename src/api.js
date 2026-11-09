@@ -142,7 +142,7 @@ router.get('/xi-nghiep', handle('xiNghiep', () => ({})));
 router.get('/to', handle('to', (req) => ({ xn: req.query.xn })));
 // Kế hoạch phân bổ + SL đã sản xuất (HiPro, đạt lũy kế từ ngày vào chuyền sớm nhất đến hôm nay, theo tổ x mã hàng)
 // Màn kế hoạch đi từ lệnh: Ngày lệnh (lenhTu..lenhDen, bắt buộc) lấy lệnh gốc Bravo
-// + điều chỉnh / thu hồi và PO của chúng (lenhGocKy -> lenhPOTheoId, giữ 5 phút); rồi ghép kế hoạch theo PO,
+// + điều chỉnh / thu hồi và PO của chúng (lenhKy, 1 lần gửi, giữ 5 phút); rồi ghép kế hoạch theo PO,
 // Ngày SX từ (tuNgay) / đến (denNgay) để trống bên nào thì không lọc bên đó.
 const cacheLenh = new Map();
 async function lenhTheoNgay(lenhTu, lenhDen) {
@@ -150,11 +150,9 @@ async function lenhTheoNgay(lenhTu, lenhDen) {
   const k = `${lenhTu}|${lenhDen}`;
   const c = cacheLenh.get(k);
   if (c && Date.now() - c.t < 5 * 60000) return c;
-  const ids = (await db.query(queries.lenhGocKy, { lenhTu, lenhDen })).map((r) => Number(r.idDetail));
   const gom = new Map(); // po|lệnh -> 1 dòng lệnh (như cột lệnh của keHoachPhanBo)
-  for (let i = 0; i < ids.length; i += 1000) {
-    const lo = ids.slice(i, i + 1000);
-    (await db.query(queries.lenhPOTheoId({ n: lo.length }), Object.fromEntries(lo.map((v, j) => [`d${j}`, v])))).forEach((r) => {
+  {
+    (await run('lenhKy', { lenhTu, lenhDen })).forEach((r) => {
       const po = String(r.po ?? '').trim();
       if (!po) return;
       const key = `${po}|${r.lenhSX}`;
@@ -178,12 +176,11 @@ const TEN_TT = { moitao: 'Kế hoạch', chonhapkho: 'Chờ nhập kho', hoantha
 const tenTT = (v) => { const s = String(v ?? '').trim(); return s ? TEN_TT[s.replace(/\s+/g, '').toLowerCase()] || s : 'Kế hoạch'; };
 const tinhTrangKH = (x) => { const a = tenTT(x.ttMin); const b = tenTT(x.ttMax); return a === b ? a : `${a} / ${b}`; };
 const loaiLenhCua = (t) => ({ 2: 'Lệnh thu hồi', 1: 'Lệnh điều chỉnh', 0: 'Lệnh gốc' }[Number(t)]);
-// Dòng như keHoachPhanBo: kế hoạch tổ x PO (khTheoPO theo lô 2000 PO) x mỗi lệnh của PO; SL kế hoạch ghi ở dòng lệnh đầu
+// Dòng như keHoachPhanBo: kế hoạch tổ x PO (khTheoLenhKy, 1 lần gửi) x mỗi lệnh của PO; SL kế hoạch ghi ở dòng lệnh đầu
 async function docKeHoachTheoLenh(p, lenh) {
   const out = [];
-  for (let i = 0; i < lenh.list.length; i += 2000) {
-    const lo = lenh.list.slice(i, i + 2000);
-    const kh = await run('khTheoPO', { xn: p.xn, tuNgay: p.tuNgay, denNgay: p.denNgay, ...Object.fromEntries(lo.map((v, j) => [`p${j}`, v])) }, { nPO: lo.length });
+  {
+    const kh = await run('khTheoLenhKy', { xn: p.xn, tuNgay: p.tuNgay, denNgay: p.denNgay, lenhTu: p.lenhTu, lenhDen: p.lenhDen });
     kh.forEach((x) => {
       const ls = (lenh.theoPO.get(String(x.po ?? '').trim()) || []).slice()
         .sort((a, b) => a.typeCt - b.typeCt || String(a.lenhSX).localeCompare(String(b.lenhSX)));
