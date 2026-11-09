@@ -172,6 +172,10 @@ async function lenhTheoNgay(lenhTu, lenhDen) {
   cacheLenh.set(k, kq);
   return kq;
 }
+// Tình trạng kế hoạch (OMM_KeHoachThang.TinhTrang) ra chữ; mã lạ giữ nguyên
+const TEN_TT = { hoanthanh: 'Hoàn thành', 'hoànthành': 'Hoàn thành', huyconpl: 'Hủy (có NPL)', huychuanpl: 'Hủy (chưa NPL)' };
+const tenTT = (v) => { const s = String(v ?? '').trim(); return s ? TEN_TT[s.replace(/\s+/g, '').toLowerCase()] || s : 'Chưa hoàn thành'; };
+const tinhTrangKH = (x) => { const a = tenTT(x.ttMin); const b = tenTT(x.ttMax); return a === b ? a : `${a} / ${b}`; };
 const loaiLenhCua = (t) => ({ 2: 'Lệnh thu hồi', 1: 'Lệnh điều chỉnh', 0: 'Lệnh gốc' }[Number(t)]);
 // Dòng như keHoachPhanBo: kế hoạch tổ x PO (khTheoPO theo lô 2000 PO) x mỗi lệnh của PO; SL kế hoạch ghi ở dòng lệnh đầu
 async function docKeHoachTheoLenh(p, lenh) {
@@ -182,11 +186,12 @@ async function docKeHoachTheoLenh(p, lenh) {
     kh.forEach((x) => {
       const ls = (lenh.theoPO.get(String(x.po ?? '').trim()) || []).slice()
         .sort((a, b) => a.typeCt - b.typeCt || String(a.lenhSX).localeCompare(String(b.lenhSX)));
+      x.tinhTrang = tinhTrangKH(x);
       if (!ls.length) { out.push({ ...x }); return; }
       ls.forEach((l, j) => out.push({
         maTo: x.maTo, tenTo: x.tenTo, maHang: x.maHang, po: x.po, lenhSX: l.lenhSX, ngayLenh: l.ngayLenh, slLenh: l.slLenh,
         lenhGoc: l.lenhGoc, dept: l.dept, typeCt: l.typeCt, loaiLenh: loaiLenhCua(l.typeCt),
-        soLuong: j === 0 ? x.soLuong : null, ngayVaoChuyen: x.ngayVaoChuyen, ngayBatDau: x.ngayBatDau, ngayKetThuc: x.ngayKetThuc,
+        soLuong: j === 0 ? x.soLuong : null, tinhTrang: x.tinhTrang, ngayVaoChuyen: x.ngayVaoChuyen, ngayBatDau: x.ngayBatDau, ngayKetThuc: x.ngayKetThuc,
       }));
     });
   }

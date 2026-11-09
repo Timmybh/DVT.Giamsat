@@ -185,13 +185,15 @@ module.exports = {
       WHERE b.IdDetail IN (${dsThamSo('d', n)})
       GROUP BY LTRIM(RTRIM(b.PO)), a.DocNo, ISNULL(a.TypeCt, 0), ISNULL(a.ProductionOrderAdjNo, ''), a.DocDate, LTRIM(RTRIM(ISNULL(a.DeptCode, '')))`,
   }),
-  // B3: kế hoạch theo tổ x mã hàng x PO của XN cho các PO @p0.. ; Ngày SX từ / đến, để trống bên nào thì không lọc bên đó
+  // B3: kế hoạch theo tổ x mã hàng x PO của XN cho các PO @p0.. ; Ngày SX từ / đến, để trống bên nào thì không lọc bên đó.
+  // ttMin / ttMax: tình trạng (OMM_KeHoachThang.TinhTrang) của các dòng KH, khác nhau thì API ghi cả hai
   khTheoPO: ({ nPO = 0 } = {}) => ({
     db: 'egmf',
     text: `
       SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(e.TenCum)) AS tenTo, dh.MaHang AS maHang, po.PONo AS po,
              SUM(k.SoLuong) AS soLuong, MIN(k.NgayVaoChuyenKeHoachBatDau) AS ngayVaoChuyen,
-             MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+             MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
+             MIN(LTRIM(RTRIM(ISNULL(k.TinhTrang, '')))) AS ttMin, MAX(LTRIM(RTRIM(ISNULL(k.TinhTrang, '')))) AS ttMax
       FROM dbo.OMM_KeHoachThang k
       JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
       JOIN dbo.OMM_PO po ON po.POId = ct.POId
