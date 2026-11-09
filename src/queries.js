@@ -64,8 +64,10 @@ const poDatToSQL = `
 //  - Ngày lệnh @lenhTu..@lenhDen: PO có lệnh gốc Bravo (đã hoàn thiện, không đình chỉ) ngày lệnh trong khoảng.
 // Ngày lệnh: API đọc trước danh sách PO của các lệnh trong khoảng (lenhGocKy + cpbPO, 2 câu nhỏ; lọc thẳng Detail_PO trong câu lớn bị timeout).
 // nPO > 0: truyền PO thành tham số @p0.. (dùng được chỉ mục PONo, API chạy theo lô 2000 PO); nPO = 0: @dsPO = ';PO1;PO2;' (câu 1 PO như keHoachSize)
+// nPO = 'lenh': PO lấy từ bảng tạm #lenh (câu phải bắt đầu bằng LENH_TAM, tham số @lenhTu / @lenhDen)
 const khLoc = (nPO = 0) => `(@tuNgay = '' OR k.NgayMayKeHoachKetThuc >= @tuNgay) AND (@denNgay = '' OR k.NgayMayKeHoachBatDau < DATEADD(day, 1, @denNgay))
-          AND ${nPO ? `po.PONo IN (${Array.from({ length: nPO }, (_, i) => `@p${i}`).join(', ')})` : "(@lenhTu = '' OR CHARINDEX(';' + LTRIM(RTRIM(po.PONo)) + ';', @dsPO) > 0)"}`;
+          AND ${nPO === 'lenh' ? 'po.PONo IN (SELECT DISTINCT po FROM #lenh)'
+    : nPO ? `po.PONo IN (${Array.from({ length: nPO }, (_, i) => `@p${i}`).join(', ')})` : "(@lenhTu = '' OR CHARINDEX(';' + LTRIM(RTRIM(po.PONo)) + ';', @dsPO) > 0)"}`;
 // Danh sách tham số @<tien>0, @<tien>1.. cho IN (...) (SQL Server cũ không có STRING_SPLIT); rỗng -> NULL (không khớp dòng nào)
 const dsThamSo = (tien, n) => (n ? Array.from({ length: n }, (_, i) => `@${tien}${i}`).join(', ') : 'NULL');
 // Dòng SBD nhập "Lấy tất cả SIZE" mà để trống size (vd PO 4558955102FOA409991): SoLuong lưu lệch (chỉ bằng 1 size),
@@ -308,7 +310,7 @@ module.exports = {
   // thuTuSize: STT size trên phiếu điều tiết của mã hàng. Lệnh ghép ở API từ lenhTheoSize. Tham số: @xn, @tuNgay, @denNgay
   keHoachTheoSize: ({ nPO = 0 } = {}) => ({
     db: 'egmf',
-    text: `
+    text: `${nPO === 'lenh' ? LENH_TAM : ''}
       WITH sbd AS (
         SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, dh.MaHang AS maHang, po.PONo AS po,
                ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, 0)) AS soLuong${sbdMoCot}
@@ -339,7 +341,7 @@ module.exports = {
   // Lệnh điều chỉnh / thu hồi (TypeCt = 1 / 2, ProductionOrderAdjNo = lệnh gốc) cộng vào lệnh gốc; bỏ lệnh IsActive = 0. Tham số như keHoachTheoSize
   lenhTheoSize: ({ nPO = 0 } = {}) => ({
     db: 'egmf',
-    text: `
+    text: `${nPO === 'lenh' ? LENH_TAM : ''}
       WITH dsPO AS (
         SELECT DISTINCT po.PONo AS po
         FROM dbo.OMM_KeHoachThang k

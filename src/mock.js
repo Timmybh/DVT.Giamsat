@@ -170,7 +170,7 @@ module.exports = {
     });
   },
   sbdDuSize: ({ xn, tuNgay, denNgay }) => keHoach
-    .filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
+    .filter((k) => k.xn === xn && (!tuNgay || k.ngayKetThuc.slice(0, 10) >= tuNgay) && (!denNgay || k.ngayBatDau.slice(0, 10) <= denNgay))
     .flatMap((k) => {
       const maus = mauList.slice(0, 1 + (Number(k.maHang) % 2));
       return maus.flatMap((mau) => ['M', 'S', 'L', 'XL', 'XS'].map((size) => ({

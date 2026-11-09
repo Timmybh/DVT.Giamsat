@@ -195,20 +195,12 @@ async function docKeHoachTheoLenh(p, lenh) {
   }
   return out;
 }
-// Tab Theo size: có đủ Ngày SX từ - đến thì chạy 1 câu theo Ngày SX rồi lọc PO ở Node; thiếu bên nào thì truyền PO theo lô @p0..
+// Tab Theo size: 1 lần gửi, PO lấy từ bảng tạm #lenh (lệnh trong khoảng Ngày lệnh) như khTheoLenhKy,
+// không truyền danh sách PO thành hàng nghìn tham số (chậm hơn SSMS nhiều lần)
 async function chayTheoPO(name, p) {
-  const { dsPOList: list, ...pp } = p;
-  if (db.useMock()) return run(name, pp);
-  if (pp.tuNgay && pp.denNgay) {
-    const coPO = new Set(list);
-    return (await run(name, { ...pp, lenhTu: '', lenhDen: '', dsPO: '' })).filter((r) => coPO.has(String(r.po ?? '').trim()));
-  }
-  const out = [];
-  for (let i = 0; i < list.length; i += 2000) {
-    const lo = list.slice(i, i + 2000);
-    out.push(...await run(name, { ...pp, ...Object.fromEntries(lo.map((v, j) => [`p${j}`, v])) }, { nPO: lo.length }));
-  }
-  return out;
+  const { dsPOList: _ds, dsPO: _s, ...pp } = p;
+  if (db.useMock()) return run(name, p);
+  return run(name, pp, { nPO: 'lenh' });
 }
 async function khoangKH(q) {
   const { tuNgay = '', denNgay = '' } = q;
