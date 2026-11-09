@@ -99,12 +99,18 @@ footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: v
 .the-po .dau { font-size: 16px; font-weight: 700; }
 /* Thẻ danh sách PO tổ: nằm riêng trên hàng thẻ con, rộng hết khung, cao gần 1 màn hình (bảng cuộn bên trong) */
 .the-po.ds-po { display: flex; flex-direction: column; height: calc(100vh - 300px); min-height: 280px; margin-bottom: 10px; }
-.ds-po .bang { flex: 1 1 auto; min-height: 0; overflow: auto; margin-top: 6px; }
-.ds-po tbody tr.dang-chon { background: #fff4dc; }
-.ds-po th { position: sticky; top: 0; background: var(--card); }
-.ds-po td.trai, .ds-po th:nth-child(-n+3) { text-align: left; }
-.ds-po tbody tr { cursor: pointer; }
-.ds-po tbody tr:hover { background: #eef3fd; }
+.ds-po .bang { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.ds-po table { width: 100%; border-collapse: collapse; }
+.ds-po tbody { cursor: pointer; border-bottom: 1px solid var(--line); }
+.ds-po tbody:hover { background: #eef3fd; }
+.ds-po tbody.dang-chon { background: #fff4dc; }
+.the-po.ds-po td { border: 0; padding: 3px 6px; }
+.the-po.ds-po td.trai { text-align: left; }
+.the-po.ds-po td.d1 { padding-top: 7px; }
+.the-po.ds-po td.d2 { padding-left: 22px; padding-bottom: 7px; color: var(--muted); font-size: 12.5px; }
+.the-po.ds-po td.o-kh { text-align: right; font-weight: 700; white-space: nowrap; width: 1%; }
+.ds-po td.o-kh small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.the-po.ds-po td.o-th { text-align: center; white-space: nowrap; width: 1%; }
 .the-po.k2.chon-po { outline: 3px solid #f0a020; outline-offset: -3px; }
 .ds-po .chan { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .the-po .phu { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
