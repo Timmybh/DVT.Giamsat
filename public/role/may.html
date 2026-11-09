@@ -20,6 +20,7 @@
   <div class="panel">
     <h2>Kế hoạch tổ theo lệnh x PO x màu x size <span id="soThe" style="color:var(--muted);font-weight:400"></span></h2>
     <div class="tabs" id="tabKH"><button type="button" data-tab="dang" class="active">Đang hoạt động</button><button type="button" data-tab="xong">Đã hoàn thành</button></div>
+    <div id="dsPOTo"></div>
     <div id="theKH" class="the-ngang"></div>
     <div class="note">Vuốt ngang để xem từng tổ hợp lệnh x PO x màu x size. KH tổ: SL phân bổ SBD của tổ; đặt: phiếu cấp (PO nhiều lệnh thì tách theo lệnh ghi trên phiếu). SL đặt: SoLuongCanCap của phiếu cấp BTP (hôm nay = phiếu tạo trong ngày).
       Các số ghi (PO) là của cả PO: SX lấy HiPro, HiPro không ghi size. Còn lại hôm nay = KH ngày - SX hôm nay; Còn lại = SL KH - SX lũy kế. Đã hoàn thành: kế hoạch có tình trạng Hoàn thành trong phần mềm kế hoạch.</div>
@@ -132,14 +133,17 @@
       <div class="chan">Bấm 1 dòng để tới thẻ của PO x lệnh. % TH tính trên cả PO (HiPro không ghi lệnh).</div>
     </div>`;
   };
-  theKH.addEventListener('click', (e) => {
+  dsPOTo.addEventListener('click', (e) => {
     const tr = e.target.closest('.ds-po tr[data-po]'); if (!tr) return;
+    dsPOTo.querySelectorAll('tr.dang-chon').forEach((r) => r.classList.remove('dang-chon')); tr.classList.add('dang-chon');
     // Tới thẻ đầu tiên của PO x lệnh và tô viền mọi thẻ con (màu x size) của nó trong vài giây
     const ds = [...theKH.querySelectorAll('.k2[data-po]')].filter((el) => el.dataset.po === tr.dataset.po && el.dataset.lenh === tr.dataset.lenh);
     theKH.querySelectorAll('.k2.chon-po').forEach((el) => el.classList.remove('chon-po'));
     ds.forEach((el) => el.classList.add('chon-po'));
     clearTimeout(theKH._tChon); theKH._tChon = setTimeout(() => ds.forEach((el) => el.classList.remove('chon-po')), 4000);
-    if (ds[0]) theKH.scrollTo({ left: ds[0].offsetLeft - theKH.offsetLeft - 4, behavior: 'smooth' });
+    if (!ds[0]) return;
+    theKH.scrollTo({ left: ds[0].offsetLeft - theKH.offsetLeft - 4, behavior: 'smooth' });
+    theKH.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   // Tab Đang hoạt động / Đã hoàn thành: cờ hoanThanh từ API (tình trạng Hoàn thành trong phần mềm kế hoạch)
   let tabKHChon = 'dang', khGanNhat = null, gioGanNhat = null;
@@ -162,7 +166,8 @@
     const ds = dsPO.flatMap((t) => t.sizes.filter(duMauSize)
       .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
     soThe.textContent = ds.length ? `(${ds.length} thẻ · ${new Set(ds.map(({ t }) => t.po)).size} PO)` : '';
-    theKH.innerHTML = ds.length ? veTheDS(ds) + ds.map(({ t, x }) => veMotThe(t, x)).join('')
+    dsPOTo.innerHTML = ds.length ? veTheDS(ds) : '';
+    theKH.innerHTML = ds.length ? ds.map(({ t, x }) => veMotThe(t, x)).join('')
       : `<div class="empty">${!kq.the.length ? 'Tổ không có PO đang chạy trong ngày này' : tabKHChon === 'xong' ? 'Chưa có kế hoạch nào hoàn thành' : 'Không còn kế hoạch đang hoạt động'}</div>`;
   }
   // Cảnh báo: gom từ thẻ kế hoạch (phiếu đặt sai) và sản lượng HiPro (mã không bấm, lỗi cao). Ngưỡng lỗi: > 5 sản phẩm / ngày.
@@ -230,6 +235,7 @@
     veCanhBao();
   }
   async function loadKeHoachTo() {
+    dsPOTo.innerHTML = '';
     App.loading(theKH);
     try { veThe(await App.api('to-may/ke-hoach', { xn: App.xn, to: to.value, d: ngay.value })); } catch (e) { App.error(theKH, e); cb.the = []; cb.saiTho = []; veCanhBao(); }
   }
