@@ -57,8 +57,7 @@
 <script>
   const iso = (d) => d.toISOString().slice(0, 10);
   const now = new Date();
-  tuNgay.value = iso(new Date(now.getFullYear(), now.getMonth(), 1));
-  denNgay.value = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  // Ngày SX mặc định để trống (không lọc theo ngày may)
   // Ngày lệnh mặc định: 60 ngày trước đến hôm nay
   lenhTu.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60, 12));
   lenhDen.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));

@@ -147,7 +147,7 @@ module.exports = {
     { lenhSX: 'TRIHD-0902-2026', ngayLenh: new Date(Date.now() - 4 * 86400000), po: `MAU-${dept}-CHUA-DK`, maHang: 'WJ71Y2NC', slLenh: 800, daDangKy: false },
   ],
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
-    keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
+    keHoach.filter((k) => k.xn === xn && (!tuNgay || k.ngayKetThuc.slice(0, 10) >= tuNgay) && (!denNgay || k.ngayBatDau.slice(0, 10) <= denNgay))
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau))
       .map((k, i) => ({ ...k, tinhTrang: ['Kế hoạch', 'Hoàn thành', 'Chờ nhập kho', 'Kế hoạch / Hoàn thành'][i % 4] }))
       .flatMap((k, i) => (i % 5 ? [{ ...k, loaiLenh: 'Lệnh gốc' }] : [
