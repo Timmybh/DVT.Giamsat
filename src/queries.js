@@ -241,17 +241,19 @@ module.exports = {
       WHERE b.IdDetail IN (${dsThamSo('d', n)})
       GROUP BY b.IdDetail, LTRIM(RTRIM(b.PO))${theoSize ? ", ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')" : ''}`,
   }),
-  // B3: PO nào trong danh sách @q0.. đã có kế hoạch SL > 0 ở tổ thuộc XN
+  // B3: các PO trong danh sách @q0.. đã đăng ký trong phần mềm kế hoạch (có OMM_PO); daPB = 1 khi đã có kế hoạch SL > 0 ở tổ thuộc XN.
+  // PO không trả về = chưa đăng ký; trả về mà daPB = 0 = chưa phân chuyền.
   cpbDaPhanBo: ({ n = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      SELECT DISTINCT po.PONo AS po
+      SELECT LTRIM(RTRIM(po.PONo)) AS po, MAX(CASE WHEN px.XNId = @xn AND k.SoLuong > 0 THEN 1 ELSE 0 END) AS daPB
       FROM dbo.OMM_PO po
-      JOIN dbo.OMM_PO_ChiTiet pct ON pct.POId = po.POId
-      JOIN dbo.OMM_KeHoachThang k ON k.CTPOId = pct.POCTId
-      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
-      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
-      WHERE po.PONo IN (${dsThamSo('q', n)}) AND px.XNId = @xn AND k.SoLuong > 0`,
+      LEFT JOIN dbo.OMM_PO_ChiTiet pct ON pct.POId = po.POId
+      LEFT JOIN dbo.OMM_KeHoachThang k ON k.CTPOId = pct.POCTId
+      LEFT JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      LEFT JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE po.PONo IN (${dsThamSo('q', n)})
+      GROUP BY LTRIM(RTRIM(po.PONo))`,
   }),
 
   // Kế hoạch phân bổ theo size: tổ x mã hàng x PO x màu x size (OMM_KeHoachThang_SBD), cùng điều kiện ngày với keHoachPhanBo.

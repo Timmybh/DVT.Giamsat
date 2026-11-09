@@ -38,11 +38,16 @@ async function docChuaPhanBo({ xn, dept, tuNgay, denNgay, lenhTu = '', lenhDen =
   // B3: bỏ PO đã có kế hoạch ở XN
   const dsPO = [...new Set(conSL.map((x) => x.po))];
   const daPB = new Set();
+  const dangKy = new Set(); // PO đã có trong phần mềm kế hoạch (OMM_PO)
   for (const lo of chia(dsPO)) {
     const p = { xn, ...Object.fromEntries(lo.map((v, i) => [`q${i}`, v])) };
-    (await db.query(queries.cpbDaPhanBo({ n: lo.length }), p)).forEach((r) => daPB.add(String(r.po).trim()));
+    (await db.query(queries.cpbDaPhanBo({ n: lo.length }), p)).forEach((r) => {
+      const po = String(r.po).trim();
+      dangKy.add(po);
+      if (Number(r.daPB)) daPB.add(po);
+    });
   }
-  return conSL.filter((x) => !daPB.has(x.po))
+  return conSL.filter((x) => !daPB.has(x.po)).map((x) => ({ ...x, daDangKy: dangKy.has(x.po) }))
     .sort((a, b) => new Date(a.ngayLenh) - new Date(b.ngayLenh) || String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.po).localeCompare(String(b.po)));
 }
 

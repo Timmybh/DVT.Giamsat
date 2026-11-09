@@ -82,7 +82,7 @@
     const data = to.value ? rows.filter((r) => r.maTo === to.value) : rows;
     App.table(result, [
       { key: 'tenTo', label: 'Tổ', render: (r) => (r.chuaPhanBo ? `<span class="tag warn" title="Đã có lệnh${r.ngayLenh ? ` ngày ${App.esc(String(r.ngayLenh).slice(0, 10).split('-').reverse().join('/'))}` : ''} nhưng chưa có kế hoạch phân bổ">Chưa phân bổ</span>` : App.esc(r.tenTo)) },
-      { key: 'tinhTrang', label: 'Tình trạng', render: (r) => (r.tinhTrang ? `<span class="tag ${/^Hoàn thành$/.test(r.tinhTrang) ? 'ok' : /Hủy/.test(r.tinhTrang) ? 'bad' : /\//.test(r.tinhTrang) ? 'warn' : ''}">${App.esc(r.tinhTrang)}</span>` : '') },
+      { key: 'tinhTrang', label: 'Tình trạng', render: (r) => (r.tinhTrang ? `<span class="tag ${/^Hoàn thành$/.test(r.tinhTrang) ? 'ok' : /Huỷ/.test(r.tinhTrang) ? 'bad' : /\/|^Chưa|Chờ/.test(r.tinhTrang) ? 'warn' : ''}">${App.esc(r.tinhTrang)}</span>` : '') },
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'po', label: 'PO' },
       { key: 'lenhSX', label: 'Lệnh SX' },

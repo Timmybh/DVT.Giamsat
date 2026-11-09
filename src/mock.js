@@ -143,12 +143,13 @@ module.exports = {
   to: ({ xn }) => to[xn] || [],
   keHoachChuaPhanBoSize: (p) => module.exports.keHoachChuaPhanBo(p).flatMap((l) => [['BK', 'S', 500], ['BK', 'M', 700]].map(([mau, size, sl]) => ({ ...l, mau, size, slLenh: sl }))),
   keHoachChuaPhanBo: ({ dept }) => [
-    { lenhSX: 'TRIHD-0901-2026', ngayLenh: new Date(Date.now() - 5 * 86400000), po: `MAU-${dept}-CHUA-PB`, maHang: 'WJ71Y2NC', slLenh: 1200 },
+    { lenhSX: 'TRIHD-0901-2026', ngayLenh: new Date(Date.now() - 5 * 86400000), po: `MAU-${dept}-CHUA-PB`, maHang: 'WJ71Y2NC', slLenh: 1200, daDangKy: true },
+    { lenhSX: 'TRIHD-0902-2026', ngayLenh: new Date(Date.now() - 4 * 86400000), po: `MAU-${dept}-CHUA-DK`, maHang: 'WJ71Y2NC', slLenh: 800, daDangKy: false },
   ],
   keHoachPhanBo: ({ xn, tuNgay, denNgay }) =>
     keHoach.filter((k) => k.xn === xn && k.ngayKetThuc.slice(0, 10) >= tuNgay && k.ngayBatDau.slice(0, 10) <= denNgay)
       .sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.ngayBatDau.localeCompare(b.ngayBatDau))
-      .map((k, i) => ({ ...k, tinhTrang: ['Chưa hoàn thành', 'Hoàn thành', 'Chưa hoàn thành', 'Chưa hoàn thành / Hoàn thành'][i % 4] }))
+      .map((k, i) => ({ ...k, tinhTrang: ['Kế hoạch', 'Hoàn thành', 'Chờ nhập kho', 'Kế hoạch / Hoàn thành'][i % 4] }))
       .flatMap((k, i) => (i % 5 ? [{ ...k, loaiLenh: 'Lệnh gốc' }] : [
         // lệnh ra cho XN khác rồi thu hồi hết, ra lệnh mới cho XN này (bán PO)
         { ...k, loaiLenh: 'Lệnh gốc', typeCt: 0, dept: 'M9' },

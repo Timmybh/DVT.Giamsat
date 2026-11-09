@@ -173,8 +173,9 @@ async function lenhTheoNgay(lenhTu, lenhDen) {
   return kq;
 }
 // Tình trạng kế hoạch (OMM_KeHoachThang.TinhTrang) ra chữ; mã lạ giữ nguyên
-const TEN_TT = { hoanthanh: 'Hoàn thành', 'hoànthành': 'Hoàn thành', huyconpl: 'Hủy (có NPL)', huychuanpl: 'Hủy (chưa NPL)' };
-const tenTT = (v) => { const s = String(v ?? '').trim(); return s ? TEN_TT[s.replace(/\s+/g, '').toLowerCase()] || s : 'Chưa hoàn thành'; };
+// Như phần mềm kế hoạch: MoiTao = Kế hoạch. PO có lệnh mà chưa có kế hoạch ở XN: Chưa phân chuyền (đã có trong OMM) / Chưa đăng ký (chưa có)
+const TEN_TT = { moitao: 'Kế hoạch', chonhapkho: 'Chờ nhập kho', hoanthanh: 'Hoàn thành', 'hoànthành': 'Hoàn thành', huyconpl: 'Huỷ có NPL', huychuanpl: 'Huỷ chưa NPL' };
+const tenTT = (v) => { const s = String(v ?? '').trim(); return s ? TEN_TT[s.replace(/\s+/g, '').toLowerCase()] || s : 'Kế hoạch'; };
 const tinhTrangKH = (x) => { const a = tenTT(x.ttMin); const b = tenTT(x.ttMax); return a === b ? a : `${a} / ${b}`; };
 const loaiLenhCua = (t) => ({ 2: 'Lệnh thu hồi', 1: 'Lệnh điều chỉnh', 0: 'Lệnh gốc' }[Number(t)]);
 // Dòng như keHoachPhanBo: kế hoạch tổ x PO (khTheoPO theo lô 2000 PO) x mỗi lệnh của PO; SL kế hoạch ghi ở dòng lệnh đầu
@@ -248,7 +249,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     });
     const dongChua = chua.map((l) => ({
       maTo: '', tenTo: '', maHang: l.maHang, po: l.po, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), loaiLenh: 'Lệnh gốc',
-      soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true,
+      soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true, tinhTrang: l.daDangKy === false ? 'Chưa đăng ký' : 'Chưa phân chuyền',
     }));
     if (!rows.length) return res.json(dongChua);
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
