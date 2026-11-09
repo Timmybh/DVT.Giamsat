@@ -86,7 +86,7 @@
     const rft = t.kiemNgay ? Math.round((t.datLanDau / t.kiemNgay) * 1000) / 10 : null;
     const hs = t.khNgay ? Math.round((t.sxNgay / t.khNgay) * 100) : null;
     const mau = (v, tot, kha) => (v == null ? '' : v >= tot ? 'xong' : v >= kha ? '' : 'con');
-    return `<div class="the-po k2" data-po="${App.esc(t.po)}">
+    return `<div class="the-po k2" data-po="${App.esc(t.po)}" data-lenh="${App.esc(x.lenhSX || t.lenhSX || '')}">
       <div class="k2-dau"><span class="size">${App.esc(x.size || '?')}</span><div>
         <div class="dau nho">${App.esc(t.maHang || '')} · Size ${App.esc(x.size || '?')} · ${App.esc(x.mau || '')}</div>
         <div class="phu"><b>Lệnh ${App.esc(x.lenhSX || t.lenhSX || '(chưa có lệnh)')}</b></div>
@@ -108,26 +108,34 @@
       <div class="chan">KH hôm nay (PO) <b>${App.num(t.khNgay)}</b> · SX còn lại (PO) <b>${App.num(t.conLai)}</b></div>
     </div>`;
   };
-  // Thẻ đầu: danh sách PO của tổ (theo tab đang chọn): mã hàng, TG may, % thực hiện = SX lũy kế / KH (PO). Bấm dòng để cuộn tới thẻ của PO
-  const veTheDS = (dsPO) => {
-    const theoPO = new Map();
-    dsPO.forEach((t) => { if (!theoPO.has(t.po)) theoPO.set(t.po, t); });
-    const ds = [...theoPO.values()].sort((a, b) => new Date(a.ngayVaoChuyen || 0) - new Date(b.ngayVaoChuyen || 0));
+  // Thẻ đầu: danh sách PO x lệnh của tổ (theo các thẻ đang hiện): mã hàng, TG may, KH tổ của lệnh (cộng các size),
+  // % TH = SX lũy kế / KH của cả PO (HiPro không ghi lệnh). Bấm dòng để cuộn tới và tô viền các thẻ của PO x lệnh đó
+  const veTheDS = (dsThe) => {
+    const nhom = new Map();
+    dsThe.forEach(({ t, x }) => {
+      const lenh = x.lenhSX || t.lenhSX || '';
+      const k = `${t.po}|${lenh}`;
+      const g = nhom.get(k) || nhom.set(k, { t, lenh, kh: 0 }).get(k);
+      g.kh += Number(x.kh || 0);
+    });
+    const ds = [...nhom.values()].sort((a, b) => new Date(a.t.ngayVaoChuyen || 0) - new Date(b.t.ngayVaoChuyen || 0)
+      || String(a.t.po).localeCompare(String(b.t.po)) || a.lenh.localeCompare(b.lenh));
+    const soPO = new Set(ds.map((g) => g.t.po)).size;
     return `<div class="the-po ds-po">
-      <div class="dau nho">Danh sách PO tổ ${App.esc(to.value)} <small style="color:var(--muted);font-weight:400">(${ds.length} PO)</small></div>
-      <div class="bang"><table><thead><tr><th>PO</th><th>Mã hàng</th><th>Từ – đến</th><th>% TH</th></tr></thead><tbody>
-      ${ds.map((t) => `<tr data-po="${App.esc(t.po)}" title="SX ${App.num(t.sxLK)} / KH ${App.num(t.soLuong)}">
-        <td class="trai">${App.esc(t.po)}</td><td class="trai">${App.esc(t.maHang || '')}</td>
-        <td>${App.date(t.ngayVaoChuyen) || '?'} – ${App.date(t.ngayKetThuc) || '?'}</td>
+      <div class="dau nho">Danh sách PO tổ ${App.esc(to.value)} <small style="color:var(--muted);font-weight:400">(${soPO} PO · ${ds.length} lệnh)</small></div>
+      <div class="bang"><table><thead><tr><th>PO</th><th>Lệnh</th><th>Mã hàng</th><th>Từ – đến</th><th>KH tổ</th><th>% TH <small>(PO)</small></th></tr></thead><tbody>
+      ${ds.map(({ t, lenh, kh }) => `<tr data-po="${App.esc(t.po)}" data-lenh="${App.esc(lenh)}" title="SX ${App.num(t.sxLK)} / KH ${App.num(t.soLuong)} (cả PO)">
+        <td class="trai">${App.esc(t.po)}</td><td class="trai">${App.esc(lenh || '(chưa có lệnh)')}</td><td class="trai">${App.esc(t.maHang || '')}</td>
+        <td>${App.date(t.ngayVaoChuyen) || '?'} – ${App.date(t.ngayKetThuc) || '?'}</td><td>${App.num(kh)}</td>
         <td>${App.pctTag(Number(t.sxLK || 0), Number(t.soLuong || 0))}</td></tr>`).join('')}
       </tbody></table></div>
-      <div class="chan">Bấm 1 dòng để tới thẻ của PO</div>
+      <div class="chan">Bấm 1 dòng để tới thẻ của PO x lệnh. % TH tính trên cả PO (HiPro không ghi lệnh).</div>
     </div>`;
   };
   theKH.addEventListener('click', (e) => {
     const tr = e.target.closest('.ds-po tr[data-po]'); if (!tr) return;
-    // Tới thẻ đầu tiên của PO và tô viền mọi thẻ con (màu x size) của PO đó trong vài giây
-    const ds = [...theKH.querySelectorAll('.k2[data-po]')].filter((el) => el.dataset.po === tr.dataset.po);
+    // Tới thẻ đầu tiên của PO x lệnh và tô viền mọi thẻ con (màu x size) của nó trong vài giây
+    const ds = [...theKH.querySelectorAll('.k2[data-po]')].filter((el) => el.dataset.po === tr.dataset.po && el.dataset.lenh === tr.dataset.lenh);
     theKH.querySelectorAll('.k2.chon-po').forEach((el) => el.classList.remove('chon-po'));
     ds.forEach((el) => el.classList.add('chon-po'));
     clearTimeout(theKH._tChon); theKH._tChon = setTimeout(() => ds.forEach((el) => el.classList.remove('chon-po')), 4000);
@@ -154,7 +162,7 @@
     const ds = dsPO.flatMap((t) => t.sizes.filter(duMauSize)
       .slice().sort((a, b) => String(a.lenhSX).localeCompare(String(b.lenhSX)) || String(a.mau).localeCompare(String(b.mau)) || App.sizeCmp(a, b)).map((x) => ({ t, x })));
     soThe.textContent = ds.length ? `(${ds.length} thẻ · ${new Set(ds.map(({ t }) => t.po)).size} PO)` : '';
-    theKH.innerHTML = ds.length ? veTheDS(dsPO) + ds.map(({ t, x }) => veMotThe(t, x)).join('')
+    theKH.innerHTML = ds.length ? veTheDS(ds) + ds.map(({ t, x }) => veMotThe(t, x)).join('')
       : `<div class="empty">${!kq.the.length ? 'Tổ không có PO đang chạy trong ngày này' : tabKHChon === 'xong' ? 'Chưa có kế hoạch nào hoàn thành' : 'Không còn kế hoạch đang hoạt động'}</div>`;
   }
   // Cảnh báo: gom từ thẻ kế hoạch (phiếu đặt sai) và sản lượng HiPro (mã không bấm, lỗi cao). Ngưỡng lỗi: > 5 sản phẩm / ngày.
