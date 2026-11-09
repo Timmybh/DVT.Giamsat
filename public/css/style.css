@@ -103,6 +103,7 @@ footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: v
 .ds-po td.trai, .ds-po th:nth-child(-n+2) { text-align: left; }
 .ds-po tbody tr { cursor: pointer; }
 .ds-po tbody tr:hover { background: #eef3fd; }
+.the-po.k2.chon-po { outline: 3px solid #f0a020; outline-offset: -3px; }
 .ds-po .chan { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .the-po .phu { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
 .the-po .so { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 8px; }

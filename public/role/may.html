@@ -126,8 +126,12 @@
   };
   theKH.addEventListener('click', (e) => {
     const tr = e.target.closest('.ds-po tr[data-po]'); if (!tr) return;
-    const the = [...theKH.querySelectorAll('.k2[data-po]')].find((el) => el.dataset.po === tr.dataset.po);
-    if (the) theKH.scrollTo({ left: the.offsetLeft - theKH.offsetLeft - 4, behavior: 'smooth' });
+    // Tới thẻ đầu tiên của PO và tô viền mọi thẻ con (màu x size) của PO đó trong vài giây
+    const ds = [...theKH.querySelectorAll('.k2[data-po]')].filter((el) => el.dataset.po === tr.dataset.po);
+    theKH.querySelectorAll('.k2.chon-po').forEach((el) => el.classList.remove('chon-po'));
+    ds.forEach((el) => el.classList.add('chon-po'));
+    clearTimeout(theKH._tChon); theKH._tChon = setTimeout(() => ds.forEach((el) => el.classList.remove('chon-po')), 4000);
+    if (ds[0]) theKH.scrollTo({ left: ds[0].offsetLeft - theKH.offsetLeft - 4, behavior: 'smooth' });
   });
   // Tab Đang hoạt động / Đã hoàn thành: cờ hoanThanh từ API (tình trạng Hoàn thành trong phần mềm kế hoạch)
   let tabKHChon = 'dang', khGanNhat = null, gioGanNhat = null;
