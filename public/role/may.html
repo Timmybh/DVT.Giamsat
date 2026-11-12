@@ -7,13 +7,15 @@
 <link rel="stylesheet" href="/css/style.css">
 <script src="/js/common.js"></script>
 <script src="/js/vendor/qrcode.js"></script>
+<script src="/js/vendor/jsQR.js"></script>
 </head>
 <body>
 <main>
   <div class="panel">
     <div class="filters bo-loc-may">
       <div class="mot-dong"><label>Tổ <select id="to"></select></label>
-      <label>Ngày <input type="date" id="ngay"></label></div>
+      <label>Ngày <input type="date" id="ngay"></label>
+      <button type="button" id="nutQR" class="nut-qr" title="Quét tem" aria-label="Quét tem"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="3" height="3"/><rect x="13" y="8" width="3" height="3"/><rect x="8" y="13" width="3" height="3"/><path d="M13 13h3v3"/></svg></button></div>
       <button type="button" id="nutCanhBao" class="canh-bao xanh">Cảnh báo (0)</button>
     </div>
   </div>
@@ -40,6 +42,22 @@
     <div><b>Quét để mở trang này trên điện thoại</b><div id="qrLink" class="note"></div></div>
   </div>
 </main>
+<div id="hopQR" class="hop-qr" hidden>
+  <div class="hop-qr-khung">
+    <div class="hcb-dau"><b>Quét tem</b><button type="button" id="qrDong" title="Đóng">✕</button></div>
+    <div class="hcb-than">
+      <div id="qrVung" class="qr-vung" hidden><video id="qrVideo" playsinline muted></video><div class="qr-ngam"></div></div>
+      <div id="qrTrangThai" class="qr-trang-thai"></div>
+      <div class="qr-nhap">
+        <input id="qrNhap" placeholder="Gõ hoặc bắn mã tem" autocomplete="off">
+        <button type="button" id="qrTra">Tra</button>
+        <label class="qr-nut">Chụp ảnh tem<input type="file" id="qrChup" accept="image/*" capture="environment" hidden></label>
+        <button type="button" id="qrQuetLai">Quét lại</button>
+      </div>
+      <div id="qrKetQua"></div>
+    </div>
+  </div>
+</div>
 <div id="hopCanhBao" class="hop-canh-bao" hidden>
   <div class="hcb-dau"><b>Cảnh báo <span id="soCB"></span></b><button type="button" id="dongCB" title="Đóng">✕</button></div>
   <div id="noiDungCB" class="hcb-than"></div>
@@ -358,5 +376,6 @@
   document.querySelector('.bo-loc-may .mot-dong').prepend(xnNhan);
   pHeader.then(loadTo);
 </script>
+<script src="/js/quet-tem.js"></script>
 </body>
 </html>

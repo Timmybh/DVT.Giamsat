@@ -208,3 +208,36 @@ header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overf
 .bang-gio .g-y, .note .g-y { color: #1e8e3e; font-weight: 600; }
 .bang-gio .g-z, .note .g-z { color: #d93025; font-weight: 600; }
 .bang-gio .g-nt { background: var(--line); min-width: 32px; text-align: center; }
+/* Quét tem (tổ trưởng may): nút icon QR cạnh ô Ngày, hộp quét giữa màn hình */
+.nut-qr { padding: 0; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; flex: 0 0 38px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--primary); cursor: pointer; }
+.nut-qr:hover { background: #eef3fd; }
+.hop-qr { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 24px 12px; }
+.hop-qr[hidden] { display: none; }
+.hop-qr-khung { width: min(760px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; background: var(--card); border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+.hop-qr .hcb-dau { color: var(--text); }
+.qr-vung { position: relative; width: min(420px, 100%); margin: 0 auto 8px; aspect-ratio: 1; background: #000; border-radius: 8px; overflow: hidden; }
+.qr-vung[hidden] { display: none; }
+.qr-vung video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.qr-ngam { position: absolute; inset: 18%; border: 3px solid #f0a020; border-radius: 10px; box-shadow: 0 0 0 999px rgba(0,0,0,.25); }
+.qr-trang-thai { font-size: 13px; color: var(--muted); margin-bottom: 8px; text-align: center; }
+.qr-nhap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.qr-nhap input { flex: 1 1 180px; min-width: 0; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+.qr-nhap button, .qr-nut { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 6px; padding: 7px 12px; font-size: 14px; cursor: pointer; }
+.qr-nhap #qrQuetLai { background: var(--primary); color: #fff; border-color: var(--primary); }
+.qr-ghi { font-size: 13px; margin-bottom: 8px; }
+.qr-tem { border: 1px solid var(--line); border-top: 4px solid var(--primary); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.qr-tem-dau { font-size: 16px; margin-bottom: 8px; }
+.qr-o { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; }
+.qr-o div { display: flex; flex-direction: column; min-width: 0; }
+.qr-o span { font-size: 11px; color: var(--muted); }
+.qr-o b { font-size: 14px; overflow-wrap: anywhere; }
+.qr-tieu { font-weight: 700; font-size: 13px; margin: 10px 0 4px; }
+.qr-tem .bang { overflow-x: auto; }
+.qr-tem .bang-cb td, .qr-tem .bang-cb th { white-space: nowrap; }
+@media (max-width: 640px) {
+  .hop-qr { padding: 0; }
+  .hop-qr-khung { max-height: 100vh; height: 100%; border-radius: 0; }
+  .qr-o { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nut-qr { height: 31px; }
+}
+.nut-qr svg { flex: none; width: 22px; height: 22px; }

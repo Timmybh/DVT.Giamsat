@@ -14,6 +14,7 @@
     "tim-cot-lsx": "node scripts/tim-cot-lsx.js",
     "khao-sat-sbd": "node scripts/khao-sat-sbd.js",
     "khao-sat-bth": "node scripts/khao-sat-bth.js",
+    "khao-sat-tem-gc": "node scripts/khao-sat-tem-gc.js",
     "khao-sat-mau": "node scripts/khao-sat-mau.js",
     "khao-sat-lenh": "node scripts/khao-sat-lenh.js",
     "khao-sat-bravo": "node scripts/khao-sat-bravo.js",
