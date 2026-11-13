@@ -487,13 +487,13 @@ const xnSoCua = async (req) => (req.query.theoXN === '1' ? String((await xnNum(r
 router.get('/btp-cat', handle('btpCatNXT', async (req) => ({
   lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay, xnSo: await xnSoCua(req),
 })));
-// Tra tem quét QR ở trang tổ trưởng may (?ma=): tem BTP cắt / tổng hợp / tem cấp mới. Chưa có tem gia công (đang khảo sát bảng)
+// Tra tem chụp QR ở trang tổ trưởng may (?ma=): tem BTP cắt / tổng hợp / tem cấp mới / tem gia công (...-IN), kèm lượt xuất may và gia công
 router.get('/tem-tra', async (req, res) => {
   try {
     const ma = String(req.query.ma || '').trim().slice(0, 100);
     if (!ma) return res.status(400).json({ error: 'Thiếu mã tem' });
-    const rows = await run('temTra', { ma });
-    res.json({ ma, rows });
+    const [rows, giaCong] = await Promise.all([run('temTra', { ma }), run('temGiaCong', { ma })]);
+    res.json({ ma, rows, giaCong });
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });

@@ -589,20 +589,24 @@ module.exports = {
       INSERT @ds VALUES (@ma);
       INSERT @ds SELECT DISTINCT bc.TemBarcodeBTP FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
         WHERE bc.BarcodeCapBTPMoi = @ma AND bc.TemBarcodeBTP IS NOT NULL AND bc.TemBarcodeBTP <> @ma;
+      -- tem gia công (TemBarCodeMoi, vd BTP2611034610-IN) -> tem BTP gốc
+      INSERT @ds SELECT DISTINCT g.TemBarCodeBTP FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g
+        WHERE g.TemBarCodeMoi IN (SELECT bc FROM @ds) AND g.TemBarCodeBTP IS NOT NULL AND g.TemBarCodeBTP NOT IN (SELECT bc FROM @ds);
       SELECT * FROM (
       SELECT N'Tem BTP cắt' AS loaiTem, t.Barcode AS barcode, t.NgayTao AS ngayTao,
              REPLACE(ISNULL(t.LenhSanXuat, ''), ';', '') AS lenhSX, REPLACE(ISNULL(t.MaHang, ''), ';', '') AS maHang, t.Mua AS mua,
              t.LoaiNguyenLieu AS loaiNL, t.TenChiTiet AS chiTiet, t.MauSP AS mau, t.MauVai AS mauVai, t.TenSize AS size,
              tc.BanCat AS banCat, CAST(t.BanMay AS nvarchar(200)) AS banMay, ht.SoPhieu AS phieuHoachToan, t.ViTriBTP AS viTri,
              t.TenPhongBan AS phongBan, t.SoLuong AS slTem, t.SoLuongThucXuat AS slThucXuat,
-             bc.SoPhieuCapBTP AS soPhieuCap, bc.BarcodeCapBTPMoi AS temXuat, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', '') AS lenhXuat,
+             bc.SoPhieuCapBTP AS soPhieuCap, bc.TemBarcodeBTP AS temBTPXuat, bc.BarcodeCapBTPMoi AS temXuat, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', '') AS lenhXuat,
              bc.PO AS po, bc.Size AS sizeDat, pc.TenPhanXuong AS xn, LTRIM(RTRIM(pc.TenCum)) AS maTo,
              bc.SoLuongDaXuat AS slXuat, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
              bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 c.BanCat FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c WHERE c.IdTem = t.Id) tc
-      LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON (bc.TemBarcodeBTP = t.Barcode
+        OR bc.TemBarcodeBTP IN (SELECT g.TemBarCodeMoi FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g WHERE g.TemBarCodeBTP = t.Barcode))
       LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
       WHERE t.Barcode IN (SELECT bc FROM @ds)
       UNION ALL
@@ -611,18 +615,39 @@ module.exports = {
              t.LoaiNguyenLieu, t.TenChiTiet, NULL, mv.MauVai, t.TenSize,
              NULL, CAST(t.BanMay AS nvarchar(200)), ht.SoPhieu, t.ViTriBTP,
              t.TenPhongBan, t.SoLuong, t.SoLuongThucXuat,
-             bc.SoPhieuCapBTP, bc.BarcodeCapBTPMoi, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', ''),
+             bc.SoPhieuCapBTP, bc.TemBarcodeBTP, bc.BarcodeCapBTPMoi, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', ''),
              bc.PO, bc.Size, pc.TenPhanXuong, LTRIM(RTRIM(pc.TenCum)),
              bc.SoLuongDaXuat, bc.ThoiGianQuetXuat, bc.NguoiQuetXuat,
              bc.SoLuongDaNhan, bc.ThoiGianQuetNhan
       FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_TongHop t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode) mv
-      LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON bc.TemBarcodeBTP = t.Barcode
+      LEFT JOIN dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc ON (bc.TemBarcodeBTP = t.Barcode
+        OR bc.TemBarcodeBTP IN (SELECT g.TemBarCodeMoi FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g WHERE g.TemBarCodeBTP = t.Barcode))
       LEFT JOIN dbo.CUTTING_PhieuCapBTP pc ON pc.SoPhieuCapBTP = bc.SoPhieuCapBTP
       WHERE t.Barcode IN (SELECT bc FROM @ds)
       ) x
       ORDER BY x.barcode, x.thoiGianXuat`,
+  },
+
+  // Lượt xuất gia công (CUTTING_PhieuGiaCongXuatKho_DaQuet: tem BTP gốc -> tem gia công TemBarCodeMoi, vd ...-IN) của mã quét:
+  // mã là tem BTP gốc, tem gia công, hoặc tem cấp mới (lấy các tem BTP trong đó). Tham số: @ma
+  temGiaCong: {
+    db: 'egmf',
+    text: `
+      DECLARE @ds TABLE (bc nvarchar(100) PRIMARY KEY);
+      INSERT @ds VALUES (@ma);
+      INSERT @ds SELECT DISTINCT bc.TemBarcodeBTP FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
+        WHERE bc.BarcodeCapBTPMoi = @ma AND bc.TemBarcodeBTP IS NOT NULL AND bc.TemBarcodeBTP <> @ma;
+      SELECT g.TemBarCodeBTP AS temBTP, g.TemBarCodeMoi AS temGC, g.LoaiGiaCong AS loaiGC, g.MaGiaCong AS maGC,
+             g.SLXuat AS slXuat, g.ThoiGianQuetXuat AS thoiGianXuat, g.NguoiQuetXuat AS nguoiXuat,
+             g.SLNhan AS slNhan, g.ThoiGianXacNhan AS thoiGianNhan, g.NguoiXacNhan AS nguoiNhan, g.LanQuet AS lanQuet, g.GhiChu AS ghiChu,
+             p.MaPhieu AS maPhieu, p.DonVi AS donVi, p.PhanHeGiaCong AS phanHe, p.TrangThai AS trangThai
+      FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g
+      LEFT JOIN dbo.CUTTING_PhieuGiaCongXuatKho p ON p.PhieuGiaCongXuatKhoId = g.IdPhieuGiaCong
+      WHERE g.TemBarCodeBTP IN (SELECT bc FROM @ds) OR g.TemBarCodeMoi IN (SELECT bc FROM @ds)
+         OR g.TemBarCodeBTP IN (SELECT x.TemBarCodeBTP FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet x WHERE x.TemBarCodeMoi IN (SELECT bc FROM @ds))
+      ORDER BY g.TemBarCodeBTP, g.ThoiGianQuetXuat`,
   },
 
   btpCatNXT: {
