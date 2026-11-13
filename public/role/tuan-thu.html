@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cảnh báo tuân thủ - DVT Giám sát</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/common.js"></script>
+</head>
+<body>
+<main>
+  <h1>Cảnh báo tuân thủ</h1>
+  <div class="panel">
+    <h2>1. Mã hàng đã có lệnh, đến ngày may mà chuyền không bấm sản lượng</h2>
+    <div class="filters">
+      <label>Ngày lệnh từ <input type="date" id="lenhTu"></label>
+      <label>đến <input type="date" id="lenhDen"></label>
+      <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
+      <button id="btn">Xem</button>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div id="result" class="luoi-cao"><div class="empty">Đang tải…</div></div>
+    <div class="note">Lấy từ màn Kế hoạch phân bổ (lệnh có ngày lệnh trong khoảng, ghép kế hoạch tổ theo PO): các dòng tổ x PO có kế hoạch,
+      ngày bắt đầu may theo kế hoạch đã tới (≤ hôm nay), tình trạng không phải Hoàn thành / Huỷ, mà SL SX trên HiPro (đạt + sửa, lũy kế) = 0.
+      Trễ = số ngày từ ngày bắt đầu may kế hoạch đến hôm nay.</div>
+  </div>
+</main>
+<script>
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  lenhTu.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60, 12));
+  lenhDen.value = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
+  let rows = [];
+  const homNay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ngayTre = (d) => Math.floor((homNay - new Date(new Date(d).toDateString())) / 86400000);
+
+  async function loadTo() {
+    const list = await App.api('to', { xn: App.xn });
+    to.innerHTML = '<option value="">Tất cả</option>' + list.map((t) => `<option value="${App.esc(t.ma)}">${App.esc(t.ten)}</option>`).join('');
+  }
+  function draw() {
+    const data = to.value ? rows.filter((r) => String(r.maTo) === to.value) : rows;
+    App.cards(cards, [
+      { label: 'Dòng cảnh báo', value: App.num(data.length), cls: data.length ? 'bad' : 'ok' },
+      { label: 'Số tổ', value: App.num(new Set(data.map((r) => r.maTo)).size) },
+      { label: 'Số mã hàng', value: App.num(new Set(data.map((r) => r.maHang)).size) },
+      { label: 'SL kế hoạch chưa bấm', value: App.num(data.reduce((s, r) => s + Number(r.soLuong || 0), 0)) },
+    ]);
+    App.table(result, [
+      { key: 'maTo', label: 'Tổ' },
+      { key: 'tre', label: 'Trễ (ngày)', type: 'num', render: (r) => `<span class="tag ${r.tre > 3 ? 'bad' : 'warn'}">${r.tre}</span>` },
+      { key: 'maHang', label: 'Mã hàng' },
+      { key: 'po', label: 'PO' },
+      { key: 'lenhSX', label: 'Lệnh SX' },
+      { key: 'ngayLenh', label: 'Ngày lệnh', type: 'date' },
+      { key: 'tinhTrang', label: 'Tình trạng' },
+      { key: 'soLuong', label: 'SL kế hoạch', type: 'num', sum: true },
+      { key: 'ngayVaoChuyen', label: 'Vào chuyền KH', type: 'date' },
+      { key: 'ngayBatDau', label: 'Bắt đầu may KH', type: 'date' },
+      { key: 'ngayKetThuc', label: 'Kết thúc may KH', type: 'date' },
+    ], data, { footer: true });
+  }
+  async function load() {
+    App.loading(result); cards.innerHTML = '';
+    try {
+      const kq = await App.api('ke-hoach-phan-bo', { xn: App.xn, tuNgay: '', denNgay: '', lenhTu: lenhTu.value, lenhDen: lenhDen.value });
+      rows = kq.filter((r) => r.maTo && !r.chuaPhanBo && r.soLuong != null && Number(r.soLuong) > 0
+          && Number(r.slSX || 0) === 0 && r.ngayBatDau && ngayTre(r.ngayBatDau) >= 0 && !/^(Hoàn thành|Huỷ[^/]*)$/.test(r.tinhTrang || ''))
+        .map((r) => ({ ...r, tre: ngayTre(r.ngayBatDau) }))
+        .sort((a, b) => b.tre - a.tre || String(a.maTo).localeCompare(String(b.maTo), 'vi', { numeric: true }));
+      draw();
+    } catch (e) { App.error(result, e); }
+  }
+  btn.onclick = load;
+  to.onchange = draw;
+  App.header([['Trang chính', '/'], ['Cảnh báo tuân thủ']], () => { loadTo(); load(); }).then(() => { loadTo(); load(); });
+</script>
+</body>
+</html>
