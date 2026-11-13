@@ -105,7 +105,7 @@ footer.chan-trang { position: fixed; left: 0; right: 0; bottom: 0; background: v
 .ds-po tbody:hover { background: #eef3fd; }
 .ds-po tbody.dang-chon { background: #fff4dc; }
 .the-po.ds-po td { border: 0; padding: 3px 6px; }
-.the-po.ds-po td.trai { text-align: left; }
+.the-po.ds-po td.trai { text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .the-po.ds-po td.d1 { padding-top: 7px; }
 .the-po.ds-po td.d2 { padding-left: 22px; padding-bottom: 7px; color: var(--muted); font-size: 12.5px; }
 .the-po.ds-po td.o-kh { text-align: right; font-weight: 700; white-space: nowrap; width: 1%; }
