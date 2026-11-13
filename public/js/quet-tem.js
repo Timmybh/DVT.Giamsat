@@ -1,21 +1,16 @@
-// Quét tem bằng camera (trang tổ trưởng may): mở hộp #hopQR, quét QR / mã vạch, tra /api/tem-tra rồi hiện thông tin tem.
-// Camera trực tiếp cần trang HTTPS hoặc localhost; trang http:// trong LAN thì dùng nút "Chụp ảnh tem" (mở camera của máy, đọc QR từ ảnh)
-// hoặc gõ / bắn mã bằng súng quét vào ô nhập.
+// Tra tem bằng ảnh chụp (trang tổ trưởng may): bấm nút QR mở camera của máy để chụp tem (chạy được trên trang http:// trong LAN,
+// camera trực tiếp thì trình duyệt đòi HTTPS), đọc QR / mã vạch trong ảnh, tra /api/tem-tra rồi hiện thông tin tem.
+// Có ô gõ / bắn mã bằng súng quét.
 (() => {
   const $ = (id) => document.getElementById(id);
   const hop = $('hopQR');
-  const video = $('qrVideo');
-  const vung = $('qrVung');
   const trangThai = $('qrTrangThai');
   const ketQua = $('qrKetQua');
   const nhap = $('qrNhap');
   const chup = $('qrChup');
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  let stream = null;
-  let hen = null;
   let dangTra = false;
-  const coCamera = !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   const detector = (() => {
     try { return 'BarcodeDetector' in window ? new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39', 'data_matrix', 'ean_13'] }) : null; } catch (e) { return null; }
   })();
@@ -32,39 +27,6 @@
     const anh = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const r = window.jsQR && window.jsQR(anh.data, anh.width, anh.height, { inversionAttempts: 'attemptBoth' });
     return r ? r.data : null;
-  }
-
-  function tatCamera() {
-    clearTimeout(hen); hen = null;
-    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
-    video.srcObject = null;
-    vung.hidden = true;
-  }
-
-  async function batCamera() {
-    ketQua.innerHTML = '';
-    if (!coCamera) {
-      vung.hidden = true;
-      trangThai.innerHTML = 'Trang đang mở bằng http:// nên trình duyệt không cho bật camera trực tiếp. Bấm <b>Chụp ảnh tem</b> để chụp bằng camera của máy, hoặc gõ mã tem.';
-      return;
-    }
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
-    } catch (e) {
-      trangThai.textContent = `Không bật được camera (${e.name || e.message}). Bấm Chụp ảnh tem hoặc gõ mã tem.`;
-      return;
-    }
-    video.srcObject = stream;
-    await video.play().catch(() => {});
-    vung.hidden = false;
-    trangThai.textContent = 'Đưa mã QR của tem vào khung';
-    const vong = async () => {
-      if (!stream) return;
-      const ma = video.readyState >= 2 ? await docMa(video, video.videoWidth, video.videoHeight) : null;
-      if (ma) { if (navigator.vibrate) navigator.vibrate(80); tatCamera(); traTem(ma); return; }
-      hen = setTimeout(vong, 150);
-    };
-    vong();
   }
 
   const o = (nhan, v) => (v == null || v === '' ? '' : `<div><span>${nhan}</span><b>${App.esc(v)}</b></div>`);
@@ -102,7 +64,7 @@
     if (!ma || dangTra) return;
     dangTra = true;
     nhap.value = ma;
-    trangThai.innerHTML = `Mã quét được: <b>${App.esc(ma)}</b>`;
+    trangThai.innerHTML = `Mã đọc được: <b>${App.esc(ma)}</b>`;
     ketQua.innerHTML = '<div class="empty">Đang tra tem…</div>';
     try {
       const { rows } = await App.api('tem-tra', { ma });
@@ -131,10 +93,12 @@
 
   $('qrTra').onclick = () => traTem(nhap.value);
   nhap.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); traTem(nhap.value); } });
-  $('qrQuetLai').onclick = () => { tatCamera(); nhap.value = ''; batCamera(); };
-  const dong = () => { tatCamera(); hop.hidden = true; };
+  const chupMoi = () => { nhap.value = ''; ketQua.innerHTML = ''; trangThai.textContent = 'Chụp rõ mã QR của tem'; chup.click(); };
+  $('qrQuetLai').onclick = chupMoi;
+  const dong = () => { hop.hidden = true; };
   $('qrDong').onclick = dong;
   hop.addEventListener('click', (e) => { if (e.target === hop) dong(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !hop.hidden) dong(); });
-  $('nutQR').onclick = () => { hop.hidden = false; nhap.value = ''; batCamera(); };
+  // Bấm nút QR: mở hộp và mở luôn camera chụp ảnh (cùng lần bấm nên trình duyệt cho mở)
+  $('nutQR').onclick = () => { hop.hidden = false; chupMoi(); };
 })();
