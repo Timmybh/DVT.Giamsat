@@ -136,20 +136,23 @@
       const g = nhom.get(k) || nhom.set(k, { t, lenh, kh: 0 }).get(k);
       g.kh += Number(x.kh || 0);
     });
+    // Ngày dd/mm/yy cho gọn trên điện thoại
+    const ng = (v) => { if (!v) return '?'; const d = new Date(v); const p2 = (n) => String(n).padStart(2, '0'); return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`; };
     const ds = [...nhom.values()].sort((a, b) => String(a.t.maHang || '').localeCompare(String(b.t.maHang || ''))
-      || new Date(a.t.ngayVaoChuyen || 0) - new Date(b.t.ngayVaoChuyen || 0) || a.lenh.localeCompare(b.lenh) || String(a.t.po).localeCompare(String(b.t.po)));
-    // Nhóm theo mã hàng (dòng tiêu đề); mỗi PO x lệnh 2 dòng: lệnh SX / (thụt vào) PO, từ - đến; bên phải gộp 2 dòng: SL kế hoạch tổ, % TH
-    let hangTruoc = null;
+      || a.lenh.localeCompare(b.lenh) || new Date(a.t.ngayVaoChuyen || 0) - new Date(b.t.ngayVaoChuyen || 0) || String(a.t.po).localeCompare(String(b.t.po)));
+    // Nhóm theo mã hàng · lệnh SX (dòng tiêu đề); mỗi PO 2 dòng: PO (đậm) / (thụt vào) từ - đến; bên phải gộp 2 dòng: SL kế hoạch tổ, % TH
+    let nhomTruoc = null;
     return `<div class="the-po ds-po">
       <div class="bang"><table>
       ${ds.map(({ t, lenh, kh }) => {
-        const tieuDe = t.maHang !== hangTruoc ? `<tbody class="ds-hang"><tr><td colspan="3">Mã hàng <b>${App.esc(t.maHang || '?')}</b></td></tr></tbody>` : '';
-        hangTruoc = t.maHang;
+        const kNhom = `${t.maHang}|${lenh}`;
+        const tieuDe = kNhom !== nhomTruoc ? `<tbody class="ds-hang"><tr><td colspan="3"><b>${App.esc(t.maHang || '?')}</b> · <b>${App.esc(lenh || '(chưa có lệnh)')}</b></td></tr></tbody>` : '';
+        nhomTruoc = kNhom;
         return `${tieuDe}<tbody data-po="${App.esc(t.po)}" data-lenh="${App.esc(lenh)}" title="% TH: SX ${App.num(t.sxLK)} / KH ${App.num(t.soLuong)} (cả PO, HiPro không ghi lệnh)">
-        <tr><td class="trai d1"><b>${App.esc(lenh || '(chưa có lệnh)')}</b></td>
+        <tr><td class="trai d1"><b>${App.esc(t.po)}</b></td>
           <td rowspan="2" class="o-kh"><small>KH</small>${App.num(kh)}</td>
           <td rowspan="2" class="o-th">${App.pctTag(Number(t.sxLK || 0), Number(t.soLuong || 0))}</td></tr>
-        <tr><td class="trai d2">PO ${App.esc(t.po)} · ${App.date(t.ngayVaoChuyen) || '?'} – ${App.date(t.ngayKetThuc) || '?'}</td></tr>
+        <tr><td class="trai d2">${ng(t.ngayVaoChuyen)} – ${ng(t.ngayKetThuc)}</td></tr>
       </tbody>`;
       }).join('')}
       </table></div>
