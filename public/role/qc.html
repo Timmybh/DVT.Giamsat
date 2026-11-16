@@ -120,14 +120,15 @@
       App.loading(theoGio);
       try {
         const rows = (await App.api('san-luong-gio', { xn: App.xn, d: denNgay.value })).filter((r) => r.line === to.value);
-        const hours = Array.from({ length: 14 }, (_, i) => i + 1).filter((h) => rows.some((r) => r[`h${h}`] || r[`r${h}`]));
-        const data = hours.map((h) => ({
-          gio: `Giờ ${h}`, dat: rows.reduce((s, r) => s + Number(r[`h${h}`] || 0), 0), loi: rows.reduce((s, r) => s + Number(r[`r${h}`] || 0), 0),
-        }));
+        // Như bảng theo tổ: lỗi = SP lỗi (reject_*_h), đã sửa = SP lỗi đã sửa (fix_*_h); RFT tính cả SP đã sửa
+        const tong = (h, c) => rows.reduce((s, r) => s + Number(r[`${c}${h}`] || 0), 0);
+        const hours = Array.from({ length: 14 }, (_, i) => i + 1).filter((h) => rows.some((r) => r[`h${h}`] || r[`r${h}`] || r[`f${h}`]));
+        const data = hours.map((h) => ({ gio: `Giờ ${h}`, dat: tong(h, 'h'), loi: tong(h, 'r'), sua: tong(h, 'f') }));
         App.table(theoGio, [
           { key: 'gio', label: 'Giờ' },
           { key: 'dat', label: 'Đạt', type: 'num', sum: true },
           { key: 'loi', label: 'Lỗi', type: 'num', sum: true },
+          { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
           { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: tyLeTong },
           { key: 'rft', label: 'RFT', type: 'num', render: rft, total: rftTong },
         ], data, { footer: true, empty: 'Chưa có số liệu trong ngày' });
