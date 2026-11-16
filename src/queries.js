@@ -872,6 +872,24 @@ module.exports = {
       GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, ISNULL(l.ma_loi, d.ma_loi), l.ten_loi, cl.ten`,
   },
 
+  // Chi tiết lỗi theo tổ x khung giờ (gio_lam, vd 'C_3H' = giờ 3) x mã lỗi trong 1 ngày (bảng Theo giờ trang QC). Tham số: @tuNgay, @denNgay
+  qcLoiGio: {
+    db: 'hipro',
+    text: `
+      SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, LTRIM(RTRIM(ISNULL(d.gio_lam, ''))) AS gioLam,
+             ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi, COUNT(*) AS soLan, MIN(d.thoi_gian) AS tu, MAX(d.thoi_gian) AS den
+      FROM dbo.pro_nscl_chi_tiet_loi d
+      JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      LEFT JOIN dbo.pro_loi l ON l.id = d.pro_loi_id
+      WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, LTRIM(RTRIM(ISNULL(d.gio_lam, ''))), ISNULL(l.ma_loi, d.ma_loi), l.ten_loi`,
+  },
+
   // Doanh thu xí nghiệp theo ngày (màn hình ERP "DOANH THU XÍ NGHIỆP"). Dữ liệu nhập tay nên có thể trùng ngày:
   // API giữ dòng Id lớn nhất mỗi ngày. Tham số: @xnNum, @tuNgay, @denNgay
   doanhThuNgay: {

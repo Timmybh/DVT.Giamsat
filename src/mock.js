@@ -349,6 +349,9 @@ module.exports = {
       xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, maLoi, tenLoi, cumLoi, soLan: hInt(`lc${xn.ma}${t.ma}${maLoi}`, 0, 8) * n,
     }))));
   },
+  qcLoiGio: ({ tuNgay }) => xiNghiep.flatMap((xn) => to[xn.ma].flatMap((t) => [1, 2, 3, 5].flatMap((h) => [['QAD00001', 'Nhăn, vặn'], ['QAD00052', 'Sót chỉ']]
+    .map(([maLoi, tenLoi]) => ({ xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, gioLam: `C_${h}H`, maLoi, tenLoi, soLan: hInt(`lg${xn.ma}${t.ma}${h}${maLoi}${tuNgay}`, 0, 3) }))
+    .filter((r) => r.soLan)))),
   doanhThuNgay: ({ xnNum, tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).map((d, i) => {
     const keHoach = hInt(`dtk${xnNum}${d}`, 30000, 45000);
     const thucHien = Math.floor(keHoach * (0.75 + hash(`dtt${xnNum}${d}`) * 0.35));

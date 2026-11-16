@@ -791,6 +791,7 @@ router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
 const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
 router.get('/qc-nscl', handleXn('qcNscl', qcRange, true));
 router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange, true));
+router.get('/qc-loi-gio', handleXn('qcLoiGio', (req) => ({ tuNgay: req.query.d || today(), denNgay: req.query.d || today() }), true));
 router.get('/doanh-thu', async (req, res) => {
   try {
     const rows = await run('doanhThuNgay', {

@@ -119,11 +119,25 @@
       gioNgay.textContent = App.date(denNgay.value);
       App.loading(theoGio);
       try {
-        const rows = (await App.api('san-luong-gio', { xn: App.xn, d: denNgay.value })).filter((r) => r.line === to.value);
+        const [rows0, loiGio] = await Promise.all([App.api('san-luong-gio', { xn: App.xn, d: denNgay.value }), App.api('qc-loi-gio', { xn: App.xn, d: denNgay.value })]);
+        const rows = rows0.filter((r) => r.line === to.value);
+        // Lần bấm lỗi theo khung giờ (pro_nscl_chi_tiet_loi.gio_lam 'C_3H' = giờ 3), gom theo giờ: tổng lần + danh sách lỗi
+        const loiTheoGio = new Map();
+        loiGio.filter((r) => r.line === to.value).forEach((r) => {
+          const m = /(\d+)/.exec(r.gioLam || ''); const h = m ? Number(m[1]) : 0;
+          const g = loiTheoGio.get(h) || loiTheoGio.set(h, { lan: 0, ds: new Map() }).get(h);
+          g.lan += Number(r.soLan || 0);
+          const ten = r.tenLoi || r.maLoi; g.ds.set(ten, (g.ds.get(ten) || 0) + Number(r.soLan || 0));
+        });
         // Như bảng theo tổ: lỗi = SP lỗi (reject_*_h), đã sửa = SP lỗi đã sửa (fix_*_h); RFT tính cả SP đã sửa
         const tong = (h, c) => rows.reduce((s, r) => s + Number(r[`${c}${h}`] || 0), 0);
-        const hours = Array.from({ length: 14 }, (_, i) => i + 1).filter((h) => rows.some((r) => r[`h${h}`] || r[`r${h}`] || r[`f${h}`]));
-        const data = hours.map((h) => ({ gio: `Giờ ${h}`, dat: tong(h, 'h'), loi: tong(h, 'r'), sua: tong(h, 'f') }));
+        const hours = Array.from({ length: 14 }, (_, i) => i + 1).filter((h) => rows.some((r) => r[`h${h}`] || r[`r${h}`] || r[`f${h}`]) || loiTheoGio.has(h));
+        const data = hours.map((h) => {
+          const g = loiTheoGio.get(h);
+          return { gio: `Giờ ${h}`, dat: tong(h, 'h'), loi: tong(h, 'r'), sua: tong(h, 'f'), lanLoi: g ? g.lan : 0,
+            dsLoi: g ? [...g.ds].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} (${n})`).join(', ') : '' };
+        });
+        const khongGio = loiTheoGio.get(0);
         App.table(theoGio, [
           { key: 'gio', label: 'Giờ' },
           { key: 'dat', label: 'Đạt', type: 'num', sum: true },
@@ -131,7 +145,10 @@
           { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
           { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: tyLeTong },
           { key: 'rft', label: 'RFT', type: 'num', render: rft, total: rftTong },
+          { key: 'lanLoi', label: 'Lần bấm lỗi', type: 'num', sum: true },
+          { key: 'dsLoi', label: 'Lỗi bấm trong giờ' },
         ], data, { footer: true, empty: 'Chưa có số liệu trong ngày' });
+        if (khongGio) theoGio.insertAdjacentHTML('beforeend', `<div class="note">Có ${App.num(khongGio.lan)} lần bấm lỗi không ghi khung giờ.</div>`);
       } catch (e) { App.error(theoGio, e); }
     }
   }
