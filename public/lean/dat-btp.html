@@ -105,6 +105,7 @@
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slXuat', label: 'SL cắt đã xuất', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL tổ đã nhận', type: 'num', sum: true },
+        { key: 'slMayMau', label: 'SL may mẫu', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slXuat, 0), render: (r) => App.num(Math.max(r.slDat - r.slXuat, 0)) },
         { key: 'tt', label: 'Đáp ứng', render: status, total: (rs) => status({ slDat: rs.reduce((s, r) => s + Number(r.slDat || 0), 0), slXuat: rs.reduce((s, r) => s + Number(r.slXuat || 0), 0) }) },
       ], rows, { onClick: loadDetail, footer: true, empty: 'Tổ chưa có phiếu cấp BTP trong khoảng ngày này' });
@@ -198,6 +199,7 @@
         { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
         { key: 'slCap', label: 'SL cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
+        { key: 'slMayMau', label: 'SL may mẫu', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', total: (rs) => App.num(tong(rs).thieu) },
         { key: 'tt', label: 'Đáp ứng', render: (r) => (r.slKH == null ? '' : status({ slDat: r.slKH, slXuat: r.lkNhan })), total: (rs) => { const t = tong(rs); return status({ slDat: t.kh, slXuat: t.nhan }); } },
         // Theo lệnh x PO x mã hàng x màu x size, đặt của tất cả tổ (mọi ngày); dòng tổng cộng mỗi nhóm 1 lần

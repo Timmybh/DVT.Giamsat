@@ -212,17 +212,19 @@ async function khoangKH(q) {
 // Thứ tự như ORDER BY của keHoachPhanBo (chạy theo lô PO thì phải sắp lại)
 const sapKH = (rs) => rs.sort((a, b) => String(a.maTo ?? '').length - String(b.maTo ?? '').length || String(a.maTo ?? '').localeCompare(String(b.maTo ?? ''))
   || new Date(a.ngayBatDau) - new Date(b.ngayBatDau) || String(a.po ?? '').localeCompare(String(b.po ?? '')) || String(a.lenhSX ?? '').localeCompare(String(b.lenhSX ?? '')));
-// SL may mẫu (phiếu điều tiết) theo lệnh gốc: ghi vào dòng đầu tiên của mỗi lệnh để tổng không bị nhân khi lệnh chia nhiều tổ / PO
+// SL may mẫu (phiếu điều tiết) theo lệnh: ghi vào dòng đầu tiên của mỗi lệnh để tổng không bị nhân khi lệnh chia nhiều tổ / PO /
+// phiếu / size. Ô lệnh có thể ghi nhiều lệnh 'A;B' (phiếu cấp): cộng mẫu các lệnh chưa ghi ở dòng trước
 async function ganMayMau(rows, lenhCua) {
-  const ten = (r) => String(lenhCua(r) ?? '').replace(/;/g, '').trim();
-  const ds = [...new Set(rows.map(ten).filter(Boolean))];
-  const mm = db.useMock() ? new Map(ds.map((l) => [l, mock.mayMau(l)])) : await docMayMau(ds);
+  const tach = (r) => String(lenhCua(r) ?? '').toUpperCase().split(';').map((x) => x.trim()).filter(Boolean);
+  const ds = [...new Set(rows.flatMap(tach))];
+  const mm = new Map();
+  (db.useMock() ? new Map(ds.map((l) => [l, mock.mayMau(l)])) : await docMayMau(ds)).forEach((v, k) => mm.set(String(k).toUpperCase(), v));
   const daGhi = new Set();
   return rows.map((r) => {
-    const l = ten(r);
-    if (!l || daGhi.has(l)) return { ...r, slMayMau: null };
-    daGhi.add(l);
-    return { ...r, slMayMau: mm.get(l) || 0 };
+    const moi = tach(r).filter((l) => !daGhi.has(l));
+    if (!moi.length) return { ...r, slMayMau: null };
+    moi.forEach((l) => daGhi.add(l));
+    return { ...r, slMayMau: moi.reduce((t, l) => t + (mm.get(l) || 0), 0) };
   });
 }
 router.get('/ke-hoach-phan-bo', async (req, res) => {
@@ -376,10 +378,22 @@ router.get('/ke-hoach-phan-bo/lenh-size', async (req, res) => {
 router.get('/ke-hoach-phan-bo/size', handle('keHoachSize', async (req) => ({
   xn: req.query.xn, ...(({ dsPOList, lenh: _l, ...k }) => k)(await khoangKH(req.query)), to: req.query.to || '', maHang: req.query.maHang || '', po: req.query.po || '',
 })));
-router.get('/phieu-cap-btp', handle('phieuCapBTP', async (req) => ({
-  xnCode: await xnCode(req.query.xn), to: req.query.to,
-  tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
-})));
+router.get('/phieu-cap-btp', async (req, res) => {
+  try {
+    const rows = await run('phieuCapBTP', {
+      xnCode: await xnCode(req.query.xn), to: req.query.to,
+      tuNgay: req.query.tuNgay || daysAgo(30), denNgay: req.query.denNgay || today(),
+    });
+    // SL may mẫu theo lệnh, ghi ở phiếu đầu tiên (ngày nhận sớm nhất) của mỗi lệnh
+    const thuTu = rows.map((r, i) => [r, i]).sort(([a], [b]) => String(a.ngayNhan).localeCompare(String(b.ngayNhan)));
+    const gan = await ganMayMau(thuTu.map(([r]) => r), (r) => r.lenhSX);
+    const kq = []; thuTu.forEach(([, i], j) => { kq[i] = gan[j]; });
+    res.json(kq);
+  } catch (err) {
+    console.error('[phieuCapBTP]', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
 // Chi tiết đặt BTP + SL KH (SBD) theo tổ x PO x màu x size.
 // Màu / size giữa phiếu cấp và SBD ghi khác kiểu ('UK6-8/EUS(L31)' vs 'UK 6-8 / EU S'): bỏ khoảng trắng, bỏ '(...)' cuối, so chữ hoa;
 // màu không khớp nguyên văn thì ghép qua mã màu Bravo (bangMau).
@@ -479,14 +493,14 @@ router.get('/chi-tiet-dat-btp', async (req, res) => {
       cong(day, `${g}|${chuanMau(k.mau)}`, Number(k.soLuong || 0));
       cong(theoMa, `${g}|${kMau(k.po, k.mau)}`, Number(k.soLuong || 0));
     });
-    res.json(rows.map((r) => {
+    res.json(await ganMayMau(rows.map((r) => {
       const g = `${lineOf(r.maTo)}|${String(r.po).trim()}|${chuanSize(r.size)}`;
       const slKH = day.has(`${g}|${chuanMau(r.mau)}`) ? day.get(`${g}|${chuanMau(r.mau)}`) : theoMa.get(`${g}|${kMau(r.po, r.mau)}`);
       const tLenh = tongLenh(r);
       const kDat = khoaLMS(goLenh(r.lenhSX).join(';'), r.po, r.mau, r.size, chuanMau);
       const tDat = slDatAll.get(kDat) ?? 0;
       return { ...r, slKH: slKH ?? (r.slKHPhieu != null ? Number(r.slKHPhieu) : null), nguonKH: slKH != null ? 'SBD' : r.slKHPhieu != null ? 'phieu' : null, tongLenh: tLenh, tongDat: tDat, toDaDat: dsTo(kDat), tongConLai: tLenh == null ? null : tLenh - tDat };
-    }));
+    }), (r) => r.lenhSX));
   } catch (err) {
     console.error('[chiTietDatBTP]', err.message);
     res.status(err.status || 500).json({ error: err.message });
