@@ -730,15 +730,20 @@ module.exports = {
         AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%') AND ISNULL(t.TenChiTiet, '') = ''
       GROUP BY LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))), ISNULL(t.LoaiNguyenLieu, '')`,
   }),
-  // SL may mẫu theo lệnh: DuTruHaoHut của phiếu điều tiết giác sơ đồ (mỗi lệnh x loại NL 1 phiếu, cùng số mẫu nên lấy MAX).
-  // BTP vào chuyền nhỏ hơn BTP cắt / xuất đúng số này, SL bấm HiPro nhỏ hơn BTP nhận vào chuyền đúng số này. @l0.. như B3
+  // SL may mẫu theo lệnh: DuTruHaoHut (số cái) của phiếu điều tiết giác sơ đồ. Một lệnh điều tiết nhiều lần, mỗi lần 1 phiếu có số
+  // mẫu riêng (vd lần 1: 1 mẫu, lần 2: 2 mẫu) nên cộng các phiếu theo loại NL (ChungLoai); các loại NL cùng cắt một bộ mẫu nên
+  // lấy loại lớn nhất. BTP vào chuyền nhỏ hơn BTP cắt / xuất đúng số này, SL bấm HiPro nhỏ hơn BTP nhận vào chuyền đúng số này. @l0.. như B3
   mayMauTheoLenh: ({ n = 0 } = {}) => ({
     db: 'egmf',
     text: `
-      SELECT LTRIM(RTRIM(REPLACE(d.LenhSanXuat, ';', ''))) AS lenhSX, MAX(ISNULL(d.DuTruHaoHut, 0)) AS slMayMau
-      FROM dbo.Cutting_PhieuDieuTietGiacSoDo d
-      WHERE d.LenhSanXuat IN (${dsThamSo('l', n)})
-      GROUP BY LTRIM(RTRIM(REPLACE(d.LenhSanXuat, ';', '')))`,
+      SELECT lenhSX, MAX(sl) AS slMayMau
+      FROM (
+        SELECT LTRIM(RTRIM(REPLACE(d.LenhSanXuat, ';', ''))) AS lenhSX, ISNULL(d.ChungLoai, '') AS loaiNL, SUM(ISNULL(d.DuTruHaoHut, 0)) AS sl
+        FROM dbo.Cutting_PhieuDieuTietGiacSoDo d
+        WHERE d.LenhSanXuat IN (${dsThamSo('l', n)})
+        GROUP BY LTRIM(RTRIM(REPLACE(d.LenhSanXuat, ';', ''))), ISNULL(d.ChungLoai, '')
+      ) x
+      GROUP BY lenhSX`,
   }),
   // B4: quét xuất / nhận của các lệnh theo lệnh x loại NL. Kho quét bằng tem cắt (BTP.., CUTTING_PhieuHoachToan_TemBarCode)
   // hoặc tem tổng hợp phối bộ (BTH.., CUTTING_PhieuHoachToan_TemBarcode_TongHop, gom nhiều bàn may); chỉ tem thân chính vải chính.

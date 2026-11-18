@@ -212,6 +212,19 @@ async function khoangKH(q) {
 // Thứ tự như ORDER BY của keHoachPhanBo (chạy theo lô PO thì phải sắp lại)
 const sapKH = (rs) => rs.sort((a, b) => String(a.maTo ?? '').length - String(b.maTo ?? '').length || String(a.maTo ?? '').localeCompare(String(b.maTo ?? ''))
   || new Date(a.ngayBatDau) - new Date(b.ngayBatDau) || String(a.po ?? '').localeCompare(String(b.po ?? '')) || String(a.lenhSX ?? '').localeCompare(String(b.lenhSX ?? '')));
+// SL may mẫu (phiếu điều tiết) theo lệnh gốc: ghi vào dòng đầu tiên của mỗi lệnh để tổng không bị nhân khi lệnh chia nhiều tổ / PO
+async function ganMayMau(rows, lenhCua) {
+  const ten = (r) => String(lenhCua(r) ?? '').replace(/;/g, '').trim();
+  const ds = [...new Set(rows.map(ten).filter(Boolean))];
+  const mm = db.useMock() ? new Map(ds.map((l) => [l, mock.mayMau(l)])) : await docMayMau(ds);
+  const daGhi = new Set();
+  return rows.map((r) => {
+    const l = ten(r);
+    if (!l || daGhi.has(l)) return { ...r, slMayMau: null };
+    daGhi.add(l);
+    return { ...r, slMayMau: mm.get(l) || 0 };
+  });
+}
 router.get('/ke-hoach-phan-bo', async (req, res) => {
   try {
     const { dsPOList, lenh, ...pk } = { xn: req.query.xn, ...(await khoangKH(req.query)) };
@@ -240,7 +253,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       maTo: '', tenTo: '', maHang: l.maHang, po: l.po, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), loaiLenh: 'Lệnh gốc',
       soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true, tinhTrang: l.daDangKy === false ? 'Chưa đăng ký' : 'Chưa phân chuyền',
     }));
-    if (!rows.length) return res.json(dongChua);
+    if (!rows.length) return res.json(await ganMayMau(dongChua, (r) => r.lenhSX));
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
     // SL SX = may ra HiPro (đạt + sửa + điều chỉnh lũy kế), chỉ đọc các PO của bảng và cả bảng lưu trữ pro_nscl_MM_YYYY
     // (trước đây đọc mọi PO mọi nhà máy, chỉ bảng tháng hiện hành nên PO may từ tháng trước bị thiếu SL)
@@ -261,13 +274,14 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
     });
     const soPO = new Map();
     rows.filter((r) => r.soLuong != null).forEach((r) => cong(soPO, `${lineOf(r.maTo)}|${up(r.maHang)}`, 1));
-    res.json(rows.map((r) => {
+    const ra = rows.map((r) => {
       const kHang = `${lineOf(r.maTo)}|${up(r.maHang)}`;
       const kPO = `${lineOf(r.maTo)}|${up(r.po)}`;
       if (r.soLuong == null) return r; // dòng lệnh thứ 2 trở đi của cùng tổ x PO: SL kế hoạch / SX đã ghi ở dòng đầu
       const slSX = theoPO.has(kPO) ? theoPO.get(kPO) : (soPO.get(kHang) === 1 ? theoHang.get(kHang) || 0 : 0);
       return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
-    }).concat(dongChua));
+    }).concat(dongChua);
+    res.json(await ganMayMau(ra, (r) => (Number(r.typeCt) > 0 && r.lenhGoc ? r.lenhGoc : r.lenhSX)));
   } catch (err) {
     console.error('[keHoachPhanBo]', err.message);
     res.status(err.status || 500).json({ error: err.message });
