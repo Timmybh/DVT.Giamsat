@@ -1,12 +1,23 @@
 // NXT BTP cắt theo lệnh sản xuất (màn BTP cắt, bỏ trống lệnh): lệnh gốc Bravo có ngày lệnh trong khoảng xem (của XN),
 // SL lệnh = lệnh gốc + điều chỉnh / thu hồi; rồi ghép tem cắt thân chính vải chính của các lệnh đó (mọi ngày tạo tem)
 // và quét xuất / nhận (cả tem tổng hợp BTH). Nhiều loại vải chính thì lấy loại nhỏ nhất (đồng bộ).
-// Trả: [{ lenhSX, ngayLenh, maHang, slLenh, soTem, slBTP, slXuat, slVaoChuyen, slTon }]
+// SL may mẫu = DuTruHaoHut phiếu điều tiết (vào chuyền nhỏ hơn xuất đúng số này).
+// Trả: [{ lenhSX, ngayLenh, maHang, slLenh, soTem, slBTP, slXuat, slMayMau, slVaoChuyen, slTon }]
 const db = require('./db');
 const queries = require('./queries');
 
 const LO = 1000; // số tham số mỗi lần IN (SQL Server tối đa 2100)
 const chia = (ds, n = LO) => Array.from({ length: Math.ceil(ds.length / n) }, (_, i) => ds.slice(i * n, (i + 1) * n));
+
+// SL may mẫu theo lệnh (Map lenhSX -> SL), đọc theo lô; ds = mã lệnh không có ';'
+async function docMayMau(ds) {
+  const kq = new Map();
+  for (const lo of chia([...new Set(ds.filter(Boolean))], LO / 2)) {
+    const p = Object.fromEntries(lo.flatMap((v, i) => [[`l${2 * i}`, `${v};`], [`l${2 * i + 1}`, v]]));
+    (await db.query(queries.mayMauTheoLenh({ n: lo.length * 2 }), p)).forEach((r) => kq.set(r.lenhSX, Number(r.slMayMau || 0)));
+  }
+  return kq;
+}
 
 async function docBtpLenh({ lenhSX = '', dept, tuNgay, denNgay }) {
   const dong = await db.query(queries.btpLenhKy, { lenhSX, dept, tuNgay, denNgay });
@@ -26,6 +37,7 @@ async function docBtpLenh({ lenhSX = '', dept, tuNgay, denNgay }) {
   }
   const ds = [...lenh.values()].filter((l) => lenhSX || l.slLenh > 0); // bỏ lệnh đã thu hồi hết (trừ khi xem đúng 1 lệnh)
   // B3 + B4: tem cắt và quét xuất / nhận theo lệnh x loại vải chính
+  const mayMau = await docMayMau(ds.map((l) => l.lenhSX));
   const loai = new Map(); // lenhSX -> Map(loaiNL -> { soTem, slBTP, slXuat, slVaoChuyen })
   const o = (lenhSX, loaiNL) => {
     const m = loai.get(lenhSX) || loai.set(lenhSX, new Map()).get(lenhSX);
@@ -45,9 +57,9 @@ async function docBtpLenh({ lenhSX = '', dept, tuNgay, denNgay }) {
     const slBTP = min('slBTP');
     const slXuat = min('slXuat');
     return {
-      ...l, soLoaiVC: cac.length, soTem: cac.reduce((t, x) => t + x.soTem, 0), slBTP, slXuat, slVaoChuyen: min('slVaoChuyen'), slTon: slBTP - slXuat,
+      ...l, soLoaiVC: cac.length, soTem: cac.reduce((t, x) => t + x.soTem, 0), slBTP, slXuat, slMayMau: mayMau.get(l.lenhSX) || 0, slVaoChuyen: min('slVaoChuyen'), slTon: slBTP - slXuat,
     };
   }).sort((a, b) => new Date(a.ngayLenh) - new Date(b.ngayLenh) || String(a.lenhSX).localeCompare(String(b.lenhSX)));
 }
 
-module.exports = { docBtpLenh };
+module.exports = { docBtpLenh, docMayMau };

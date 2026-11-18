@@ -172,6 +172,7 @@
       { label: 'SL lệnh', value: App.num(lenhSL) },
       { label: 'SL BTP', value: App.num(btp), sub: `${App.pct(btp, lenhSL)} SL lệnh · ${App.num(cong('soTem'))} tem` },
       { label: 'SL xuất', value: App.num(xuat), sub: `${App.pct(xuat, btp)} SL BTP` },
+      { label: 'SL may mẫu', value: App.num(cong('slMayMau')) },
       { label: 'SL vào chuyền', value: App.num(cong('slVaoChuyen')) },
       { label: 'Tồn', value: App.num(cong('slTon')) },
     ]);
@@ -183,10 +184,11 @@
       { key: 'soTem', label: 'Số tem', type: 'num', sum: true },
       { key: 'slBTP', label: 'SL BTP', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
+      { key: 'slMayMau', label: 'SL may mẫu', type: 'num', sum: true },
       { key: 'slVaoChuyen', label: 'SL vào chuyền', type: 'num', sum: true },
       { key: 'slTon', label: 'Tồn', type: 'num', sum: true },
       { key: 'tl', label: '% xuất', render: (r) => App.pctTag(r.slXuat, r.slBTP) },
-    ], rows.map((r) => ({ ...r, ...Object.fromEntries(['slLenh', 'soTem', 'slBTP', 'slXuat', 'slVaoChuyen', 'slTon'].map((k) => [k, Number(r[k] || 0)])) })), {
+    ], rows.map((r) => ({ ...r, ...Object.fromEntries(['slLenh', 'soTem', 'slBTP', 'slXuat', 'slMayMau', 'slVaoChuyen', 'slTon'].map((k) => [k, Number(r[k] || 0)])) })), {
       footer: true,
       onClick: chonDong,
     });

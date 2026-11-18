@@ -59,7 +59,7 @@ async function moRongSBD(rows) {
 
 // PO có lệnh cho XN nhưng chưa phân bổ (src/chuaPhanBo.js); dữ liệu mẫu dùng mock keHoachChuaPhanBo(Size)
 const { docChuaPhanBo } = require('./chuaPhanBo');
-const { docBtpLenh } = require('./btpLenh');
+const { docBtpLenh, docMayMau } = require('./btpLenh');
 const chuaPB = (p, theoSize) => (db.useMock() ? mock[theoSize ? 'keHoachChuaPhanBoSize' : 'keHoachChuaPhanBo'](p) : docChuaPhanBo(p, theoSize));
 
 function handle(name, getParams) {
@@ -646,13 +646,23 @@ async function tinhMayRa(xn, tuNgay, denNgay) {
     x.mayRaLK += Number(r.mayRaLK || 0);
   });
   const N = (v) => Number(v || 0);
+  const lenhCua = (r) => String(r.lenhSX ?? '').replace(/;/g, '').trim();
+  const ds = [...map.values()].sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.po.localeCompare(b.po));
+  // SL may mẫu tính theo lệnh: ghi vào dòng tổ x PO đầu tiên của lệnh (không nhân lên khi lệnh chạy nhiều tổ / PO)
+  const mayMau = db.useMock() ? new Map(ds.map((r) => [lenhCua(r), mock.mayMau(lenhCua(r))])) : await docMayMau(ds.map(lenhCua));
+  const daGhi = new Set();
   return {
     tuLK, bangLuuTru: bang,
-    rows: [...map.values()].map((r) => ({
-      ...r,
-      soLuong: N(r.soLuong), vaoKy: N(r.vaoKy), vaoLK: N(r.vaoLK), nhapKy: N(r.nhapKy), nhapLK: N(r.nhapLK),
-      tonMayRa: N(r.vaoLK) - r.mayRaLK, tonDongGoi: r.mayRaLK - N(r.nhapLK), conLai: N(r.soLuong) - r.mayRaLK,
-    })).sort((a, b) => Number(a.maTo) - Number(b.maTo) || a.po.localeCompare(b.po)),
+    rows: ds.map((r) => {
+      const l = lenhCua(r);
+      const slMayMau = l && !daGhi.has(l) ? (daGhi.add(l), mayMau.get(l) || 0) : 0;
+      return {
+        ...r,
+        soLuong: N(r.soLuong), vaoKy: N(r.vaoKy), vaoLK: N(r.vaoLK), nhapKy: N(r.nhapKy), nhapLK: N(r.nhapLK), slMayMau,
+        // Tồn trên chuyền = BTP vào chuyền - may ra - may mẫu (mẫu nhận vào nhưng không bấm HiPro)
+        tonMayRa: N(r.vaoLK) - r.mayRaLK - slMayMau, tonDongGoi: r.mayRaLK - N(r.nhapLK), conLai: N(r.soLuong) - r.mayRaLK,
+      };
+    }),
   };
 }
 router.get('/may-ra', async (req, res) => {

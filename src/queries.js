@@ -730,6 +730,16 @@ module.exports = {
         AND (t.LoaiNguyenLieu LIKE N'%chính%' OR t.LoaiNguyenLieu LIKE N'%VC%') AND ISNULL(t.TenChiTiet, '') = ''
       GROUP BY LTRIM(RTRIM(REPLACE(t.LenhSanXuat, ';', ''))), ISNULL(t.LoaiNguyenLieu, '')`,
   }),
+  // SL may mẫu theo lệnh: DuTruHaoHut của phiếu điều tiết giác sơ đồ (mỗi lệnh x loại NL 1 phiếu, cùng số mẫu nên lấy MAX).
+  // BTP vào chuyền nhỏ hơn BTP cắt / xuất đúng số này, SL bấm HiPro nhỏ hơn BTP nhận vào chuyền đúng số này. @l0.. như B3
+  mayMauTheoLenh: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(REPLACE(d.LenhSanXuat, ';', ''))) AS lenhSX, MAX(ISNULL(d.DuTruHaoHut, 0)) AS slMayMau
+      FROM dbo.Cutting_PhieuDieuTietGiacSoDo d
+      WHERE d.LenhSanXuat IN (${dsThamSo('l', n)})
+      GROUP BY LTRIM(RTRIM(REPLACE(d.LenhSanXuat, ';', '')))`,
+  }),
   // B4: quét xuất / nhận của các lệnh theo lệnh x loại NL. Kho quét bằng tem cắt (BTP.., CUTTING_PhieuHoachToan_TemBarCode)
   // hoặc tem tổng hợp phối bộ (BTH.., CUTTING_PhieuHoachToan_TemBarcode_TongHop, gom nhiều bàn may); chỉ tem thân chính vải chính.
   // Xuất = SoLuongDaXuat, vào chuyền = SoLuongDaNhan. @l0.. như B3

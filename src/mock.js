@@ -270,6 +270,8 @@ module.exports = {
   lenhSX: ({ q }) => lenhSX.filter((l) => !q || l.lenhSX.includes(q) || l.maHang.includes(q))
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
   // NXT BTP cắt theo lệnh có ngày lệnh trong khoảng (như src/btpLenh.js): tem thân chính vải chính, mọi ngày tạo tem
+  // SL may mẫu theo lệnh (phiếu điều tiết DuTruHaoHut): 0 hoặc 2-12 cái
+  mayMau: (lenh) => (lenh && hInt(`mm${lenh}`, 0, 3) ? hInt(`mmsl${lenh}`, 2, 12) : 0),
   btpCatLenh: ({ lenhSX: lenh, tuNgay, denNgay }) => lenhSX.filter((l) => (lenh ? l.lenhSX === lenh : inRange(l.ngay, tuNgay, denNgay))).map((l) => {
     const ts = tem.filter((t) => t.lenhSX === l.lenhSX && /chính|vc/i.test(t.loaiNL || '') && t.chiTiet === chiTietList[0][1]); // mẫu không có tem chi tiết trống: lấy chi tiết đầu
     const qs = quetXuat.filter((x) => ts.some((t) => t.barcode === x.barcode));
@@ -277,7 +279,7 @@ module.exports = {
     const slXuat = qs.reduce((a, x) => a + x.soLuong, 0);
     return {
       lenhSX: l.lenhSX, ngayLenh: l.ngay, maHang: l.maHang, slLenh: l.soLuong, soTem: ts.length, slBTP, slXuat,
-      slVaoChuyen: qs.filter((x) => x.thoiGianNhan).reduce((a, x) => a + x.soLuong, 0), slTon: slBTP - slXuat,
+      slVaoChuyen: qs.filter((x) => x.thoiGianNhan).reduce((a, x) => a + x.soLuong, 0), slTon: slBTP - slXuat, slMayMau: module.exports.mayMau(l.lenhSX),
     };
   }),
   btpCatNXT: ({ lenhSX: lenh, tuNgay, denNgay }) => tem
