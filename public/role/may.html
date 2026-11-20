@@ -69,6 +69,7 @@
     const want = new URLSearchParams(location.search).get('to') || localStorage.getItem('toMay');
     to.innerHTML = list.map((t) => `<option value="${App.esc(t.ma)}">${App.esc(t.ten)}</option>`).join('');
     if (want && list.some((t) => t.ma === want)) to.value = want;
+    if (App.khoa) { to.disabled = true; to.title = 'Đã khóa theo link'; }
     load();
   }
 
@@ -82,7 +83,7 @@
   // QR cuối trang: mở đúng trang / xí nghiệp / tổ đang xem qua địa chỉ máy chủ trong LAN
   const QR_HOST = '10.8.0.94';
   function veQR() {
-    const url = `http://${QR_HOST}${location.port ? `:${location.port}` : ''}${location.pathname}?xn=${encodeURIComponent(App.xn)}&to=${encodeURIComponent(to.value)}`;
+    const url = `http://${QR_HOST}${location.port ? `:${location.port}` : ''}${location.pathname}?xn=${encodeURIComponent(App.xn)}&to=${encodeURIComponent(to.value)}&khoa=1`;
     const qr = qrcode(0, 'M');
     qr.addData(url);
     qr.make();

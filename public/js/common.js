@@ -10,6 +10,9 @@ const App = {
     if (u.searchParams.get('xn') !== v) { u.searchParams.set('xn', v); history.replaceState(null, '', u); }
   },
 
+  // ?khoa=1 (hoặc true): link gửi cho người dùng thường (tablet ở chuyền): ẩn link điều hướng, khóa chọn xí nghiệp / tổ
+  get khoa() { return /^(1|true)$/i.test(new URLSearchParams(location.search).get('khoa') || ''); },
+
   async api(path, params = {}) {
     const qs = new URLSearchParams(params).toString();
     const res = await fetch(`/api/${path}${qs ? '?' + qs : ''}`);
@@ -22,8 +25,8 @@ const App = {
   async header(crumbs = [], onXnChange) {
     const h = document.createElement('header');
     h.innerHTML = `
-      <a class="brand" href="/">DVT Giám sát</a>
-      <div class="crumbs">${crumbs.map(([t, u]) => (u ? `<a href="${u}">${t}</a>` : t)).join(' › ')}</div>
+      ${App.khoa ? '<span class="brand">DVT Giám sát</span>' : '<a class="brand" href="/">DVT Giám sát</a>'}
+      <div class="crumbs">${(App.khoa ? crumbs.slice(-1) : crumbs).map(([t, u]) => (u && !App.khoa ? `<a href="${u}">${t}</a>` : t)).join(' › ')}</div>
       <span id="mock"></span>
       <label>Xí nghiệp: <select id="xnSelect"></select></label>`;
     document.body.prepend(h);
@@ -40,6 +43,7 @@ const App = {
     sel.value = App.xn;
     App.xn = sel.value;
     sel.onchange = () => { App.xn = sel.value; onXnChange && onXnChange(sel.value); };
+    if (App.khoa) { sel.disabled = true; sel.title = 'Đã khóa theo link'; }
     return sel.value;
   },
 
