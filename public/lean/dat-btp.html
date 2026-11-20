@@ -200,7 +200,7 @@
         { key: 'slCap', label: 'SL cấp', type: 'num', sum: true },
         { key: 'slNhan', label: 'SL nhận', type: 'num', sum: true },
         { key: 'slMayMau', label: 'SL may mẫu', type: 'num', sum: true },
-        { key: 'conLai', label: 'Còn thiếu', type: 'num', total: (rs) => App.num(tong(rs).thieu) },
+        { key: 'conLai', label: 'Chưa nhận', type: 'num', total: (rs) => App.num(tong(rs).thieu) },
         { key: 'tt', label: 'Đáp ứng', render: (r) => (r.slKH == null ? '' : status({ slDat: r.slKH, slXuat: r.lkNhan })), total: (rs) => { const t = tong(rs); return status({ slDat: t.kh, slXuat: t.nhan }); } },
         // Theo lệnh x PO x mã hàng x màu x size, đặt của tất cả tổ (mọi ngày); dòng tổng cộng mỗi nhóm 1 lần
         { key: 'tongLenh', label: 'Tổng SL lệnh', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'tongLenh')) },
