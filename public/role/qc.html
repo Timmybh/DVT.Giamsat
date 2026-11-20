@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tổ trưởng QC - DVT Giám sát</title>
 <link rel="stylesheet" href="/css/style.css">
+<style>
+  .hai-luoi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 16px; align-items: start; }
+  .hai-luoi > .panel { min-width: 0; }
+  .luoi-log > .table-wrap { max-height: 520px; overflow: auto; }
+</style>
 <script src="/js/common.js"></script>
 </head>
 <body>
@@ -23,9 +28,16 @@
     <h2>Theo tổ <span id="toName2"></span></h2>
     <div id="theoTo"></div>
   </div>
-  <div class="panel">
-    <h2>Lỗi thường gặp <span id="toName"></span></h2>
-    <div id="theoLoi"></div>
+  <div class="hai-luoi">
+    <div class="panel">
+      <h2>Lỗi thường gặp <span id="toName"></span></h2>
+      <div id="theoLoi" class="luoi-log"></div>
+    </div>
+    <div class="panel">
+      <h2>Log bấm lỗi <span id="toName3"></span></h2>
+      <div id="logLoi" class="luoi-log"></div>
+      <div class="note">Mỗi dòng là 1 lần bấm lỗi trên HiPro, mới nhất ở trên (theo thứ tự bấm). HiPro không lưu giờ phút bấm thật, chỉ lưu khung giờ làm.</div>
+    </div>
   </div>
   <div class="panel" id="pGio" hidden>
     <h2>Theo giờ ngày <span id="gioNgay"></span></h2>
@@ -58,11 +70,12 @@
 
   async function load() {
     const q = { xn: App.xn, tuNgay: tuNgay.value, denNgay: denNgay.value };
-    [theoTo, theoLoi, theoNgay].forEach(App.loading);
+    [theoTo, theoLoi, logLoi, theoNgay].forEach(App.loading);
     toName.textContent = to.value ? `- Tổ ${to.value}` : '';
+    toName3.textContent = to.value ? `- Tổ ${to.value}` : '- mọi tổ';
     toName2.textContent = to.value ? '(đang lọc 1 tổ, chọn "Tất cả" để xem mọi tổ)' : '';
     try {
-      const [nscl, loi] = await Promise.all([App.api('qc-nscl', q), App.api('qc-loi-chi-tiet', q)]);
+      const [nscl, loi, log] = await Promise.all([App.api('qc-nscl', q), App.api('qc-loi-chi-tiet', q), App.api('qc-log-loi', q)]);
       const chon = (r) => !to.value || r.line === to.value;
       const data = nscl.filter(chon).map((r) => ({ ...r, dat: Number(r.dat || 0), loi: Number(r.loi || 0), sua: Number(r.sua || 0) }));
       const S = (k) => data.reduce((s, r) => s + r[k], 0);
@@ -107,6 +120,19 @@
         { key: 'tyTrong', label: 'Tỷ trọng', type: 'num', render: (r) => App.pct(r.soLan, tongLan) },
       ], loiRows, { footer: true, empty: 'Không có chi tiết lỗi' });
 
+      // Log bấm lỗi: tổ đang chọn (Tất cả thì có cột tổ), mới nhất trước; khung giờ 'C_10H' -> 'Giờ 10'
+      const gio = (g) => { const m = /(\d+)/.exec(g || ''); return m ? `Giờ ${Number(m[1])}` : (g || ''); };
+      const logRows = log.filter(chon).map((r) => ({ ...r, gio: gio(r.gioLam), mat: r.matTruoc == null ? '' : r.matTruoc ? 'Trước' : 'Sau' }));
+      App.table(logLoi, [
+        ...(to.value ? [] : [{ key: 'line', label: 'Tổ' }]),
+        ...(tuNgay.value === denNgay.value ? [] : [{ key: 'ngay', label: 'Ngày', type: 'date' }]),
+        { key: 'gio', label: 'Khung giờ' },
+        { key: 'maLoi', label: 'Mã lỗi', total: (rs) => `${App.num(rs.length)} lần` },
+        { key: 'tenLoi', label: 'Tên lỗi' },
+        { key: 'mat', label: 'Mặt' },
+        { key: 'checkPoint', label: 'Check point' },
+      ], logRows, { footer: true, maxRows: 500, empty: 'Không có lần bấm lỗi nào' });
+
       const ngays = gom(data, (r) => App.ymd(r.ngay), (r) => ({ ngay: App.ymd(r.ngay) })).sort((a, b) => b.ngay.localeCompare(a.ngay));
       App.table(theoNgay, [
         { key: 'ngay', label: 'Ngày', type: 'date' },
@@ -115,7 +141,7 @@
         { key: 'sua', label: 'Đã sửa', type: 'num', sum: true },
         tyLeCol, rftCol,
       ], ngays, { footer: true, empty: 'Không có số liệu' });
-    } catch (e) { [theoTo, theoLoi, theoNgay].forEach((el) => App.error(el, e)); }
+    } catch (e) { [theoTo, theoLoi, logLoi, theoNgay].forEach((el) => App.error(el, e)); }
 
     // Theo giờ: chỉ khi chọn 1 tổ, lấy ngày "Đến ngày"
     pGio.hidden = !to.value;

@@ -936,6 +936,26 @@ module.exports = {
       GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, LTRIM(RTRIM(ISNULL(d.gio_lam, ''))), ISNULL(l.ma_loi, d.ma_loi), l.ten_loi`,
   },
 
+  // Log bấm lỗi QC (mỗi lần bấm 1 dòng pro_nscl_chi_tiet_loi), mới nhất trước. thoi_gian trong bảng không phải giờ thật
+  // (lưu dạng 1969-12-31 23:mm:ss) nên sắp theo id (thứ tự bấm) và hiện khung giờ gio_lam. Tham số: @tuNgay, @denNgay
+  qcLogLoi: {
+    db: 'hipro',
+    text: `
+      SELECT TOP 5000 d.id, CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, cp.ten AS checkPoint,
+             LTRIM(RTRIM(ISNULL(d.gio_lam, ''))) AS gioLam, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi,
+             d.is_front AS matTruoc, d.is_inside AS benTrong, d.warning AS canhBao, d.vi_tri_loi AS viTri, d.muc_do_nghiem_trong AS mucDo
+      FROM dbo.pro_nscl_chi_tiet_loi d
+      JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      LEFT JOIN dbo.pro_loi l ON l.id = d.pro_loi_id
+      WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      ORDER BY d.id DESC`,
+  },
+
   // Doanh thu xí nghiệp theo ngày (màn hình ERP "DOANH THU XÍ NGHIỆP"). Dữ liệu nhập tay nên có thể trùng ngày:
   // API giữ dòng Id lớn nhất mỗi ngày. Tham số: @xnNum, @tuNgay, @denNgay
   doanhThuNgay: {

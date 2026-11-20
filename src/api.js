@@ -871,6 +871,7 @@ router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
 const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
 router.get('/qc-nscl', handleXn('qcNscl', qcRange, true));
 router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange, true));
+router.get('/qc-log-loi', handleXn('qcLogLoi', qcRange, true));
 // Cảnh báo QC: tổ có kế hoạch phân bổ đang chạy trong ngày d (mặc định hôm nay) nhưng HiPro NSCL chưa có đạt / lỗi / sửa nào
 router.get('/qc-chua-bam', async (req, res) => {
   try {

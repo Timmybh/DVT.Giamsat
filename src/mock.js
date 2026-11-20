@@ -366,6 +366,13 @@ module.exports = {
   qcLoiGio: ({ tuNgay }) => xiNghiep.flatMap((xn) => to[xn.ma].flatMap((t) => [1, 2, 3, 5].flatMap((h) => [['QAD00001', 'Nhăn, vặn'], ['QAD00052', 'Sót chỉ']]
     .map(([maLoi, tenLoi]) => ({ xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, gioLam: `C_${h}H`, maLoi, tenLoi, soLan: hInt(`lg${xn.ma}${t.ma}${h}${maLoi}${tuNgay}`, 0, 3) }))
     .filter((r) => r.soLan)))),
+  qcLogLoi: ({ tuNgay, denNgay }) => {
+    let id = 0;
+    return datesBetween(tuNgay, denNgay).flatMap((d) => module.exports.qcLoiGio({ tuNgay: d }).flatMap((r) => Array.from({ length: r.soLan }, (_, i) => ({
+      id: ++id, ngay: d, xn: r.xn, line: r.line, checkPoint: `0${2300 + Number(r.line)}`, gioLam: r.gioLam, maLoi: r.maLoi, tenLoi: r.tenLoi,
+      matTruoc: i % 2 === 0, benTrong: false, canhBao: false, viTri: '', mucDo: '',
+    })))).reverse();
+  },
   doanhThuNgay: ({ xnNum, tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).map((d, i) => {
     const keHoach = hInt(`dtk${xnNum}${d}`, 30000, 45000);
     const thucHien = Math.floor(keHoach * (0.75 + hash(`dtt${xnNum}${d}`) * 0.35));
