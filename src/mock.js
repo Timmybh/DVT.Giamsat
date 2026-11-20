@@ -346,9 +346,14 @@ module.exports = {
     return { xn: `XÍ NGHIỆP MAY ${xn.ma}`, line: t.ma, tong, hienDien: tong - hInt(`vm${xn.ma}${t.ma}${d0}`, 0, 5) };
   })),
   qcNscl: ({ tuNgay, denNgay }) => datesBetween(tuNgay, denNgay).flatMap((d) => xiNghiep.flatMap((xn) => to[xn.ma].map((t) => {
+    // hôm nay: 1/4 số tổ chưa bấm (để thử cảnh báo QC)
+    if (d === new Date().toISOString().slice(0, 10) && Number(t.ma) % 4 === 2) return { ngay: d, xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, dat: 0, loi: 0, sua: 0 };
     const dat = hInt(`qd${xn.ma}${t.ma}${d}`, 350, 800);
     const loi = hInt(`ql${xn.ma}${t.ma}${d}`, 5, 60);
     return { ngay: d, xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, dat, loi, sua: Math.floor(loi * 0.8) };
+  }))),
+  khToNgay: ({ xn }) => (to[xn] || []).flatMap((t) => poMau(xn, t.ma).map((p) => ({
+    maTo: t.ma, maHang: p.maHang, po: p.po, soLuong: p.soLuong, ngayBatDau: p.batDau, ngayKetThuc: p.ngayXuat,
   }))),
   qcLoiChiTiet: ({ tuNgay, denNgay }) => {
     const loiList = [['QAD00012', 'Sụp mí', 'Cụm Lỗi Cấu Trúc'], ['QAD00019', 'Đứt chỉ', 'Cụm Lỗi Cấu Trúc'], ['QAD00076', 'Dơ dầu', 'Cụm Lỗi Vệ Sinh Công Nghiệp'],

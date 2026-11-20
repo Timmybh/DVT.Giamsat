@@ -871,6 +871,27 @@ router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
 const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
 router.get('/qc-nscl', handleXn('qcNscl', qcRange, true));
 router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange, true));
+// Cảnh báo QC: tổ có kế hoạch phân bổ đang chạy trong ngày d (mặc định hôm nay) nhưng HiPro NSCL chưa có đạt / lỗi / sửa nào
+router.get('/qc-chua-bam', async (req, res) => {
+  try {
+    const d = req.query.d || today();
+    const n = await xnNum(req.query.xn);
+    const [kh, nscl] = await Promise.all([run('khToNgay', { xn: req.query.xn, d }), run('qcNscl', { tuNgay: d, denNgay: d })]);
+    await napCum();
+    const daBam = new Set(nscl.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n && Number(r.dat || 0) + Number(r.loi || 0) + Number(r.sua || 0) > 0).map((r) => String(r.to)));
+    const theoTo = new Map();
+    kh.forEach((r) => {
+      const t = lineOf(r.maTo);
+      if (daBam.has(String(t))) return;
+      const x = theoTo.get(t) || theoTo.set(t, { maTo: t, ds: [] }).get(t);
+      x.ds.push({ maHang: String(r.maHang ?? '').trim(), po: r.po, soLuong: Number(r.soLuong || 0), ngayBatDau: r.ngayBatDau, ngayKetThuc: r.ngayKetThuc });
+    });
+    res.json([...theoTo.values()].sort((a, b) => Number(a.maTo) - Number(b.maTo) || String(a.maTo).localeCompare(String(b.maTo))));
+  } catch (err) {
+    console.error('[qcChuaBam]', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
 router.get('/qc-loi-gio', handleXn('qcLoiGio', (req) => ({ tuNgay: req.query.d || today(), denNgay: req.query.d || today() }), true));
 router.get('/doanh-thu', async (req, res) => {
   try {

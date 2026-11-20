@@ -15,6 +15,7 @@
       <label>Tổ <select id="to"><option value="">Tất cả</option></select></label>
       <label>Từ ngày <input type="date" id="tuNgay"></label>
       <label>Đến ngày <input type="date" id="denNgay"></label>
+      <button type="button" id="nutCanhBao" class="canh-bao xanh" title="Tổ có phân bổ sản xuất hôm nay nhưng chưa bấm năng suất QC">Cảnh báo (0)</button>
     </div>
   </div>
   <div class="cards" id="cards"></div>
@@ -33,12 +34,16 @@
   <div class="panel">
     <h2>Theo ngày</h2>
     <div id="theoNgay"></div>
-    <div class="note">Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi). RFT = đạt lần đầu / đã kiểm = đạt / (đạt + lỗi + sửa).</div>
+    <div class="note">Nút Cảnh báo: tổ có kế hoạch phân bổ (ngày may kế hoạch phủ hôm nay, chưa hoàn thành / huỷ) nhưng HiPro NSCL hôm nay chưa có đạt, lỗi, sửa nào. Nguồn HiPro NSCL: đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h; chi tiết lỗi từ pro_nscl_chi_tiet_loi. Tỷ lệ lỗi = lỗi / (đạt + lỗi). RFT = đạt lần đầu / đã kiểm = đạt / (đạt + lỗi + sửa).</div>
   </div>
 </main>
+<div id="hopCanhBao" class="hop-canh-bao" hidden>
+  <div class="hcb-dau"><b>Tổ chưa bấm năng suất QC hôm nay <span id="soCB"></span></b><button type="button" id="dongCB" title="Đóng">✕</button></div>
+  <div id="noiDungCB" class="hcb-than"></div>
+</div>
 <script>
   denNgay.value = App.today();
-  tuNgay.value = App.ymd(Date.now() - 13 * 86400000);
+  tuNgay.value = App.today();
   const tyLe = (r) => (r.dat + r.loi ? `${((r.loi / (r.dat + r.loi)) * 100).toFixed(1)}%` : '-');
   // RFT = đạt lần đầu / đã kiểm (đạt + lỗi + sửa): hàng lấy sửa (fix) cũng là hàng lỗi lần đầu
   const rft = (r) => { const k = r.dat + r.loi + (r.sua || 0); return k ? `${((r.dat / k) * 100).toFixed(1)}%` : '-'; };
@@ -154,7 +159,27 @@
   }
 
   to.onchange = tuNgay.onchange = denNgay.onchange = load;
-  App.header([['Trang chính', '/'], ['Tổ trưởng QC']], loadTo).then(loadTo);
+
+  // Cảnh báo: tổ có kế hoạch phân bổ đang chạy hôm nay nhưng HiPro NSCL chưa có đạt / lỗi / sửa (luôn xét hôm nay, không theo bộ lọc ngày)
+  const ngayNgan = (v) => (v ? String(v).slice(0, 10).split('-').reverse().map((x, i) => (i === 2 ? x.slice(2) : x)).join('/') : '');
+  async function loadCanhBao() {
+    try {
+      const ds = await App.api('qc-chua-bam', { xn: App.xn });
+      nutCanhBao.textContent = `Cảnh báo (${ds.length})`;
+      nutCanhBao.className = `canh-bao ${ds.length ? 'do' : 'xanh'}`;
+      soCB.textContent = `(${ds.length} tổ · ${ngayNgan(App.today())})`;
+      noiDungCB.innerHTML = ds.length ? ds.map((t) => `<section class="co"><h3>Tổ ${App.esc(t.maTo)} · ${t.ds.length} PO đang chạy</h3>
+        <table class="table"><thead><tr><th>Mã hàng</th><th>PO</th><th class="num">SL KH</th><th>Ngày may KH</th></tr></thead><tbody>
+        ${t.ds.map((x) => `<tr><td>${App.esc(x.maHang)}</td><td>${App.esc(x.po)}</td><td class="num">${App.num(x.soLuong)}</td><td>${ngayNgan(x.ngayBatDau)} - ${ngayNgan(x.ngayKetThuc)}</td></tr>`).join('')}
+        </tbody></table></section>`).join('')
+        : '<div class="ok">Tất cả tổ có phân bổ hôm nay đều đã bấm năng suất QC.</div>';
+    } catch (e) { App.error(noiDungCB, e); }
+  }
+  nutCanhBao.onclick = () => { hopCanhBao.hidden = false; loadCanhBao(); };
+  dongCB.onclick = () => { hopCanhBao.hidden = true; };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hopCanhBao.hidden = true; });
+  const napLai = () => { loadTo(); loadCanhBao(); };
+  App.header([['Trang chính', '/'], ['Tổ trưởng QC']], napLai).then(napLai);
 </script>
 </body>
 </html>

@@ -864,6 +864,25 @@ module.exports = {
 
   // QC theo ngày x tổ (HiPro NSCL): đạt = qty_*_h, lỗi = reject_*_h, sửa = fix_*_h. Tham số: @tuNgay, @denNgay.
   // API lọc xí nghiệp theo tên nhà máy. Chỉ đọc bảng pro_nscl hiện hành (dữ liệu tháng cũ đã chuyển sang pro_nscl_MM_YYYY).
+  // Kế hoạch phân bổ đang chạy tại ngày @d (ngày may kế hoạch phủ @d, SL > 0, không huỷ / hoàn thành) theo tổ x mã hàng x PO.
+  // Dùng cho cảnh báo tổ QC có phân bổ nhưng không bấm năng suất. Tham số: @xn, @d
+  khToNgay: {
+    db: 'egmf',
+    text: `
+      SELECT LTRIM(RTRIM(e.TenCum)) AS maTo, dh.MaHang AS maHang, LTRIM(RTRIM(po.PONo)) AS po, SUM(k.SoLuong) AS soLuong,
+             MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc
+      FROM dbo.OMM_KeHoachThang k
+      JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = ct.POId
+      JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      WHERE px.XNId = @xn AND k.SoLuong > 0
+        AND ISNULL(k.TinhTrang, '') NOT IN (N'HuyCoNPL', N'HuyChuaNPL', N'HoanThanh')
+        AND k.NgayMayKeHoachBatDau < DATEADD(day, 1, @d) AND k.NgayMayKeHoachKetThuc >= @d
+      GROUP BY LTRIM(RTRIM(e.TenCum)), dh.MaHang, LTRIM(RTRIM(po.PONo))`,
+  },
+
   qcNscl: {
     db: 'hipro',
     text: `
