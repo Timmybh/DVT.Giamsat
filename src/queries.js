@@ -106,6 +106,18 @@ const LENH_TAM = `
       GROUP BY LTRIM(RTRIM(b.PO)), a.DocNo, ISNULL(a.TypeCt, 0), ISNULL(a.ProductionOrderAdjNo, ''), a.DocDate, LTRIM(RTRIM(ISNULL(a.DeptCode, '')));`;
 
 
+// Nguồn HiPro NSCL có cả bảng lưu trữ tháng cũ (pro_nscl_MM_YYYY, pro_nscl_chi_tiet_loi_MM_YYYY): bangN / bangL = tên các bảng lưu trữ
+// cần đọc (API chọn theo khoảng ngày). Chỉ lấy các cột dùng tới để bảng cũ thiếu cột mới vẫn chạy.
+const QTY_COT = ['qty', 'reject', 'fix'].flatMap((c) => Array.from({ length: 14 }, (_, i) => `${c}_${i + 1}_h`)).join(', ');
+const nsclNguon = (bangN = []) => (bangN.length
+  ? `(SELECT id, pro_ke_hoach_san_xuat_id, pro_check_point_id, ${QTY_COT} FROM dbo.pro_nscl${bangN.map((b) => `
+        UNION ALL SELECT id, pro_ke_hoach_san_xuat_id, pro_check_point_id, ${QTY_COT} FROM dbo.${b}`).join('')})`
+  : 'dbo.pro_nscl');
+const loiNguon = (bangL = [], cot = 'id, ma_loi, gio_lam, thoi_gian, pronscl_id, pro_loi_id') => (bangL.length
+  ? `(SELECT ${cot} FROM dbo.pro_nscl_chi_tiet_loi${bangL.map((b) => `
+        UNION ALL SELECT ${cot} FROM dbo.${b}`).join('')})`
+  : 'dbo.pro_nscl_chi_tiet_loi');
+
 module.exports = {
   // PO của tổ (tính 1 lần, API truyền danh sách cho các câu kế hoạch tổ bên dưới): chay = PO kế hoạch (poChayToSQL), dat = PO có phiếu đặt 30 ngày
   poToMay: {
@@ -883,14 +895,14 @@ module.exports = {
       GROUP BY LTRIM(RTRIM(e.TenCum)), dh.MaHang, LTRIM(RTRIM(po.PONo))`,
   },
 
-  qcNscl: {
+  qcNscl: ({ bangN = [], bangL = [] } = {}) => ({
     db: 'hipro',
     text: `
       SELECT CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS dat,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.reject_${i + 1}_h, 0)`).join(' + ')}) AS loi,
              SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.fix_${i + 1}_h, 0)`).join(' + ')}) AS sua
-      FROM dbo.pro_nscl n
+      FROM ${nsclNguon(bangN)} n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
       LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
@@ -898,15 +910,15 @@ module.exports = {
       JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
       GROUP BY CAST(k.ngay_san_xuat AS date), nm.ten, c.ten, dmc.IdChuyenOMM`,
-  },
+  }),
 
   // Chi tiết lỗi theo tổ x mã lỗi (pro_nscl_chi_tiet_loi -> pro_loi -> pro_cum_loi). Tham số: @tuNgay, @denNgay
-  qcLoiChiTiet: {
+  qcLoiChiTiet: ({ bangN = [], bangL = [] } = {}) => ({
     db: 'hipro',
     text: `
       SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi, cl.ten AS cumLoi, COUNT(*) AS soLan
-      FROM dbo.pro_nscl_chi_tiet_loi d
-      JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
+      FROM ${loiNguon(bangL)} d
+      JOIN ${nsclNguon(bangN)} n ON n.id = d.pronscl_id
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
       LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
@@ -916,16 +928,16 @@ module.exports = {
       LEFT JOIN dbo.pro_cum_loi cl ON cl.id = l.pro_cum_loi_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
       GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, ISNULL(l.ma_loi, d.ma_loi), l.ten_loi, cl.ten`,
-  },
+  }),
 
   // Chi tiết lỗi theo tổ x khung giờ (gio_lam, vd 'C_3H' = giờ 3) x mã lỗi trong 1 ngày (bảng Theo giờ trang QC). Tham số: @tuNgay, @denNgay
-  qcLoiGio: {
+  qcLoiGio: ({ bangN = [], bangL = [] } = {}) => ({
     db: 'hipro',
     text: `
       SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, LTRIM(RTRIM(ISNULL(d.gio_lam, ''))) AS gioLam,
              ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi, COUNT(*) AS soLan, MIN(d.thoi_gian) AS tu, MAX(d.thoi_gian) AS den
-      FROM dbo.pro_nscl_chi_tiet_loi d
-      JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
+      FROM ${loiNguon(bangL)} d
+      JOIN ${nsclNguon(bangN)} n ON n.id = d.pronscl_id
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
       LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
@@ -934,18 +946,18 @@ module.exports = {
       LEFT JOIN dbo.pro_loi l ON l.id = d.pro_loi_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
       GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, LTRIM(RTRIM(ISNULL(d.gio_lam, ''))), ISNULL(l.ma_loi, d.ma_loi), l.ten_loi`,
-  },
+  }),
 
   // Log bấm lỗi QC (mỗi lần bấm 1 dòng pro_nscl_chi_tiet_loi), mới nhất trước. thoi_gian trong bảng không phải giờ thật
   // (lưu dạng 1969-12-31 23:mm:ss) nên sắp theo id (thứ tự bấm) và hiện khung giờ gio_lam. Tham số: @tuNgay, @denNgay
-  qcLogLoi: {
+  qcLogLoi: ({ bangN = [], bangL = [] } = {}) => ({
     db: 'hipro',
     text: `
       SELECT TOP 5000 d.id, CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, cp.ten AS checkPoint,
              LTRIM(RTRIM(ISNULL(d.gio_lam, ''))) AS gioLam, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi,
              d.is_front AS matTruoc, d.is_inside AS benTrong, d.warning AS canhBao, d.vi_tri_loi AS viTri, d.muc_do_nghiem_trong AS mucDo
-      FROM dbo.pro_nscl_chi_tiet_loi d
-      JOIN dbo.pro_nscl n ON n.id = d.pronscl_id
+      FROM ${loiNguon(bangL, 'id, ma_loi, gio_lam, pronscl_id, pro_loi_id, is_front, is_inside, warning, vi_tri_loi, muc_do_nghiem_trong')} d
+      JOIN ${nsclNguon(bangN)} n ON n.id = d.pronscl_id
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
       JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
       LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
@@ -954,7 +966,7 @@ module.exports = {
       LEFT JOIN dbo.pro_loi l ON l.id = d.pro_loi_id
       WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
       ORDER BY d.id DESC`,
-  },
+  }),
 
   // Doanh thu xí nghiệp theo ngày (màn hình ERP "DOANH THU XÍ NGHIỆP"). Dữ liệu nhập tay nên có thể trùng ngày:
   // API giữ dòng Id lớn nhất mỗi ngày. Tham số: @xnNum, @tuNgay, @denNgay
@@ -1159,6 +1171,10 @@ module.exports = {
   nsclLuuTru: {
     db: 'hipro',
     text: `SELECT name FROM sys.tables WHERE name LIKE 'pro[_]nscl[_][0-9][0-9][_][0-9][0-9][0-9][0-9]'`,
+  },
+  loiLuuTru: {
+    db: 'hipro',
+    text: `SELECT name FROM sys.tables WHERE name LIKE 'pro[_]nscl[_]chi[_]tiet[_]loi[_][0-9][0-9][_][0-9][0-9][0-9][0-9]'`,
   },
 
   // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ;

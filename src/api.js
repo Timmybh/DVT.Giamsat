@@ -869,9 +869,34 @@ router.get('/to-may/ke-hoach', async (req, res) => {
 });
 router.get('/lao-dong', handleXn('laoDong', (req) => ({ d0: ngay(req) })));
 const qcRange = (req) => ({ tuNgay: req.query.tuNgay || daysAgo(13), denNgay: req.query.denNgay || today() });
-router.get('/qc-nscl', handleXn('qcNscl', qcRange, true));
-router.get('/qc-loi-chi-tiet', handleXn('qcLoiChiTiet', qcRange, true));
-router.get('/qc-log-loi', handleXn('qcLogLoi', qcRange, true));
+// Trang QC: đọc cả bảng lưu trữ tháng cũ của HiPro (pro_nscl_MM_YYYY, pro_nscl_chi_tiet_loi_MM_YYYY) trong khoảng tuNgay..denNgay
+let luuTruQC = null;
+async function bangQC(tuNgay, denNgay) {
+  if (db.useMock()) return {};
+  if (!luuTruQC || Date.now() - luuTruQC.t > 3600000) {
+    const [n, l] = await Promise.all([run('nsclLuuTru', {}), run('loiLuuTru', {})]);
+    luuTruQC = { t: Date.now(), n: n.map((x) => x.name), l: l.map((x) => x.name) };
+  }
+  const trong = (b) => { const m = /_(\d{2})_(\d{4})$/.exec(b); return m && `${m[2]}-${m[1]}` >= tuNgay.slice(0, 7) && `${m[2]}-${m[1]}` <= denNgay.slice(0, 7); };
+  return { bangN: luuTruQC.n.filter(trong), bangL: luuTruQC.l.filter(trong) };
+}
+function handleQC(name, getParams) {
+  return async (req, res) => {
+    try {
+      const n = await xnNum(req.query.xn);
+      const p = getParams(req);
+      const rows = await run(name, p, await bangQC(p.tuNgay, p.denNgay));
+      await napCum();
+      res.json(rows.map((r) => { const m = hp(r); return { ...r, xn: m.xn, line: m.to }; }).filter((r) => r.xn === n));
+    } catch (err) {
+      console.error(`[${name}]`, err.message);
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  };
+}
+router.get('/qc-nscl', handleQC('qcNscl', qcRange));
+router.get('/qc-loi-chi-tiet', handleQC('qcLoiChiTiet', qcRange));
+router.get('/qc-log-loi', handleQC('qcLogLoi', qcRange));
 // Cảnh báo QC: tổ có kế hoạch phân bổ đang chạy trong ngày d (mặc định hôm nay) nhưng HiPro NSCL chưa có đạt / lỗi / sửa nào
 router.get('/qc-chua-bam', async (req, res) => {
   try {
@@ -893,7 +918,7 @@ router.get('/qc-chua-bam', async (req, res) => {
     res.status(err.status || 500).json({ error: err.message });
   }
 });
-router.get('/qc-loi-gio', handleXn('qcLoiGio', (req) => ({ tuNgay: req.query.d || today(), denNgay: req.query.d || today() }), true));
+router.get('/qc-loi-gio', handleQC('qcLoiGio', (req) => ({ tuNgay: req.query.d || today(), denNgay: req.query.d || today() })));
 router.get('/doanh-thu', async (req, res) => {
   try {
     const rows = await run('doanhThuNgay', {
