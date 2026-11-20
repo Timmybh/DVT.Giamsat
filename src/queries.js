@@ -953,7 +953,7 @@ module.exports = {
   qcLogLoi: ({ bangN = [], bangL = [] } = {}) => ({
     db: 'hipro',
     text: `
-      SELECT TOP 5000 d.id, CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, cp.ten AS checkPoint,
+      SELECT TOP 5000 d.id, CAST(k.ngay_san_xuat AS date) AS ngay, nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, cp.ten AS [checkPoint],
              LTRIM(RTRIM(ISNULL(d.gio_lam, ''))) AS gioLam, ISNULL(l.ma_loi, d.ma_loi) AS maLoi, l.ten_loi AS tenLoi,
              d.is_front AS matTruoc, d.is_inside AS benTrong, d.warning AS canhBao, d.vi_tri_loi AS viTri, d.muc_do_nghiem_trong AS mucDo
       FROM ${loiNguon(bangL, 'id, ma_loi, gio_lam, pronscl_id, pro_loi_id, is_front, is_inside, warning, vi_tri_loi, muc_do_nghiem_trong')} d
