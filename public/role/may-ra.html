@@ -19,7 +19,7 @@
     </div>
     <div id="result" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày rồi bấm Xem</div></div>
     <div class="note" id="ghiChu">Trong kỳ = từ ngày đến ngày. Lũy kế = từ lúc PO bắt đầu trên tổ đến hết "đến ngày" (không phụ thuộc "từ ngày").
-      Vào chuyền: quét nhận BTP vải chính, tem thân chính, không tính tem trả. May ra: HiPro NSCL đạt + sửa đạt (gồm bảng lưu trữ tháng cũ).
+      Vào chuyền: quét nhận BTP vải chính, tem thân chính, không tính tem trả. May ra: HiPro NSCL qty (SP đã kiểm đạt, gồm cả SP lấy sửa; gồm bảng lưu trữ tháng cũ).
       Nhập kho: giao thành phẩm đã xác nhận.</div>
   </div>
 </main>
@@ -36,7 +36,6 @@
   function draw() {
     const data = to.value ? rows.filter((r) => r.maTo === to.value) : rows;
     App.table(result, [
-      { key: 'maTo', label: 'Tổ' },
       { key: 'po', label: 'PO' },
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'soLuong', label: 'SL', type: 'num', sum: true },
@@ -56,7 +55,7 @@
       { key: 'lenhSX', label: 'Lệnh SX' },
       { key: 'ngayBatDau', label: 'Bắt đầu', type: 'date' },
       { key: 'ngayXuat', label: 'Ngày xuất', type: 'date' },
-    ], data, { footer: true, chonCot: 'may-ra-2', coDinh: 2 });
+    ], data, { footer: true, chonCot: 'may-ra-3', coDinh: 1, gon: true, nhom: { key: (r) => r.maTo, sort: (a, b) => Number(a) - Number(b) || a.localeCompare(b), label: (k, rs) => `Tổ ${App.esc(k)} <span class="loc-dem">· ${rs.length} PO</span>` } });
   }
   async function load() {
     App.loading(result);

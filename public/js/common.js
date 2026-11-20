@@ -107,7 +107,7 @@ const App = {
   },
 
   _veBang(el) {
-    const { cols: tatCaCot, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter = true, maxRows, chonCot, coDinh, onData } } = el._tbl;
+    const { cols: tatCaCot, rows, opts: { onClick, empty = 'Không có dữ liệu', footer, filter = true, maxRows, chonCot, coDinh, onData, nhom, gon } } = el._tbl;
     if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; if (onData) onData([]); return; }
     // Bộ lọc giữ theo vị trí trong tatCaCot; cols chỉ gồm các cột đang hiện
     const viTri = new Map(tatCaCot.map((c, i) => [c, i]));
@@ -121,6 +121,13 @@ const App = {
         : (c.type === 'date' || c.type === 'datetime') ? (a, b) => new Date(v(a) || 0) - new Date(v(b) || 0)
           : (a, b) => App._chu(c, a).localeCompare(App._chu(c, b), 'vi', { numeric: true });
       data = [...data].sort((a, b) => cmp(a, b) * loc.sort.dir);
+    }
+    // nhom: { key: (r) => khóa nhóm, label: (khóa, các dòng) => html }: gom dòng theo nhóm (giữ thứ tự sắp trong nhóm), thêm dòng đầu nhóm có tổng con
+    if (nhom) {
+      const thuTu = new Map();
+      data.forEach((r) => { const k = String(nhom.key(r)); if (!thuTu.has(k)) thuTu.set(k, thuTu.size); });
+      const soSanh = nhom.sort || ((a, b) => thuTu.get(a) - thuTu.get(b));
+      data = data.map((r, i) => [r, i]).sort(([a, i], [b, j]) => soSanh(String(nhom.key(a)), String(nhom.key(b))) || i - j).map(([r]) => r);
     }
     const cell = (c, r) => {
       if (c.render) return c.render(r);
@@ -143,11 +150,24 @@ const App = {
       const nut = filter ? `<button class="loc-nut${(loc.an[i] && loc.an[i].size) || (loc.sort && loc.sort.i === i) ? ' on' : ''}" data-c="${i}" title="Lọc / sắp xếp">${loc.sort && loc.sort.i === i ? (loc.sort.dir > 0 ? '▲' : '▼') : '▾'}</button>` : '';
       return `<th class="${c.type === 'num' ? 'num' : ''}">${c.label}${nut}</th>`;
     }).join('');
+    const theoNhom = new Map();
+    if (nhom) data.forEach((r) => { const k = String(nhom.key(r)); (theoNhom.get(k) || theoNhom.set(k, []).get(k)).push(r); });
+    const dauNhom = (r, i) => {
+      if (!nhom) return '';
+      const k = String(nhom.key(r));
+      if (i > 0 && String(nhom.key(data[i - 1])) === k) return '';
+      const rs = theoNhom.get(k);
+      return `<tr class="nhom-dong">${cols.map((c, j) => {
+        if (c.total) return `<td class="${c.type === 'num' ? 'num' : ''}">${c.total(rs)}</td>`;
+        if (c.sum) return `<td class="num">${App.num(rs.reduce((s2, x) => s2 + Number((c.value ? c.value(x) : x[c.key]) || 0), 0))}</td>`;
+        return j === 0 ? `<td>${nhom.label ? nhom.label(k, rs) : App.esc(k)}</td>` : '<td></td>';
+      }).join('')}</tr>`;
+    };
     const dangAn = tatCaCot.length - cols.length;
     const thanhCot = chonCot ? `<div class="thanh-bang"><button class="nut-cot">Cột hiển thị (${cols.length}/${tatCaCot.length}) ▾</button>${dangAn ? `<span class="loc-dem">${dangAn} cột đang ẩn</span>` : ''}</div>` : '';
-    el.innerHTML = `${thanhCot}<div class="table-wrap"><table>
+    el.innerHTML = `${thanhCot}<div class="table-wrap"><table${gon ? ' class="bang-gon"' : ''}>
       <thead><tr>${head}</tr>${totalRow}</thead>
-      <tbody>${data.length ? (maxRows ? data.slice(0, maxRows) : data).map((r, i) => `<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')
+      <tbody>${data.length ? (maxRows ? data.slice(0, maxRows) : data).map((r, i) => `${dauNhom(r, i)}<tr data-i="${i}" class="${onClick ? 'clickable' : ''}">${cols.map((c) => `<td class="${c.type === 'num' ? 'num' : ''}">${cell(c, r)}</td>`).join('')}</tr>`).join('')
         : `<tr><td colspan="${cols.length}" class="empty">Không có dòng nào khớp bộ lọc</td></tr>`}
       ${maxRows && data.length > maxRows ? `<tr><td colspan="${cols.length}" class="empty">Đang hiện ${App.num(maxRows)} / ${App.num(data.length)} dòng. Lọc cột để thu hẹp; dòng Tổng vẫn tính đủ ${App.num(data.length)} dòng.</td></tr>` : ''}</tbody>
       ${totalRow ? `<tfoot>${totalRow}</tfoot>` : ''}</table></div>`;

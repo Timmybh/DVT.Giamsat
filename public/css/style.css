@@ -241,3 +241,11 @@ header .crumbs { min-width: 0; white-space: nowrap; overflow: hidden; text-overf
   .nut-qr { height: 31px; }
 }
 .nut-qr svg { flex: none; width: 22px; height: 22px; }
+
+/* Dòng đầu nhóm (App.table opts.nhom) */
+tr.nhom-dong td { background: #f3f6fb; font-weight: 700; border-top: 2px solid var(--line); white-space: nowrap; }
+/* Bảng gọn (App.table opts.gon): cột số hẹp, tiêu đề xuống dòng */
+table.bang-gon th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+table.bang-gon th.num { max-width: 78px; min-width: 56px; }
+table.bang-gon td, table.bang-gon th { padding-left: 6px; padding-right: 6px; }
+table.bang-gon td.num { font-size: 13px; }
