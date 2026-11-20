@@ -103,7 +103,6 @@
       App.table(theoLoi, [
         { key: 'maLoi', label: 'Mã lỗi' },
         { key: 'tenLoi', label: 'Tên lỗi' },
-        { key: 'cumLoi', label: 'Cụm lỗi' },
         { key: 'soLan', label: 'Số lần', type: 'num', sum: true },
         { key: 'tyTrong', label: 'Tỷ trọng', type: 'num', render: (r) => App.pct(r.soLan, tongLan) },
       ], loiRows, { footer: true, empty: 'Không có chi tiết lỗi' });
