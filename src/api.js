@@ -897,6 +897,32 @@ function handleQC(name, getParams) {
 router.get('/qc-nscl', handleQC('qcNscl', qcRange));
 router.get('/qc-loi-chi-tiet', handleQC('qcLoiChiTiet', qcRange));
 router.get('/qc-log-loi', handleQC('qcLogLoi', qcRange));
+// Tab Kế hoạch trang QC: kế hoạch phân bổ đang chạy ngày d (tổ x PO x mã hàng, SL kế hoạch của tổ) ghép NSCL HiPro ngày d theo tổ x PO;
+// PO HiPro có bấm mà không có trong kế hoạch ngày d vẫn hiện (SL kế hoạch trống)
+router.get('/qc-ke-hoach', async (req, res) => {
+  try {
+    const d = req.query.d || today();
+    const n = await xnNum(req.query.xn);
+    const [kh, ns] = await Promise.all([run('khToNgay', { xn: req.query.xn, d }), run('qcNsclPO', { tuNgay: d, denNgay: d })]);
+    await napCum();
+    const up = (v) => String(v ?? '').trim().toUpperCase();
+    const map = new Map();
+    kh.forEach((r) => {
+      const k = `${lineOf(r.maTo)}|${up(r.po)}`;
+      const x = map.get(k) || map.set(k, { line: lineOf(r.maTo), po: String(r.po ?? '').trim(), maHang: String(r.maHang ?? '').trim(), slKH: 0, dat: 0, loi: 0, sua: 0, coKH: true }).get(k);
+      x.slKH += Number(r.soLuong || 0);
+    });
+    ns.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n).forEach((r) => {
+      const k = `${r.to}|${up(r.po)}`;
+      const x = map.get(k) || map.set(k, { line: String(r.to), po: String(r.po ?? '').trim(), maHang: String(r.maHang ?? '').trim(), slKH: null, dat: 0, loi: 0, sua: 0, coKH: false }).get(k);
+      x.dat += Number(r.dat || 0); x.loi += Number(r.loi || 0); x.sua += Number(r.sua || 0);
+    });
+    res.json([...map.values()].sort((a, b) => Number(a.line) - Number(b.line) || String(a.line).localeCompare(String(b.line)) || a.po.localeCompare(b.po)));
+  } catch (err) {
+    console.error('[qcKeHoach]', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
 // Cảnh báo QC: tổ có kế hoạch phân bổ đang chạy trong ngày d (mặc định hôm nay) nhưng HiPro NSCL chưa có đạt / lỗi / sửa nào
 router.get('/qc-chua-bam', async (req, res) => {
   try {

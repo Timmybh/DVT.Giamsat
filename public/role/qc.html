@@ -25,8 +25,19 @@
   </div>
   <div class="cards" id="cards"></div>
   <div class="panel">
-    <h2>Theo tổ <span id="toName2"></span></h2>
-    <div id="theoTo"></div>
+    <div class="tabs">
+      <button type="button" data-tab="tabTo" class="active">Theo tổ</button>
+      <button type="button" data-tab="tabKH">Kế hoạch hôm nay</button>
+    </div>
+    <div class="tab-noi" data-tab="tabTo">
+      <h2>Theo tổ <span id="toName2"></span></h2>
+      <div id="theoTo"></div>
+    </div>
+    <div class="tab-noi" data-tab="tabKH" hidden>
+      <h2>Kế hoạch hôm nay <span id="khNgay"></span></h2>
+      <div id="theoKH"></div>
+      <div class="note">Dòng = tổ x PO có kế hoạch phân bổ đang chạy hôm nay (ngày may kế hoạch phủ hôm nay, chưa hoàn thành / huỷ), SL kế hoạch là SL phân bổ của tổ cho PO đó. PO có bấm HiPro hôm nay mà không có trong kế hoạch vẫn hiện, SL kế hoạch trống. Số QC tính như bảng Theo tổ.</div>
+    </div>
   </div>
   <div class="hai-luoi">
     <div class="panel">
@@ -194,6 +205,37 @@
 
   to.onchange = tuNgay.onchange = denNgay.onchange = load;
 
+  // Tab Kế hoạch hôm nay: luôn ngày hôm nay, lọc theo tổ đang chọn
+  let khRows = null;
+  async function loadKH() {
+    khNgay.textContent = `- ${App.date(App.today())}`;
+    App.loading(theoKH);
+    try {
+      if (!khRows) khRows = (await App.api('qc-ke-hoach', { xn: App.xn })).map(chuan);
+      const rs = khRows.filter((r) => !to.value || r.line === to.value);
+      App.table(theoKH, [
+        { key: 'line', label: 'Tổ', render: (r) => `Tổ ${App.esc(r.line)}` },
+        { key: 'po', label: 'PO', render: (r) => `${App.esc(r.po)}${r.coKH ? '' : ' <span class="tag warn" title="Có bấm HiPro hôm nay nhưng không có trong kế hoạch phân bổ hôm nay">ngoài KH</span>'}` },
+        { key: 'maHang', label: 'Mã hàng' },
+        { key: 'slKH', label: 'SL kế hoạch', type: 'num', sum: true },
+        { key: 'kiem', label: 'Đã kiểm', type: 'num', sum: true },
+        { key: 'dat', label: 'Đạt lần đầu', type: 'num', sum: true },
+        { key: 'loi', label: 'SP lỗi', type: 'num', sum: true },
+        { key: 'sua', label: 'Lấy sửa', type: 'num', sum: true },
+        { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: tyLeTong },
+        { key: 'rft', label: 'RFT', type: 'num', render: rft, total: rftTong },
+      ], rs, { footer: true, empty: 'Hôm nay không có kế hoạch phân bổ' });
+    } catch (e) { App.error(theoKH, e); }
+  }
+  let tabQC = 'tabTo';
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+    tabQC = b.dataset.tab;
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.tab-noi').forEach((el) => (el.hidden = el.dataset.tab !== tabQC));
+    if (tabQC === 'tabKH') loadKH();
+  });
+  to.addEventListener('change', () => { if (tabQC === 'tabKH') loadKH(); });
+
   // Cảnh báo: tổ có kế hoạch phân bổ đang chạy hôm nay nhưng HiPro NSCL chưa có đạt / lỗi / sửa (luôn xét hôm nay, không theo bộ lọc ngày)
   const ngayNgan = (v) => (v ? String(v).slice(0, 10).split('-').reverse().map((x, i) => (i === 2 ? x.slice(2) : x)).join('/') : '');
   async function loadCanhBao() {
@@ -212,7 +254,7 @@
   nutCanhBao.onclick = () => { hopCanhBao.hidden = false; loadCanhBao(); };
   dongCB.onclick = () => { hopCanhBao.hidden = true; };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hopCanhBao.hidden = true; });
-  const napLai = () => { loadTo(); loadCanhBao(); };
+  const napLai = () => { khRows = null; loadTo(); loadCanhBao(); if (tabQC === 'tabKH') loadKH(); };
   App.header([['Trang chính', '/'], ['Tổ trưởng QC']], napLai).then(napLai);
 </script>
 </body>

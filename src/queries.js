@@ -912,6 +912,25 @@ module.exports = {
       GROUP BY CAST(k.ngay_san_xuat AS date), nm.ten, c.ten, dmc.IdChuyenOMM`,
   }),
 
+  // NSCL QC theo tổ x PO x mã hàng (tab Kế hoạch trang QC). dat = qty, loi = reject, sua = fix như qcNscl. Tham số: @tuNgay, @denNgay
+  qcNsclPO: ({ bangN = [] } = {}) => ({
+    db: 'hipro',
+    text: `
+      SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, LTRIM(RTRIM(sp.po)) AS po, MAX(sp.ma_san_pham) AS maHang,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.qty_${i + 1}_h, 0)`).join(' + ')}) AS dat,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.reject_${i + 1}_h, 0)`).join(' + ')}) AS loi,
+             SUM(${Array.from({ length: 14 }, (_, i) => `ISNULL(n.fix_${i + 1}_h, 0)`).join(' + ')}) AS sua
+      FROM ${nsclNguon(bangN)} n
+      JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
+      JOIN dbo.pro_chuyen c ON c.id = k.pro_chuyen_id
+      LEFT JOIN dbo.DM_Chuyen dmc ON dmc.Oid = c.oid_mapping
+      JOIN dbo.pro_nha_may nm ON nm.id = c.pro_nha_may_id
+      JOIN dbo.pro_san_pham sp ON sp.id = k.pro_san_pham_id
+      JOIN dbo.pro_check_point cp ON cp.id = n.pro_check_point_id AND cp.pro_chuyen_id = k.pro_chuyen_id
+      WHERE k.ngay_san_xuat >= @tuNgay AND k.ngay_san_xuat < DATEADD(day, 1, @denNgay)
+      GROUP BY nm.ten, c.ten, dmc.IdChuyenOMM, LTRIM(RTRIM(sp.po))`,
+  }),
+
   // Chi tiết lỗi theo tổ x mã lỗi (pro_nscl_chi_tiet_loi -> pro_loi -> pro_cum_loi). Tham số: @tuNgay, @denNgay
   qcLoiChiTiet: ({ bangN = [], bangL = [] } = {}) => ({
     db: 'hipro',

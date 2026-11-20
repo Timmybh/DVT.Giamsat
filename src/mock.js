@@ -352,6 +352,12 @@ module.exports = {
     const loi = hInt(`ql${xn.ma}${t.ma}${d}`, 5, 60);
     return { ngay: d, xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, dat, loi, sua: Math.floor(loi * 0.8) };
   }))),
+  qcNsclPO: ({ tuNgay }) => xiNghiep.flatMap((xn) => to[xn.ma].flatMap((t) => poMau(xn.ma, t.ma).map((p, i) => {
+    if (Number(t.ma) % 4 === 2 && tuNgay === new Date().toISOString().slice(0, 10)) return null;
+    const dat = hInt(`qp${xn.ma}${t.ma}${p.po}${tuNgay}`, 150, 400) * (i ? 0.3 : 1);
+    const fix = hInt(`qpf${xn.ma}${t.ma}${p.po}`, 2, 20);
+    return { xn: `Xí Nghiệp 0${xn.ma}`, line: t.ma, po: p.po, maHang: p.maHang, dat: Math.round(dat), loi: hInt(`qpr${p.po}`, 0, 3), sua: fix };
+  }).filter(Boolean))),
   khToNgay: ({ xn }) => (to[xn] || []).flatMap((t) => poMau(xn, t.ma).map((p) => ({
     maTo: t.ma, maHang: p.maHang, po: p.po, soLuong: p.soLuong, ngayBatDau: p.batDau, ngayKetThuc: p.ngayXuat,
   }))),
