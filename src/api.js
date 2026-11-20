@@ -227,6 +227,35 @@ async function ganMayMau(rows, lenhCua) {
     return { ...r, slMayMau: moi.reduce((t, l) => t + (mm.get(l) || 0), 0) };
   });
 }
+// Lệnh thu hồi chưa hoàn thiện của các PO (đọc theo lô 1000 PO)
+async function docThuHoiCho(dsPO) {
+  const ds = [...new Set(dsPO.map((x) => String(x ?? '').trim()).filter(Boolean))];
+  const kq = [];
+  for (let i = 0; i < ds.length; i += 1000) {
+    const lo = ds.slice(i, i + 1000);
+    kq.push(...await run('thuHoiChoPO', Object.fromEntries(lo.map((v, j) => [`p${j}`, v])), { n: lo.length }));
+  }
+  return kq;
+}
+// Cột "Thu hồi?": cộng SL thu hồi chưa hoàn thiện theo lệnh gốc x PO, ghi vào dòng đầu của lệnh gốc đó (không có thì dòng đầu của PO)
+async function ganThuHoi(rows) {
+  const th = await docThuHoiCho(rows.map((r) => r.po));
+  const g = new Map();
+  th.forEach((t) => {
+    const k = `${t.lenhGoc}|${t.po}`;
+    const x = g.get(k) || g.set(k, { lenhGoc: t.lenhGoc, po: t.po, sl: 0, ds: new Map() }).get(k);
+    x.sl += Number(t.sl || 0); x.ds.set(t.lenhSX, t.trangThai);
+  });
+  const out = rows.map((r) => ({ ...r }));
+  g.forEach((x) => {
+    const r = out.find((o) => String(o.po ?? '').trim() === x.po && o.lenhSX === x.lenhGoc && o.thuHoiCho == null)
+      || out.find((o) => String(o.po ?? '').trim() === x.po && o.thuHoiCho == null);
+    if (!r) return;
+    r.thuHoiCho = x.sl;
+    r.thuHoiLenh = [...x.ds].map(([l, tt]) => `${l} (trạng thái ${tt})`).join(', ');
+  });
+  return out;
+}
 router.get('/ke-hoach-phan-bo', async (req, res) => {
   try {
     const { dsPOList, lenh, ...pk } = { xn: req.query.xn, ...(await khoangKH(req.query)) };
@@ -255,7 +284,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       maTo: '', tenTo: '', maHang: l.maHang, po: l.po, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), loaiLenh: 'Lệnh gốc',
       soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true, tinhTrang: l.daDangKy === false ? 'Chưa đăng ký' : 'Chưa phân chuyền',
     }));
-    if (!rows.length) return res.json(await ganMayMau(dongChua, (r) => r.lenhSX));
+    if (!rows.length) return res.json(await ganThuHoi(await ganMayMau(dongChua, (r) => r.lenhSX)));
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
     // SL SX = may ra HiPro (đạt + sửa + điều chỉnh lũy kế), chỉ đọc các PO của bảng và cả bảng lưu trữ pro_nscl_MM_YYYY
     // (trước đây đọc mọi PO mọi nhà máy, chỉ bảng tháng hiện hành nên PO may từ tháng trước bị thiếu SL)
@@ -283,7 +312,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       const slSX = theoPO.has(kPO) ? theoPO.get(kPO) : (soPO.get(kHang) === 1 ? theoHang.get(kHang) || 0 : 0);
       return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
     }).concat(dongChua);
-    res.json(await ganMayMau(ra, (r) => (Number(r.typeCt) > 0 && r.lenhGoc ? r.lenhGoc : r.lenhSX)));
+    res.json(await ganThuHoi(await ganMayMau(ra, (r) => (Number(r.typeCt) > 0 && r.lenhGoc ? r.lenhGoc : r.lenhSX))));
   } catch (err) {
     console.error('[keHoachPhanBo]', err.message);
     res.status(err.status || 500).json({ error: err.message });
@@ -372,6 +401,19 @@ router.get('/ke-hoach-phan-bo/lenh-size', async (req, res) => {
     res.json(rows.filter((r) => ds.includes(r.lenhSX)).map((r) => ({ lenhSX: r.lenhSX, mau: r.mau, size: r.size, slLenh: Number(r.slLenh || 0) })));
   } catch (err) {
     console.error('[lenhSize]', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+// Màu x size của lệnh thu hồi chưa hoàn thiện của 1 PO (lọc theo lệnh gốc nếu có)
+router.get('/ke-hoach-phan-bo/thu-hoi-size', async (req, res) => {
+  try {
+    const po = String(req.query.po || '').trim();
+    const lenh = String(req.query.lenh || '').trim();
+    if (!po) return res.json([]);
+    const rows = (await docThuHoiCho([po])).filter((r) => !lenh || r.lenhGoc === lenh);
+    res.json(rows.map((r) => ({ lenhSX: r.lenhSX, lenhGoc: r.lenhGoc, trangThai: r.trangThai, mau: r.mau, size: r.size, sl: Number(r.sl || 0) })));
+  } catch (err) {
+    console.error('[thuHoiSize]', err.message);
     res.status(err.status || 500).json({ error: err.message });
   }
 });

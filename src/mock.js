@@ -193,6 +193,13 @@ module.exports = {
     lenhSX: keHoach.find((k) => k.po === r.po).lenhSX, po: r.po, maHang: r.maHang, mau: r.mau.split(' ')[0], size: r.size,
     slLenh: r.soLuong + (r.size === 'M' ? 10 : 0), ngayLenh: '2026-10-16T00:00:00.000Z',
   })),
+  // Mỗi PO thứ 3 có 1 lệnh thu hồi chưa hoàn thiện (trạng thái 2) trừ size M, L
+  thuHoiChoPO: (p) => Object.keys(p).filter((k) => /^p\d+$/.test(k)).map((k) => p[k]).flatMap((po) => {
+    const k = keHoach.find((x) => x.po === po);
+    if (!k || hInt(`th${po}`, 0, 2)) return [];
+    const mau = mauList[0].split(' ')[0];
+    return ['M', 'L'].map((size) => ({ lenhGoc: k.lenhSX, po, lenhSX: `${k.lenhSX}-TH2`, trangThai: 2, mau, size, sl: -hInt(`ths${po}${size}`, 20, 120) }));
+  }),
   lenhSizePO: ({ po }) => {
     const k = keHoach.find((x) => x.po === po) || (/-CHUA-PB$/.test(po) && { lenhSX: 'TRIHD-0901-2026', maHang: '1', soLuong: 1200 });
     if (!k) return [];

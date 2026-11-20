@@ -376,6 +376,18 @@ module.exports = {
       GROUP BY POCTId, ISNULL(TenMau, ''), ISNULL(TenSize, '')`,
   }),
 
+  // Lệnh thu hồi (TypeCt = 2) chưa hoàn thiện (DocStatus <> 4, chưa trừ vào SL lệnh), bỏ lệnh đình chỉ (IsActive = 0),
+  // theo lệnh gốc x PO x màu x size. @p0.. = PO
+  thuHoiChoPO: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT ISNULL(a.ProductionOrderAdjNo, '') AS lenhGoc, LTRIM(RTRIM(b.PO)) AS po, a.DocNo AS lenhSX, MAX(ISNULL(a.DocStatus, 0)) AS trangThai,
+             ISNULL(b.ColorCode, '') AS mau, ISNULL(b.SizeCode, '') AS size, SUM(ISNULL(b.Quantity, 0)) AS sl
+      FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+      JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+      WHERE b.PO IN (${dsThamSo('p', n)}) AND a.TypeCt = 2 AND ISNULL(a.IsActive, 1) <> 0 AND ISNULL(a.DocStatus, 0) <> 4
+      GROUP BY ISNULL(a.ProductionOrderAdjNo, ''), LTRIM(RTRIM(b.PO)), a.DocNo, ISNULL(b.ColorCode, ''), ISNULL(b.SizeCode, '')`,
+  }),
   // Chi tiết màu x size của 1 PO trên lệnh Bravo (lệnh điều chỉnh / thu hồi gom về lệnh gốc). Tham số: @po
   lenhSizePO: {
     db: 'egmf',

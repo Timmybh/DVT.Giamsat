@@ -6,14 +6,14 @@
 <title>Kế hoạch phân bổ - DVT Giám sát</title>
 <link rel="stylesheet" href="/css/style.css">
 <style>
-  .hai-luoi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; }
+  .hai-luoi { display: flex; flex-direction: column; gap: 16px; }
   .hai-luoi > div { min-width: 0; }
   .hai-luoi h3 { margin: 0 0 8px; font-size: 15px; }
   /* Chia màn hình: lưới kế hoạch (trên) và size breakdown (dưới) cao cố định theo màn hình, kéo thanh chia để đổi tỷ lệ */
-  #result, #sizeLenh, #size { display: flex; flex-direction: column; }
+  #result, #sizeLenh, #size, #sizeThuHoi { display: flex; flex-direction: column; }
   #result { height: var(--h-tren, 420px); }
-  #sizeLenh, #size { height: var(--h-duoi, 300px); }
-  #result > .table-wrap, #sizeLenh > .table-wrap, #size > .table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+  #sizeLenh, #size, #sizeThuHoi { max-height: var(--h-duoi, 300px); }
+  #result > .table-wrap, #sizeLenh > .table-wrap, #size > .table-wrap, #sizeThuHoi > .table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
   .panel-tren { margin-bottom: 0; }
   .thanh-chia { height: 10px; margin: 0 0 0; cursor: row-resize; display: flex; align-items: center; justify-content: center; user-select: none; touch-action: none; }
   .thanh-chia::before { content: ''; width: 60px; height: 4px; border-radius: 2px; background: var(--line); }
@@ -48,10 +48,11 @@
   <div class="panel panel-duoi tab-noi" data-tab="tabPO" id="panelDuoi">
     <h2>Size breakdown <span id="tenDong"></span></h2>
     <div class="hai-luoi">
-      <div><h3>Theo lệnh Bravo <span id="tenLenh"></span></h3><div id="sizeLenh" class="luoi-cao"><div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div></div></div>
       <div><h3>Phân bổ (SBD)</h3><div id="size" class="luoi-cao"><div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div></div></div>
+      <div><h3>Theo lệnh Bravo <span id="tenLenh"></span></h3><div id="sizeLenh" class="luoi-cao"><div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div></div></div>
+      <div id="khungThuHoi" hidden><h3>Lệnh thu hồi ? <span id="tenThuHoi"></span></h3><div id="sizeThuHoi" class="luoi-cao"></div></div>
     </div>
-    <div class="note">Bên trái: SL lệnh Bravo theo mã màu x size của PO (lệnh điều chỉnh / thu hồi đã cộng vào lệnh gốc). Bên phải: SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD (size trống = chưa phân bổ size). Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
+    <div class="note">Phân bổ (SBD): SL phân bổ theo màu x size lấy từ OMM_KeHoachThang_SBD (size trống = chưa phân bổ size). Theo lệnh Bravo: SL lệnh theo mã màu x size của PO (lệnh điều chỉnh / thu hồi đã hoàn thiện cộng vào lệnh gốc). Lệnh thu hồi ?: lệnh thu hồi chưa hoàn thiện (trạng thái khác 4), chưa trừ vào SL lệnh; chỉ hiện khi có. Chưa có số hoàn thành theo size (HiPro không ghi size).</div>
   </div>
 </main>
 <script>
@@ -88,6 +89,7 @@
       { key: 'ngayLenh', label: 'Ngày lệnh', type: 'date' },
       { key: 'loaiLenh', label: 'Loại lệnh', render: (r) => (r.loaiLenh ? `<span class="tag ${r.loaiLenh === 'Lệnh thu hồi' ? 'bad' : r.loaiLenh === 'Lệnh điều chỉnh' ? 'warn' : ''}" title="${r.lenhGoc ? `Lệnh gốc: ${App.esc(r.lenhGoc)}` : ''}">${App.esc(r.loaiLenh)}</span>` : '') },
       { key: 'slLenh', label: 'SL lệnh (Bravo)', type: 'num' },
+      { key: 'thuHoiCho', label: 'Thu hồi?', type: 'num', sum: true, render: (r) => (r.thuHoiCho == null ? '' : `<span class="tag warn" title="Lệnh thu hồi chưa hoàn thiện (chưa trừ vào SL lệnh): ${App.esc(r.thuHoiLenh || '')}">${App.num(r.thuHoiCho)}</span>`) },
       { key: 'slMayMau', label: 'SL may mẫu', type: 'num', sum: true },
       { key: 'soLuong', label: 'SL kế hoạch', type: 'num', sum: true },
       { key: 'slSX', label: 'SL SX', type: 'num', sum: true },
@@ -131,6 +133,18 @@
       if (!lenh) tenLenh.textContent = dsLenh.length ? `- ${dsLenh.join(', ')}` : '';
       maTran(sizeLenh, data, 'slLenh', 'PO này chưa có lệnh Bravo (đã hoàn thiện)');
     } catch (e) { if (lan === lanLenh) App.error(sizeLenh, e); }
+    loadThuHoi(r, lenh, lan);
+  }
+  // Lệnh thu hồi chưa hoàn thiện (trạng thái khác 4) của PO: chỉ hiện khi có
+  async function loadThuHoi(r, lenh, lan) {
+    khungThuHoi.hidden = true;
+    try {
+      const data = await App.api('ke-hoach-phan-bo/thu-hoi-size', { po: r.po || '', lenh });
+      if (lan !== lanLenh || !data.length) return;
+      tenThuHoi.textContent = `- ${[...new Map(data.map((x) => [x.lenhSX, x.trangThai])).entries()].map(([l, tt]) => `${l} (trạng thái ${tt})`).join(', ')}`;
+      khungThuHoi.hidden = false;
+      maTran(sizeThuHoi, data, 'sl', '');
+    } catch (e) { if (lan === lanLenh) { khungThuHoi.hidden = false; App.error(sizeThuHoi, e); } }
   }
   // Bảng ma trận màu x size của dòng kế hoạch
   async function loadSize(r) {
@@ -147,6 +161,7 @@
     size.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL phân bổ theo size</div>';
     tenLenh.textContent = ''; lanLenh++;
     sizeLenh.innerHTML = '<div class="empty">Bấm vào một dòng kế hoạch để xem SL lệnh theo size</div>';
+    khungThuHoi.hidden = true;
     if (thieuLenh()) { result.innerHTML = '<div class="empty">Ngày lệnh là bắt buộc: chọn đủ từ ngày - đến ngày rồi bấm Xem (Ngày SX có thể để trống)</div>'; return; }
     App.loading(result);
     try {
