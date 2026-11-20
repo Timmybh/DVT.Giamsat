@@ -78,7 +78,8 @@
     [theoTo, theoLoi, logLoi, theoNgay].forEach(App.loading);
     toName.textContent = to.value ? `- Tổ ${to.value}` : '';
     toName3.textContent = to.value ? `- Tổ ${to.value}` : '- mọi tổ';
-    toName2.textContent = to.value ? '(đang lọc 1 tổ, chọn "Tất cả" để xem mọi tổ)' : '';
+    toName2.innerHTML = to.value ? `<span class="loc-dem">đang xem Tổ ${App.esc(to.value)}</span> <button type="button" id="boLocTo" class="phu" style="padding:3px 10px;font-size:13px">✕ Xem mọi tổ</button>` : '';
+    if (to.value) boLocTo.onclick = () => { to.value = ''; load(); };
     try {
       const [nscl, loi, log] = await Promise.all([App.api('qc-nscl', q), App.api('qc-loi-chi-tiet', q), App.api('qc-log-loi', q)]);
       const chon = (r) => !to.value || r.line === to.value;
