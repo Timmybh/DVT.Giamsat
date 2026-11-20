@@ -9,6 +9,13 @@
   .hai-luoi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 16px; align-items: start; }
   .hai-luoi > .panel { min-width: 0; }
   .luoi-log > .table-wrap { max-height: 520px; overflow: auto; }
+  .kh-nhom td, .kh-nhom th { white-space: nowrap; }
+  .kh-nhom td:first-child, .kh-nhom th:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; white-space: normal; min-width: 150px; }
+  .kh-nhom thead th:first-child { background: inherit; }
+  .kh-nhom tr.total-row th:first-child { background: #eef3fb; }
+  .kh-nhom tr.kh-to td { background: #f3f6fb; font-weight: 700; border-top: 2px solid var(--line); }
+  .kh-nhom tr.kh-po td:first-child { padding-left: 18px; }
+  .kh-nhom .kh-ma { font-size: 12px; color: var(--muted); }
 </style>
 <script src="/js/common.js"></script>
 </head>
@@ -213,18 +220,20 @@
     try {
       if (!khRows) khRows = (await App.api('qc-ke-hoach', { xn: App.xn })).map(chuan);
       const rs = khRows.filter((r) => !to.value || r.line === to.value);
-      App.table(theoKH, [
-        { key: 'line', label: 'Tổ', render: (r) => `Tổ ${App.esc(r.line)}` },
-        { key: 'po', label: 'PO', render: (r) => `${App.esc(r.po)}${r.coKH ? '' : ' <span class="tag warn" title="Có bấm HiPro hôm nay nhưng không có trong kế hoạch phân bổ hôm nay">ngoài KH</span>'}` },
-        { key: 'maHang', label: 'Mã hàng' },
-        { key: 'slKH', label: 'SL kế hoạch', type: 'num', sum: true },
-        { key: 'kiem', label: 'Đã kiểm', type: 'num', sum: true },
-        { key: 'dat', label: 'Đạt lần đầu', type: 'num', sum: true },
-        { key: 'loi', label: 'SP lỗi', type: 'num', sum: true },
-        { key: 'sua', label: 'Lấy sửa', type: 'num', sum: true },
-        { key: 'tl', label: 'Tỷ lệ lỗi', type: 'num', render: tyLe, total: tyLeTong },
-        { key: 'rft', label: 'RFT', type: 'num', render: rft, total: rftTong },
-      ], rs, { footer: true, empty: 'Hôm nay không có kế hoạch phân bổ' });
+      if (!rs.length) { theoKH.innerHTML = '<div class="empty">Hôm nay không có kế hoạch phân bổ</div>'; return; }
+      // Gom nhóm theo tổ: dòng tổ (cộng các PO) rồi từng PO (dòng 1 PO, dòng 2 mã hàng) - gọn cho điện thoại
+      const tongCua = (ds) => ({ slKH: ds.some((r) => r.slKH != null) ? cong(ds, 'slKH') : null, ...['kiem', 'dat', 'loi', 'sua'].reduce((t, k) => ({ ...t, [k]: cong(ds, k) }), {}) });
+      const so = (r) => `<td class="num">${r.slKH == null ? '' : App.num(r.slKH)}</td><td class="num">${App.num(r.kiem)}</td><td class="num">${App.num(r.dat)}</td>`
+        + `<td class="num">${App.num(r.loi)}</td><td class="num">${App.num(r.sua)}</td><td class="num">${tyLe(r)}</td><td class="num">${rft(r)}</td>`;
+      const nhom = new Map();
+      rs.forEach((r) => (nhom.get(r.line) || nhom.set(r.line, []).get(r.line)).push(r));
+      const tong = tongCua(rs);
+      const dau = '<th>Tổ / PO · mã hàng</th><th class="num">SL KH</th><th class="num">Đã kiểm</th><th class="num">Đạt LĐ</th><th class="num">SP lỗi</th><th class="num">Lấy sửa</th><th class="num">Tỷ lệ lỗi</th><th class="num">RFT</th>';
+      theoKH.innerHTML = `<div class="table-wrap"><table class="kh-nhom"><thead><tr>${dau}</tr>
+        <tr class="total-row"><th>Tổng (${nhom.size} tổ · ${rs.length} PO)</th>${so(tong).replace(/<td/g, '<th').replace(/<\/td>/g, '</th>')}</tr></thead>
+        ${[...nhom].map(([line, ds]) => `<tbody><tr class="kh-to"><td>Tổ ${App.esc(line)} <span class="loc-dem">· ${ds.length} PO</span></td>${so(tongCua(ds))}</tr>
+          ${ds.map((r) => `<tr class="kh-po"><td><b>${App.esc(r.po)}</b>${r.coKH ? '' : ' <span class="tag warn" title="Có bấm HiPro hôm nay nhưng không có trong kế hoạch phân bổ hôm nay">ngoài KH</span>'}<div class="kh-ma">${App.esc(r.maHang)}</div></td>${so(r)}</tr>`).join('')}
+        </tbody>`).join('')}</table></div>`;
     } catch (e) { App.error(theoKH, e); }
   }
   let tabQC = 'tabTo';
