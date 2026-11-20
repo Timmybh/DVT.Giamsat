@@ -914,6 +914,8 @@ router.get('/qc-ke-hoach', async (req, res) => {
     });
     ns.map((r) => ({ ...r, ...hp(r) })).filter((r) => r.xn === n).forEach((r) => {
       const k = `${r.to}|${up(r.po)}`;
+      // Phiếu NSCL HiPro tạo sẵn nhưng chưa bấm gì: chỉ giữ khi PO có trong kế hoạch phân bổ
+      if (!map.has(k) && !(Number(r.dat || 0) + Number(r.loi || 0) + Number(r.sua || 0))) return;
       const x = map.get(k) || map.set(k, { line: String(r.to), po: String(r.po ?? '').trim(), maHang: String(r.maHang ?? '').trim(), slKH: null, dat: 0, loi: 0, sua: 0, coKH: false }).get(k);
       x.dat += Number(r.dat || 0); x.loi += Number(r.loi || 0); x.sua += Number(r.sua || 0);
     });
