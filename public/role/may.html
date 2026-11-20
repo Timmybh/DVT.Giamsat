@@ -275,7 +275,8 @@
     const [kh, sl, ld, pos] = await Promise.all(['ke-hoach-ngay', 'san-luong-gio', 'lao-dong', 'po-may-ra'].map((u) => safe(App.api(u, q))));
     const mine = (rows) => (rows.error ? [] : rows.filter((r) => r.line === to.value));
 
-    // Lỗi theo giờ = reject (lỗi) + fix (lấy sửa) của HiPro, như màn hình QC HiPro (vd 23 kiểm: 21 đạt, 2 lỗi lấy sửa)
+    // Lỗi theo giờ = reject (lỗi chưa sửa) + fix (lấy sửa) của HiPro. qty đã gồm SP lấy sửa: đã kiểm = qty + reject
+    // (vd màn hình Ký nhận SP lỗi: 23 kiểm = qty 23, 21 đạt, 2 lỗi lấy sửa = fix 2)
     const gioRows = mine(sl).map((r) => {
       const x = { ...r };
       for (let h = 1; h <= 14; h++) x[`r${h}`] = Number(r[`r${h}`] || 0) + Number(r[`f${h}`] || 0);
@@ -356,7 +357,7 @@
     const dong = ma.map((m) => {
       const r = gioRows.find((x) => String(x.maHang || '').trim() === m) || {};
       const kh = khMa.get(m) || 0;
-      return { ma: m, o: gioCot.map((h) => ({ x: phanBo(kh, h), y: (r[`h${h}`] || 0) + (r[`r${h}`] || 0), z: r[`r${h}`] || 0 })) };
+      return { ma: m, o: gioCot.map((h) => ({ x: phanBo(kh, h), y: (r[`h${h}`] || 0) + (r[`r${h}`] || 0) - (r[`f${h}`] || 0), z: r[`r${h}`] || 0 })) };
     });
     const cong = (os) => os.reduce((t, v) => ({ x: t.x + v.x, y: t.y + v.y, z: t.z + v.z }), { x: 0, y: 0, z: 0 });
     const tong = gioCot.map((_, i) => cong(dong.map((d) => d.o[i])));

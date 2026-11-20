@@ -1177,8 +1177,9 @@ module.exports = {
     text: `SELECT name FROM sys.tables WHERE name LIKE 'pro[_]nscl[_]chi[_]tiet[_]loi[_][0-9][0-9][_][0-9][0-9][0-9][0-9]'`,
   },
 
-  // May ra (HiPro) theo nhà máy x chuyền x PO: đạt + sửa đạt (qty_*_h + fix_*_h) + sua_po_luy_ke như store cũ;
-  // thêm đạt lần đầu (qty) và lỗi (reject + fix: lỗi chưa sửa + đã lấy sửa) của ngày @denNgay để tính đã kiểm / RFT,
+  // May ra (HiPro) theo nhà máy x chuyền x PO: qty_*_h + sua_po_luy_ke. qty đã gồm cả SP lấy sửa (đối chiếu màn hình Ký nhận SP lỗi
+  // 20/11/2026: tổng SP kiểm = qty, SP lỗi = fix) nên KHÔNG cộng thêm fix như store cũ (store cũ cộng dư phần sửa).
+  // Thêm đạt lần đầu (qty - fix) và lỗi (reject + fix) của ngày @denNgay để tính đã kiểm (= đạt lần đầu + lỗi = qty + reject) / RFT,
   // đọc cả pro_nscl hiện hành lẫn các bảng lưu trữ truyền vào (tên đã kiểm ở API). Tham số: @tuLK, @tuNgay, @denNgay
   // arg: { bang: bảng lưu trữ, nPO: lọc theo danh sách PO @hp0.. (0 = mọi PO) }
   mayRaHiPro: ({ bang: bangLuuTru = [], nPO = 0 } = {}) => {
@@ -1190,10 +1191,10 @@ module.exports = {
       db: 'hipro',
       text: `
       SELECT nm.ten AS xn, c.ten AS line, dmc.IdChuyenOMM AS cumId, sp.po AS po, MAX(sp.ma_san_pham) AS maHang,
-             SUM(CASE WHEN k.ngay_san_xuat >= @tuNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaKy,
-             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat + n.sua + n.dc ELSE 0 END) AS mayRaNgay,
-             SUM(n.dat + n.sua + n.dc) AS mayRaLK,
-             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat ELSE 0 END) AS datNgay,
+             SUM(CASE WHEN k.ngay_san_xuat >= @tuNgay THEN n.dat + n.dc ELSE 0 END) AS mayRaKy,
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat + n.dc ELSE 0 END) AS mayRaNgay,
+             SUM(n.dat + n.dc) AS mayRaLK,
+             SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.dat - n.sua ELSE 0 END) AS datNgay,
              SUM(CASE WHEN k.ngay_san_xuat >= @denNgay THEN n.loi + n.sua ELSE 0 END) AS loiNgay
       FROM (${nguon.join('\n        UNION ALL ')}) n
       JOIN dbo.pro_ke_hoach_san_xuat k ON k.id = n.pro_ke_hoach_san_xuat_id
