@@ -131,11 +131,13 @@
       { key: 'nguoiXuat', label: 'Người quét xuất' },
       { key: 'po', label: 'PO' },
       { key: 'chungLoai', label: 'Chủng loại' },
-      { key: 'mau', label: 'Màu' },
+      { key: 'mauSP', label: 'Màu SP (tem)', render: (r) => String(r.mauSP || '').split(';').map((m) => App.esc(m.trim())).filter(Boolean).join('<br>') },
+      { key: 'mauVai', label: 'Màu vải' },
+      { key: 'mau', label: 'Màu (phiếu cấp)', an: true },
       { key: 'size', label: 'Size' },
       { key: 'soLuong', label: 'SL xuất', type: 'num', sum: true },
       { key: 'thoiGianNhan', label: 'Tổ nhận lúc', type: 'datetime' },
-    ], rows, { footer: true, empty: 'Khâu cắt chưa quét xuất tem nào cho phiếu này' })).catch((e) => App.error(phieuXuat, e));
+    ], rows, { footer: true, chonCot: 'dat-btp-tem-xuat', empty: 'Khâu cắt chưa quét xuất tem nào cho phiếu này' })).catch((e) => App.error(phieuXuat, e));
   }
 
   tuNgay.onchange = denNgay.onchange = loadPhieuCap;

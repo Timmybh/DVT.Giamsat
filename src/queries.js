@@ -577,8 +577,16 @@ module.exports = {
       SELECT bc.TemBarcodeBTP AS barcode, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
              bc.PO AS po, bc.Mau AS mau, bc.Size AS size, bc.ChungLoai AS chungLoai,
              bc.SoLuongDaXuat AS soLuong, bc.ThoiGianQuetNhan AS thoiGianNhan, bc.NguoiQuetNhan AS nguoiNhan,
-             bc.TraBTP AS traBTP
+             bc.TraBTP AS traBTP,
+             -- màu SP lấy trên tem (tem gia công ...-IN thì lấy tem BTP gốc); tem tổng hợp BTH gom mọi màu trong CUTTING_TemBarcode_Mau
+             COALESCE(NULLIF(t1.MauSP, ''), NULLIF(t2.MauSP, ''), mb.dsMau) AS mauSP, COALESCE(NULLIF(t1.MauVai, ''), NULLIF(t2.MauVai, '')) AS mauVai
       FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
+      OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t WHERE t.Barcode = bc.TemBarcodeBTP) t1
+      OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g
+                   JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Barcode = g.TemBarCodeBTP
+                   WHERE t1.MauSP IS NULL AND g.TemBarCodeMoi = bc.TemBarcodeBTP) t2
+      OUTER APPLY (SELECT STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m
+                   WHERE m.Barcode = bc.TemBarcodeBTP AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMau) mb
       WHERE bc.SoPhieuCapBTP = @soPhieu
       ORDER BY bc.ThoiGianQuetXuat, bc.IdPhieuXuatKhoBTP`,
   },
