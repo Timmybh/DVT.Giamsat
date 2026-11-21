@@ -49,10 +49,10 @@
   // Màu SP: tem có thể nhiều màu (MauSP ghi "a; b" hoặc tem tổng hợp lấy từ CUTTING_TemBarcode_Mau)
   const dsMauCua = (t) => {
     const tach = (v) => String(v ?? '').split(';').map((x) => x.trim()).filter(Boolean);
-    const bm = tach(t.dsMauBM); // màu theo bàn may của bó (kèm SL), có từ 2 màu thì ưu tiên
-    if (bm.length > 1) return bm;
+    const mauTem = [...new Set(tach(t.dsMau))]; // CUTTING_TemBarcode_Mau: tem nhiều màu ghi "23B/ GRAY DUST;77B/ NIGHT FOREST"
+    if (mauTem.length > 1) return mauTem;
     const ds = tach(t.mau);
-    return [...new Set(ds.length ? ds : tach(t.dsMau))];
+    return [...new Set(ds.length ? ds : mauTem)];
   };
   const oMau = (ds) => (!ds.length ? '' : `<div class="qr-mau"><span>Màu SP${ds.length > 1 ? ` (${ds.length} màu)` : ''}</span><div>${ds.map((m) => `<b class="chip-mau">${App.esc(m)}</b>`).join('')}</div></div>`);
   // Tem LOT (tách cây): thông tin như in trên tem
@@ -104,7 +104,7 @@
         <div class="qr-o">
           ${o('Lệnh SX', t.lenhSX)}${o('Mã hàng', t.maHang)}${o('Mùa', t.mua)}
           ${o('Loại NL', t.loaiNL)}${o('Chi tiết', t.chiTiet || (t.loaiTem.startsWith('Tem BTP') ? 'Thân chính' : ''))}${o('Size', t.size)}
-          ${o('Màu vải', dsMauCua(t).length > 1 && !t.mau ? '' : t.mauVai)}${o('Bàn cắt', t.banCat)}
+          ${o('Màu vải', dsMauCua(t).length > 1 ? '' : t.mauVai)}${o('Bàn cắt', t.banCat)}
           ${o('Bàn may', t.banMay)}${o('Phiếu hoạch toán', t.phieuHoachToan)}${o('Vị trí', t.viTri)}
           ${o('Phòng ban', t.phongBan)}${o('Ngày tạo', App.datetime(t.ngayTao))}${o('SL tem', App.num(t.slTem))}
           ${o('SL thực xuất', App.num(t.slThucXuat))}${o('Tồn', App.num(ton))}

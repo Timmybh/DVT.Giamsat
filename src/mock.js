@@ -144,7 +144,7 @@ module.exports = {
   keHoachChuaPhanBoSize: (p) => module.exports.keHoachChuaPhanBo(p).flatMap((l) => [['BK', 'S', 500], ['BK', 'M', 700]].map(([mau, size, sl]) => ({ ...l, mau, size, slLenh: sl }))),
   temTra: ({ ma }) => (!/^(BTP|BTH)/i.test(ma) ? [] : [0, 1].map((i) => ({
     loaiTem: /^BTH/i.test(ma) ? 'Tem tổng hợp (phối bộ)' : 'Tem BTP cắt', barcode: ma.toUpperCase().replace(/-IN$/, ''), temBTPXuat: `${ma.toUpperCase().replace(/-IN$/, '')}${i ? '-IN' : ''}`, ngayTao: new Date(Date.now() - 3 * 86400000),
-    lenhSX: 'TUNTT-0622-2026', maHang: '345214', mua: 'SS27', loaiNL: 'Vải chính', chiTiet: '', mau: /^BTH/i.test(ma) ? null : '8941360 NOIR', mauVai: 'NOIR', dsMauBM: /^BTP/i.test(ma) ? '23B (50); 24C (49)' : null, dsMau: /^BTH/i.test(ma) ? '4178617 - DKT-N07A BLACK; 4178618 - DKT-N07A NAVY; 4178619 - DKT-N07A RED' : '', size: 'M',
+    lenhSX: 'TUNTT-0622-2026', maHang: '345214', mua: 'SS27', loaiNL: 'Vải chính', chiTiet: '', mau: /^BTH/i.test(ma) ? null : '8941360 NOIR', mauVai: 'NOIR', dsMau: /^BTP2611006977/i.test(ma) ? '23B/ GRAY DUST;77B/ NIGHT FOREST' : /^BTH/i.test(ma) ? '4178617 - DKT-N07A BLACK; 4178618 - DKT-N07A NAVY; 4178619 - DKT-N07A RED' : '', size: 'M',
     banCat: 'BC-12', banMay: 'Bàn may 3', phieuHoachToan: 'HT-2610-0042', viTri: 'Kệ A2', phongBan: 'Xí nghiệp may 1', slTem: 40, slThucXuat: 30,
     soPhieuCap: `PC-2611-00${i + 7}`, temXuat: `CAP2611000${i + 5}`, lenhXuat: 'TUNTT-0622-2026', po: '4524284980', sizeDat: 'M', xn: 'XN1', maTo: '3',
     slXuat: 15, thoiGianXuat: new Date(Date.now() - (2 - i) * 86400000), nguoiXuat: 'Nguyễn Văn A', slNhan: i ? null : 15, thoiGianNhan: i ? null : new Date(Date.now() - 86400000),
