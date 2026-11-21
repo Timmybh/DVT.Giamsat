@@ -26,6 +26,7 @@
       <label>Lệnh SX <select id="locLenh"></select></label>
       <label>Mã hàng <select id="locMa"></select></label>
       <label>PO <select id="locPO"></select></label>
+      <label>Chi tiết <select id="locCT"></select></label>
       <button type="button" id="boLocTem">✕ Bỏ lọc</button>
       <span id="locTemDem" class="loc-dem"></span>
     </div>
@@ -121,13 +122,15 @@
     veTem();
   }
   // Mục lọc riêng của lưới tem: Lệnh SX / Mã hàng / PO, danh sách chọn tính theo 2 mục còn lại
-  const LOC = [['lenhSX', locLenh], ['maHang', locMa], ['po', locPO]];
+  // Chi tiết: tem không ghi chi tiết gom vào "(trống)" để vẫn chọn được
+  const LOC = [['lenhSX', locLenh], ['maHang', locMa], ['po', locPO], ['chiTiet', locCT]];
+  const giaTri = (r, k) => String(r[k] ?? '').trim() || (k === 'chiTiet' ? '(trống)' : '');
   function locTheoMuc(rs) {
     locTem.hidden = !rs.length && !LOC.some(([, el]) => el.value);
-    const khop = (r, boQua) => LOC.every(([k, el]) => k === boQua || !el.value || String(r[k] ?? '').trim() === el.value);
+    const khop = (r, boQua) => LOC.every(([k, el]) => k === boQua || !el.value || giaTri(r, k) === el.value);
     LOC.forEach(([k, el]) => {
       const v = el.value;
-      const ds = [...new Set(rs.filter((r) => khop(r, k)).map((r) => String(r[k] ?? '').trim()).filter(Boolean))].sort();
+      const ds = [...new Set(rs.filter((r) => khop(r, k)).map((r) => giaTri(r, k)).filter(Boolean))].sort();
       if (v && !ds.includes(v)) ds.unshift(v);
       el.innerHTML = `<option value="">Tất cả (${ds.length})</option>${ds.map((x) => `<option${x === v ? ' selected' : ''}>${App.esc(x)}</option>`).join('')}`;
     });
