@@ -562,8 +562,18 @@ router.get('/tem-tra', async (req, res) => {
   try {
     const ma = String(req.query.ma || '').trim().slice(0, 100);
     if (!ma) return res.status(400).json({ error: 'Thiếu mã tem' });
-    const [rows, giaCong] = await Promise.all([run('temTra', { ma }), run('temGiaCong', { ma })]);
-    res.json({ ma, rows, giaCong });
+    // Tem LOT (tách cây): mã dạng <tem cha>-<số cây>; tra tem cha để có lượt xuất / gia công
+    const mLot = /^((?:BTP|BTH)[A-Z0-9]+)-(\d+)$/i.exec(ma);
+    const lot = mLot ? await run('temLot', { goc: mLot[1], ma }) : [];
+    const maTra = lot.length ? lot[0].barcode : ma;
+    const [rows, giaCong] = await Promise.all([run('temTra', { ma: maTra }), run('temGiaCong', { ma: maTra })]);
+    // Kế hoạch phân bổ của lệnh trên tem
+    const lenhs = [...new Set([...lot, ...rows].flatMap((r) => String(r.lenhSX || '').split(/[;,]/)).map((x) => x.trim()).filter(Boolean))].slice(0, 20);
+    let keHoach = [];
+    try {
+      if (lenhs.length) keHoach = await run('khTheoLenhTem', Object.fromEntries(lenhs.map((l, i) => [`l${i}`, l])), { n: lenhs.length });
+    } catch (e) { console.error('[tem-tra kh]', e.message); }
+    res.json({ ma, maTra, lot, rows, giaCong, keHoach });
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });

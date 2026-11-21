@@ -281,3 +281,7 @@ header .nut-menu:hover { background: rgba(255,255,255,.15); }
 .hop-qr.qr-noi { position: static; background: none; padding: 0; display: block; }
 .hop-qr.qr-noi .hop-qr-khung { width: 100%; max-width: 900px; max-height: none; height: auto; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .hop-qr.qr-noi .hcb-dau { display: flex; justify-content: space-between; align-items: center; }
+/* Tra tem: tem LOT, phân bổ kế hoạch */
+.qr-lot { border-top-color: #f29900; }
+.qr-kh { border-top-color: #1e8e3e; }
+.qr-kh-dong { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 4px 0; border-top: 1px dashed var(--line); font-size: 14px; }

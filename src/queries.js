@@ -666,6 +666,44 @@ module.exports = {
 
   // Lượt xuất gia công (CUTTING_PhieuGiaCongXuatKho_DaQuet: tem BTP gốc -> tem gia công TemBarCodeMoi, vd ...-IN) của mã quét:
   // mã là tem BTP gốc, tem gia công, hoặc tem cấp mới (lấy các tem BTP trong đó). Tham số: @ma
+  // Tem LOT (tem tách cây, vd BTP2610087246-4 = cây 4 của tem BTP2610087246): CUTTING_TemBarcode_TachCay.Code. Tham số: @goc (tem cha), @ma
+  temLot: {
+    db: 'egmf',
+    text: `
+      SELECT TOP 20 c.Code AS code, c.Barcode AS barcode, REPLACE(ISNULL(c.LenhSanXuat, ''), ';', '') AS lenhSX, REPLACE(ISNULL(c.MaHang, ''), ';', '') AS maHang,
+             REPLACE(ISNULL(c.Mua, ''), ';', '') AS mua, c.BanMay AS banMay, c.TenSize AS size, c.STT AS cay, c.MaCay AS maCay, c.SoLopTrai AS soLop, c.Lot AS lot,
+             c.LoaiNguyenLieu AS loaiNL, c.TenChiTiet AS chiTiet, c.Part AS part, c.PO AS po, c.SoLuong AS soLuong, c.NguoiCat AS nguoiCat, c.NguoiTrai AS nguoiTrai,
+             c.NgayTao AS ngayTao, c.TenPhongBan AS phongBan
+      FROM dbo.CUTTING_TemBarcode_TachCay c
+      WHERE c.Barcode = @goc AND c.Code = @ma`,
+  },
+
+  // Kế hoạch phân bổ (tổ x PO) của các lệnh SX trên tem: lệnh -> PO (Bravo, đã hoàn thiện, không đình chỉ) -> OMM_KeHoachThang mọi XN.
+  // PO chưa phân bổ vẫn ra 1 dòng (maTo trống). Tham số: @l0..
+  khTheoLenhTem: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT l.lenhSX, l.po, l.slLenh, LTRIM(RTRIM(e.TenCum)) AS maTo, xn.TenXiNghiep AS xn, MAX(dh.MaHang) AS maHang,
+             SUM(k.SoLuong) AS slKH, MIN(k.NgayMayKeHoachBatDau) AS ngayBatDau, MAX(k.NgayMayKeHoachKetThuc) AS ngayKetThuc,
+             MAX(LTRIM(RTRIM(ISNULL(k.TinhTrang, '')))) AS tinhTrang
+      FROM (
+        SELECT a.DocNo AS lenhSX, LTRIM(RTRIM(b.PO)) AS po, SUM(ISNULL(b.Quantity, 0)) AS slLenh
+        FROM dbo.Bravo_LenhSanXuat_Detail_PO b
+        JOIN dbo.Bravo_LenhSanXuat_Detail a ON a.Id = b.IdDetail
+        WHERE a.DocNo IN (${dsThamSo('l', n)}) AND ISNULL(a.IsActive, 1) <> 0 AND a.DocStatus = 4
+        GROUP BY a.DocNo, LTRIM(RTRIM(b.PO))
+      ) l
+      LEFT JOIN dbo.OMM_PO po ON po.PONo = l.po
+      LEFT JOIN dbo.OMM_DonHang dh ON dh.DHId = po.DHId
+      LEFT JOIN dbo.OMM_PO_ChiTiet ct ON ct.POId = po.POId
+      LEFT JOIN dbo.OMM_KeHoachThang k ON k.CTPOId = ct.POCTId AND k.SoLuong > 0 AND ISNULL(k.TinhTrang, '') NOT LIKE 'Huy%'
+      LEFT JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      LEFT JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      LEFT JOIN dbo.Lib_XiNghiep xn ON xn.XNId = px.XNId
+      GROUP BY l.lenhSX, l.po, l.slLenh, LTRIM(RTRIM(e.TenCum)), xn.TenXiNghiep
+      ORDER BY l.lenhSX, l.po, xn.TenXiNghiep, LEN(LTRIM(RTRIM(e.TenCum))), LTRIM(RTRIM(e.TenCum))`,
+  }),
+
   temGiaCong: {
     db: 'egmf',
     text: `

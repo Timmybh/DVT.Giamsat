@@ -149,6 +149,17 @@ module.exports = {
     soPhieuCap: `PC-2611-00${i + 7}`, temXuat: `CAP2611000${i + 5}`, lenhXuat: 'TUNTT-0622-2026', po: '4524284980', sizeDat: 'M', xn: 'XN1', maTo: '3',
     slXuat: 15, thoiGianXuat: new Date(Date.now() - (2 - i) * 86400000), nguoiXuat: 'Nguyễn Văn A', slNhan: i ? null : 15, thoiGianNhan: i ? null : new Date(Date.now() - 86400000),
   }))),
+  temLot: ({ goc, ma }) => (!/^BTP/i.test(goc) ? [] : [{
+    code: ma.toUpperCase(), barcode: goc.toUpperCase(), lenhSX: 'OANHTTK-0442-2026', maHang: '380327', mua: 'SS27', banMay: '5', size: 'M', cay: Number(ma.split('-').pop()),
+    maCay: 'NA260922495', soLop: 15, lot: '001', loaiNL: 'Vải chính', chiTiet: '', part: '', po: '', soLuong: 15, nguoiCat: 'Huỳnh Trọn Đoàn', nguoiTrai: 'Vũ Quốc Bảo',
+    ngayTao: new Date(Date.now() - 2 * 86400000), phongBan: 'XÍ NGHIỆP MAY 2',
+  }]),
+  khTheoLenhTem: (p) => Object.values(p).flatMap((lenhSX) => [
+    { lenhSX, po: '4558954786FOA409786ADD', slLenh: 600, maTo: '6', xn: 'XÍ NGHIỆP MAY 2', maHang: '380327', slKH: 600, ngayBatDau: new Date(Date.now() - 86400000), ngayKetThuc: new Date(Date.now() + 5 * 86400000), tinhTrang: '' },
+    { lenhSX, po: '4558954792FOA409786', slLenh: 1200, maTo: '6', xn: 'XÍ NGHIỆP MAY 2', maHang: '380327', slKH: 700, ngayBatDau: new Date(Date.now() - 86400000), ngayKetThuc: new Date(Date.now() + 8 * 86400000), tinhTrang: '' },
+    { lenhSX, po: '4558954792FOA409786', slLenh: 1200, maTo: '7', xn: 'XÍ NGHIỆP MAY 2', maHang: '380327', slKH: 500, ngayBatDau: new Date(Date.now() + 2 * 86400000), ngayKetThuc: new Date(Date.now() + 9 * 86400000), tinhTrang: '' },
+    { lenhSX, po: '4558954799FOA409786', slLenh: 300, maTo: null, xn: null, maHang: null, slKH: null, ngayBatDau: null, ngayKetThuc: null, tinhTrang: null },
+  ]),
   temGiaCong: ({ ma }) => (!/^BTP/i.test(ma) ? [] : [{
     temBTP: ma.toUpperCase().replace(/-IN$/, ''), temGC: `${ma.toUpperCase().replace(/-IN$/, '')}-IN`, loaiGC: 'IN', maGC: 'IN-V', slXuat: 40, thoiGianXuat: new Date(Date.now() - 2.5 * 86400000),
     nguoiXuat: 'Phạm Thị Loan', slNhan: 40, thoiGianNhan: new Date(Date.now() - 2.2 * 86400000), nguoiNhan: 'Trần Văn B', lanQuet: 1, ghiChu: '',
