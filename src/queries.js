@@ -625,7 +625,8 @@ module.exports = {
              bc.SoPhieuCapBTP AS soPhieuCap, bc.TemBarcodeBTP AS temBTPXuat, bc.BarcodeCapBTPMoi AS temXuat, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', '') AS lenhXuat,
              bc.PO AS po, bc.Size AS sizeDat, pc.TenPhanXuong AS xn, LTRIM(RTRIM(pc.TenCum)) AS maTo,
              bc.SoLuongDaXuat AS slXuat, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
-             bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan
+             bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan,
+             STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMau
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 c.BanCat FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c WHERE c.IdTem = t.Id) tc
@@ -642,7 +643,8 @@ module.exports = {
              bc.SoPhieuCapBTP, bc.TemBarcodeBTP, bc.BarcodeCapBTPMoi, REPLACE(ISNULL(bc.LenhSanXuat, ''), ';', ''),
              bc.PO, bc.Size, pc.TenPhanXuong, LTRIM(RTRIM(pc.TenCum)),
              bc.SoLuongDaXuat, bc.ThoiGianQuetXuat, bc.NguoiQuetXuat,
-             bc.SoLuongDaNhan, bc.ThoiGianQuetNhan
+             bc.SoLuongDaNhan, bc.ThoiGianQuetNhan,
+             STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '')
       FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_TongHop t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode) mv

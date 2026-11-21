@@ -30,11 +30,29 @@
   }
 
   const o = (nhan, v) => (v == null || v === '' ? '' : `<div><span>${nhan}</span><b>${App.esc(v)}</b></div>`);
-  const bangGC = (gc) => (gc.length ? `<div class="bang"><table class="bang-cb"><thead><tr><th>Phiếu GC</th><th>Đơn vị</th><th>Loại / mã GC</th><th>Tem gia công</th><th>SL xuất</th><th>Lúc xuất</th><th>Người xuất</th><th>SL nhận</th><th>Lúc nhận</th><th>Người nhận</th></tr></thead><tbody>
-    ${gc.map((g) => `<tr><td>${App.esc(g.maPhieu)}</td><td>${App.esc(g.donVi)}</td><td>${App.esc([g.loaiGC, g.maGC].filter(Boolean).join(' / '))}</td><td>${App.esc(g.temGC)}</td>
-      <td>${App.num(g.slXuat)}</td><td>${App.datetime(g.thoiGianXuat)}</td><td>${App.esc(g.nguoiXuat)}</td><td>${App.num(g.slNhan)}</td>
-      <td>${App.datetime(g.thoiGianNhan) || '<span class="tag warn">Chưa nhận</span>'}</td><td>${App.esc(g.nguoiNhan)}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="empty">Tem không đi gia công</div>');
+  // Thẻ lượt xuất / gia công (dễ xem trên điện thoại thay cho lưới)
+  const daNhan = (t) => (t ? '<span class="tag ok">Đã nhận</span>' : '<span class="tag warn">Chưa nhận</span>');
+  const bangGC = (gc) => (gc.length ? `<div class="qr-the-ds">${gc.map((g) => `<div class="qr-the">
+      <div class="qr-the-dau"><b>${App.esc(g.maPhieu || 'Phiếu GC')}</b> ${daNhan(g.thoiGianNhan)}</div>
+      <div class="qr-o qr-o-nho">
+        ${o('Đơn vị', g.donVi)}${o('Loại / mã GC', [g.loaiGC, g.maGC].filter(Boolean).join(' / '))}${o('Tem gia công', g.temGC)}
+        ${o('SL xuất', App.num(g.slXuat))}${o('Lúc xuất', App.datetime(g.thoiGianXuat))}${o('Người xuất', g.nguoiXuat)}
+        ${o('SL nhận', App.num(g.slNhan))}${o('Lúc nhận', App.datetime(g.thoiGianNhan))}${o('Người nhận', g.nguoiNhan)}
+      </div></div>`).join('')}</div>` : '<div class="empty">Tem không đi gia công</div>');
+  const theXuat = (xuat) => `<div class="qr-the-ds">${xuat.map((r) => `<div class="qr-the">
+      <div class="qr-the-dau"><b>${App.esc(r.soPhieuCap || 'Phiếu cấp')}</b>${r.xn || r.maTo ? ` · ${App.esc([r.xn, r.maTo && `Tổ ${r.maTo}`].filter(Boolean).join(' / '))}` : ''} ${daNhan(r.thoiGianNhan)}</div>
+      <div class="qr-o qr-o-nho">
+        ${o('PO', r.po)}${o('Size', r.sizeDat)}${o('SL xuất', App.num(r.slXuat))}
+        ${o('Lúc xuất', App.datetime(r.thoiGianXuat))}${o('Người xuất', r.nguoiXuat)}${o('SL nhận', App.num(r.slNhan))}
+        ${o('Lúc nhận', App.datetime(r.thoiGianNhan))}${o('Tem xuất', r.temBTPXuat)}${o('Tem cấp', r.temXuat)}
+      </div></div>`).join('')}</div>`;
+  // Màu SP: tem có thể nhiều màu (MauSP ghi "a; b" hoặc tem tổng hợp lấy từ CUTTING_TemBarcode_Mau)
+  const dsMauCua = (t) => {
+    const tach = (v) => String(v ?? '').split(';').map((x) => x.trim()).filter(Boolean);
+    const ds = tach(t.mau);
+    return [...new Set(ds.length ? ds : tach(t.dsMau))];
+  };
+  const oMau = (ds) => (!ds.length ? '' : `<div class="qr-mau"><span>Màu SP${ds.length > 1 ? ` (${ds.length} màu)` : ''}</span><div>${ds.map((m) => `<b class="chip-mau">${App.esc(m)}</b>`).join('')}</div></div>`);
   function veTem(ma, rows, giaCong = []) {
     const up = (v) => String(v ?? '').trim().toUpperCase();
     const theoTem = new Map();
@@ -59,19 +77,16 @@
         <div class="qr-o">
           ${o('Lệnh SX', t.lenhSX)}${o('Mã hàng', t.maHang)}${o('Mùa', t.mua)}
           ${o('Loại NL', t.loaiNL)}${o('Chi tiết', t.chiTiet || (t.loaiTem.startsWith('Tem BTP') ? 'Thân chính' : ''))}${o('Size', t.size)}
-          ${o('Màu SP', t.mau)}${o('Màu vải', t.mauVai)}${o('Bàn cắt', t.banCat)}
+          ${o('Màu vải', dsMauCua(t).length > 1 && !t.mau ? '' : t.mauVai)}${o('Bàn cắt', t.banCat)}
           ${o('Bàn may', t.banMay)}${o('Phiếu hoạch toán', t.phieuHoachToan)}${o('Vị trí', t.viTri)}
           ${o('Phòng ban', t.phongBan)}${o('Ngày tạo', App.datetime(t.ngayTao))}${o('SL tem', App.num(t.slTem))}
           ${o('SL thực xuất', App.num(t.slThucXuat))}${o('Tồn', App.num(ton))}
         </div>
+        ${oMau(dsMauCua(t))}
         <div class="qr-tieu">Gia công (${(gcCua.get(up(t.barcode)) || []).length})</div>
         ${bangGC(gcCua.get(up(t.barcode)) || [])}
         <div class="qr-tieu">Lượt xuất cho may (${xuat.length})</div>
-        ${xuat.length ? `<div class="bang"><table class="bang-cb"><thead><tr><th>Phiếu cấp</th><th>Tem xuất</th><th>Tem cấp</th><th>PO</th><th>Size</th><th>XN / tổ</th><th>SL xuất</th><th>Lúc xuất</th><th>Người xuất</th><th>SL nhận</th><th>Lúc nhận</th></tr></thead><tbody>
-          ${xuat.map((r) => `<tr><td>${App.esc(r.soPhieuCap)}</td><td>${App.esc(r.temBTPXuat)}</td><td>${App.esc(r.temXuat)}</td><td>${App.esc(r.po)}</td><td>${App.esc(r.sizeDat)}</td>
-            <td>${App.esc([r.xn, r.maTo].filter(Boolean).join(' / '))}</td><td>${App.num(r.slXuat)}</td><td>${App.datetime(r.thoiGianXuat)}</td>
-            <td>${App.esc(r.nguoiXuat)}</td><td>${App.num(r.slNhan)}</td><td>${App.datetime(r.thoiGianNhan) || '<span class="tag warn">Chưa nhận</span>'}</td></tr>`).join('')}
-          </tbody></table></div>` : '<div class="empty">Tem chưa xuất cho may</div>'}
+        ${xuat.length ? theXuat(xuat) : '<div class="empty">Tem chưa xuất cho may</div>'}
       </div>`;
     }).join('');
   }
