@@ -25,6 +25,7 @@ const App = {
   async header(crumbs = [], onXnChange) {
     const h = document.createElement('header');
     h.innerHTML = `
+      ${App.khoa ? '' : '<button type="button" class="nut-menu" id="nutMenu" title="Danh mục" aria-label="Danh mục">☰</button>'}
       ${App.khoa ? '<span class="brand">DVT Giám sát</span>' : '<a class="brand" href="/">DVT Giám sát</a>'}
       <div class="crumbs">${(App.khoa ? crumbs.slice(-1) : crumbs).map(([t, u]) => (u && !App.khoa ? `<a href="${u}">${t}</a>` : t)).join(' › ')}</div>
       <span id="mock"></span>
@@ -43,8 +44,45 @@ const App = {
     sel.value = App.xn;
     App.xn = sel.value;
     sel.onchange = () => { App.xn = sel.value; onXnChange && onXnChange(sel.value); };
-    if (App.khoa) { sel.disabled = true; sel.title = 'Đã khóa theo link'; }
+    if (App.khoa) { sel.disabled = true; sel.title = 'Đã khóa theo link'; } else App.ganMenu(h.querySelector('#nutMenu'));
     return sel.value;
+  },
+
+  // Danh mục nút ☰: thẻ lớn và chức năng bên trong (tab mở bằng #tab=<data-tab>)
+  MENU: [
+    { icon: '🏠', title: 'Trang chính', url: '/' },
+    { icon: '🧵', title: 'Tổ trưởng chuyền may', url: '/role/may.html', con: [['Đang hoạt động', '#tab=dang'], ['Đã hoàn thành', '#tab=xong']] },
+    { icon: '🔍', title: 'Tổ trưởng QC', url: '/role/qc.html', con: [['Theo tổ', '#tab=tabTo'], ['Kế hoạch hôm nay', '#tab=tabKH']] },
+    { icon: '📈', title: 'Tổ trưởng LEAN', url: '/lean/', con: [
+      ['Kế hoạch phân bổ', '/lean/ke-hoach.html'], ['· Theo size', '/lean/ke-hoach.html#tab=tabSize'],
+      ['Tình hình đặt BTP', '/lean/dat-btp.html'], ['· Chi tiết đặt BTP', '/lean/dat-btp.html#tab=tabChiTiet'],
+      ['Nhập xuất tồn BTP cắt', '/lean/btp-cat.html'], ['Mã hàng, LĐ, SOT', '/lean/sot.html']] },
+    { icon: '⚠️', title: 'Cảnh báo tuân thủ', url: '/role/tuan-thu.html' },
+    { icon: '📋', title: 'Báo cáo may ra', url: '/role/may-ra.html' },
+  ],
+  ganMenu(nut) {
+    if (!nut) return;
+    const lk = (u) => { const [duong, hash = ''] = u.split('#'); return `${duong}?xn=${encodeURIComponent(App.xn)}${hash ? `#${hash}` : ''}`; };
+    const hien = location.pathname.replace(/index\.html$/, '');
+    const ve = () => App.MENU.map((m) => {
+      const goc = m.url.startsWith('#') ? '' : m.url;
+      return `<div class="menu-nhom"><a class="menu-the${hien === m.url ? ' dang' : ''}" href="${lk(m.url)}">${m.icon} ${m.title}</a>
+        ${(m.con || []).map(([t, u]) => `<a class="menu-con${hien === (u.startsWith('#') ? m.url : u.split('#')[0]) && !u.includes('#') ? ' dang' : ''}" href="${lk(u.startsWith('#') ? m.url + u : u)}">${t}</a>`).join('')}</div>`;
+    }).join('');
+    const nen = document.createElement('div'); nen.className = 'menu-nen'; nen.hidden = true;
+    const ngan = document.createElement('nav'); ngan.className = 'menu-ngan'; ngan.hidden = true;
+    document.body.append(nen, ngan);
+    const dong = () => { nen.hidden = ngan.hidden = true; };
+    nut.onclick = () => { ngan.innerHTML = `<div class="menu-dau">DVT Giám sát <button type="button" class="menu-dong" aria-label="Đóng">✕</button></div>${ve()}`; ngan.querySelector('.menu-dong').onclick = dong; nen.hidden = ngan.hidden = false; };
+    nen.onclick = dong;
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dong(); });
+    // Link cùng trang chỉ đổi #tab: bấm tab tương ứng
+    ngan.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && a.pathname === location.pathname && a.hash) { dong(); setTimeout(App.moTabHash, 0); } });
+  },
+  moTabHash() {
+    const m = /tab=([\w-]+)/.exec(location.hash);
+    const b = m && document.querySelector(`.tabs button[data-tab="${m[1]}"]`);
+    if (b) b.click();
   },
 
   num: (v) => (v == null ? '' : Number(v).toLocaleString('vi-VN')),
@@ -329,3 +367,7 @@ document.addEventListener('change', (e) => {
   TuongTac.them('doi', `${el.id || el.name || el.tagName.toLowerCase()} = ${el.type === 'checkbox' ? el.checked : el.value}`);
 }, true);
 window.addEventListener('pagehide', () => TuongTac.gui(true));
+
+// Mở tab theo #tab=... (link từ danh mục ☰)
+window.addEventListener('load', () => setTimeout(App.moTabHash, 300));
+window.addEventListener('hashchange', () => App.moTabHash());
