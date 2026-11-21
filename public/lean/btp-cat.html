@@ -22,6 +22,13 @@
     <div class="cards" id="tomTat" hidden></div>
     <div id="tongHop" class="luoi-cao luoi-gon luoi-5"></div>
     <div id="dangLoc" class="note" hidden></div>
+    <div class="filters loc-tem" id="locTem" hidden>
+      <label>Lệnh SX <select id="locLenh"></select></label>
+      <label>Mã hàng <select id="locMa"></select></label>
+      <label>PO <select id="locPO"></select></label>
+      <button type="button" id="boLocTem">✕ Bỏ lọc</button>
+      <span id="locTemDem" class="loc-dem"></span>
+    </div>
     <div id="nxt" class="luoi-cao luoi-gon"><div class="empty">Chọn khoảng ngày (và lệnh SX nếu cần) rồi bấm Xem</div></div>
     <div class="note">Mỗi dòng là 1 tem BTP cắt x 1 lần quét xuất cho phiếu cấp (tem chưa xuất để trống phần xuất), lọc theo ngày tạo tem. SL cắt và Tồn chỉ ghi ở dòng đầu của tem. Tem tổng hợp (BTH, phối bộ từ nhiều bàn may) chỉ ghi SL xuất, không ghi SL cắt / Tồn vì đã nằm trong các tem cắt. Bấm ▾ ở tiêu đề cột để lọc hoặc sắp xếp như Excel; dòng Tổng tính trên các dòng đang hiện.</div>
   </div>
@@ -73,6 +80,7 @@
     pDT.hidden = pLoai.hidden = pChiTiet.hidden = pXuatDT.hidden = true;
     App.loading(nxt);
     chon = null; temChon = null; gop = !v;
+    LOC.forEach(([, el]) => (el.value = ''));
     try {
       if (gop) {
         // Bỏ trống lệnh: tổng hợp tính ở server trên mọi tem; lưới tem chỉ tải khi bấm 1 dòng tổng hợp
@@ -112,14 +120,34 @@
     }
     veTem();
   }
+  // Mục lọc riêng của lưới tem: Lệnh SX / Mã hàng / PO, danh sách chọn tính theo 2 mục còn lại
+  const LOC = [['lenhSX', locLenh], ['maHang', locMa], ['po', locPO]];
+  function locTheoMuc(rs) {
+    locTem.hidden = !rs.length && !LOC.some(([, el]) => el.value);
+    const khop = (r, boQua) => LOC.every(([k, el]) => k === boQua || !el.value || String(r[k] ?? '').trim() === el.value);
+    LOC.forEach(([k, el]) => {
+      const v = el.value;
+      const ds = [...new Set(rs.filter((r) => khop(r, k)).map((r) => String(r[k] ?? '').trim()).filter(Boolean))].sort();
+      if (v && !ds.includes(v)) ds.unshift(v);
+      el.innerHTML = `<option value="">Tất cả (${ds.length})</option>${ds.map((x) => `<option${x === v ? ' selected' : ''}>${App.esc(x)}</option>`).join('')}`;
+    });
+    const ra = rs.filter((r) => khop(r));
+    const dangLocMuc = LOC.some(([, el]) => el.value);
+    boLocTem.hidden = !dangLocMuc;
+    locTemDem.textContent = dangLocMuc ? `${App.num(new Set(ra.map((r) => r.barcode)).size)} / ${App.num(new Set(rs.map((r) => r.barcode)).size)} tem` : '';
+    return ra;
+  }
+  LOC.forEach(([, el]) => (el.onchange = () => veTem()));
+  boLocTem.onclick = () => { LOC.forEach(([, el]) => (el.value = '')); veTem(); };
+
   function veTem() {
     if (gop && !chon) {
-      dangLoc.hidden = true;
+      dangLoc.hidden = true; locTem.hidden = true;
       nxt.innerHTML = '<div class="empty">Bấm 1 dòng ở bảng tổng hợp phía trên để xem tem của lệnh đó</div>';
       return;
     }
     const nguon = gop ? (temChon || []) : tatCa;
-    const rows = chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX) : nguon; // mã hàng Bravo có thể khác mã trên tem
+    const rows = locTheoMuc(chon ? nguon.filter((r) => r.lenhSX === chon.lenhSX) : nguon); // mã hàng Bravo có thể khác mã trên tem
     dangLoc.hidden = !chon;
     if (chon) {
       dangLoc.innerHTML = `Lưới tem đang lọc theo lệnh <b>${App.esc(chon.lenhSX)}</b>, mã hàng <b>${App.esc(chon.maHang)}</b>${gop ? ' (mọi tem của lệnh, mọi ngày tạo)' : ''} <button id="boLoc">Bỏ lọc</button>`;
@@ -127,8 +155,9 @@
     }
     App.table(nxt, [
       { key: 'barcode', label: 'Tem barcode BTP' },
+      { key: 'banCat', label: 'Bàn cắt' },
+      { key: 'banMay', label: 'Bàn may' },
       { key: 'soPhieuCap', label: 'Phiếu cấp BTP' },
-      { key: 'loaiTem', label: 'Loại tem' },
       { key: 'maHang', label: 'Mã hàng' },
       { key: 'slCat', label: 'SL cắt', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL xuất', type: 'num', sum: true },
@@ -144,8 +173,7 @@
       { key: 'thoiGianXuat', label: 'Thời gian xuất', type: 'datetime' },
       { key: 'lenhSX', label: 'Lệnh (tem)' },
       { key: 'loaiNL', label: 'Loại NL' },
-      { key: 'banCat', label: 'Bàn cắt' },
-      { key: 'banMay', label: 'Bàn may' },
+      { key: 'loaiTem', label: 'Loại tem' },
       { key: 'ngayTao', label: 'Ngày tạo tem', type: 'date' },
       { key: 'ngayNhan', label: 'Ngày nhận BTP', type: 'date', an: true },
       { key: 'thoiGianNhan', label: 'Quét nhận', type: 'datetime', an: true },
