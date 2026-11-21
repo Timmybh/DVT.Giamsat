@@ -277,3 +277,7 @@ header .nut-menu:hover { background: rgba(255,255,255,.15); }
 @media (max-width: 640px) { .qr-the-ds { grid-template-columns: 1fr; } }
 .menu-icon { vertical-align: -3px; color: var(--primary); }
 .loc-tem { margin: 8px 0; } .loc-tem select { max-width: 260px; }
+/* Trang riêng quét tem: hộp tra tem nằm trong trang */
+.hop-qr.qr-noi { position: static; background: none; padding: 0; display: block; }
+.hop-qr.qr-noi .hop-qr-khung { width: 100%; max-width: 900px; max-height: none; height: auto; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.hop-qr.qr-noi .hcb-dau { display: flex; justify-content: space-between; align-items: center; }

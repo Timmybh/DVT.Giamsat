@@ -127,12 +127,11 @@
   nhap.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); traTem(nhap.value); } });
   const chupMoi = () => { nhap.value = ''; ketQua.innerHTML = ''; trangThai.textContent = 'Chụp rõ mã QR của tem'; chup.click(); };
   $('qrQuetLai').onclick = chupMoi;
-  const dong = () => { hop.hidden = true; };
+  const noi = hop.classList.contains('qr-noi'); // trang riêng /role/quet-tem.html: hộp nằm sẵn trong trang, không đóng
+  const dong = () => { if (!noi) hop.hidden = true; };
   $('qrDong').onclick = dong;
   hop.addEventListener('click', (e) => { if (e.target === hop) dong(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !hop.hidden) dong(); });
   // Bấm nút QR: mở hộp và mở luôn camera chụp ảnh (cùng lần bấm nên trình duyệt cho mở)
   $('nutQR').onclick = () => { hop.hidden = false; chupMoi(); };
-  // Vào từ danh mục ☰ (#quet): mở sẵn hộp tra tem; trình duyệt chỉ cho mở camera khi người dùng bấm nên chờ bấm Chụp
-  if (location.hash === '#quet') { hop.hidden = false; trangThai.textContent = 'Bấm "Chụp lại" để mở camera chụp tem, hoặc gõ / bắn mã vào ô dưới'; }
 })();

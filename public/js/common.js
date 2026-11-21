@@ -50,7 +50,7 @@ const App = {
 
   // Danh mục nút ☰: thẻ lớn và chức năng bên trong (tab mở bằng #tab=<data-tab>)
   MENU: [
-    { icon: '<svg class="menu-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="3" height="3"/><rect x="13" y="8" width="3" height="3"/><rect x="8" y="13" width="3" height="3"/><path d="M13 13h3v3"/></svg>', title: 'Quét tem QR', url: '/role/may.html#quet' },
+    { icon: '<svg class="menu-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="3" height="3"/><rect x="13" y="8" width="3" height="3"/><rect x="8" y="13" width="3" height="3"/><path d="M13 13h3v3"/></svg>', title: 'Quét tem QR', url: '/role/quet-tem.html' },
     { icon: '🏠', title: 'Trang chính', url: '/' },
     { icon: '🧵', title: 'Tổ trưởng chuyền may', url: '/role/may.html', con: [['Đang hoạt động', '#tab=dang'], ['Đã hoàn thành', '#tab=xong']] },
     { icon: '🔍', title: 'Tổ trưởng QC', url: '/role/qc.html', con: [['Theo tổ', '#tab=tabTo'], ['Kế hoạch hôm nay', '#tab=tabKH']] },
@@ -81,9 +81,6 @@ const App = {
     ngan.addEventListener('click', (e) => {
       const a = e.target.closest('a');
       if (!a) return;
-      // Quét tem: trang đang có nút QR thì bấm luôn (mở camera ngay trong lần bấm này)
-      const qr = a.hash === '#quet' && document.getElementById('nutQR');
-      if (qr) { e.preventDefault(); dong(); qr.click(); return; }
       if (a.pathname === location.pathname && a.hash) { dong(); setTimeout(App.moTabHash, 0); }
     });
   },
