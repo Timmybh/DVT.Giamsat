@@ -59,6 +59,7 @@ const App = {
       ['Nhập xuất tồn BTP cắt', '/lean/btp-cat.html'], ['Mã hàng, LĐ, SOT', '/lean/sot.html']] },
     { icon: '⚠️', title: 'Cảnh báo tuân thủ', url: '/role/tuan-thu.html' },
     { icon: '📋', title: 'Báo cáo may ra', url: '/role/may-ra.html' },
+    { icon: '📷', title: 'Quét tem QR', url: '/role/may.html#quet' },
   ],
   ganMenu(nut) {
     if (!nut) return;
@@ -77,7 +78,14 @@ const App = {
     nen.onclick = dong;
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dong(); });
     // Link cùng trang chỉ đổi #tab: bấm tab tương ứng
-    ngan.addEventListener('click', (e) => { const a = e.target.closest('a'); if (a && a.pathname === location.pathname && a.hash) { dong(); setTimeout(App.moTabHash, 0); } });
+    ngan.addEventListener('click', (e) => {
+      const a = e.target.closest('a');
+      if (!a) return;
+      // Quét tem: trang đang có nút QR thì bấm luôn (mở camera ngay trong lần bấm này)
+      const qr = a.hash === '#quet' && document.getElementById('nutQR');
+      if (qr) { e.preventDefault(); dong(); qr.click(); return; }
+      if (a.pathname === location.pathname && a.hash) { dong(); setTimeout(App.moTabHash, 0); }
+    });
   },
   moTabHash() {
     const m = /tab=([\w-]+)/.exec(location.hash);

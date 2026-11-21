@@ -133,4 +133,6 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !hop.hidden) dong(); });
   // Bấm nút QR: mở hộp và mở luôn camera chụp ảnh (cùng lần bấm nên trình duyệt cho mở)
   $('nutQR').onclick = () => { hop.hidden = false; chupMoi(); };
+  // Vào từ danh mục ☰ (#quet): mở sẵn hộp tra tem; trình duyệt chỉ cho mở camera khi người dùng bấm nên chờ bấm Chụp
+  if (location.hash === '#quet') { hop.hidden = false; trangThai.textContent = 'Bấm "Chụp lại" để mở camera chụp tem, hoặc gõ / bắn mã vào ô dưới'; }
 })();
