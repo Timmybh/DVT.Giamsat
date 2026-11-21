@@ -634,7 +634,15 @@ module.exports = {
              bc.PO AS po, bc.Size AS sizeDat, pc.TenPhanXuong AS xn, LTRIM(RTRIM(pc.TenCum)) AS maTo,
              bc.SoLuongDaXuat AS slXuat, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
              bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan,
-             STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMau
+             STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMau,
+             -- tem bó gồm nhiều dòng bàn may (CUTTING_PhieuHoachToan_TemBarcode_ChiTiet -> _ChiTiet_BanMay), mỗi dòng 1 màu SP: "màu (SL)"
+             STUFF((SELECT N'; ' + x.mau + N' (' + CAST(x.sl AS nvarchar(20)) + N')' FROM (
+                 SELECT ISNULL(bm.MauSanPham, '') AS mau, SUM(ISNULL(bm.SoLuong, 0)) AS sl
+                 FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c2
+                 JOIN dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm ON bm.IdBanMay = c2.IdBanMay
+                 WHERE c2.IdTem = t.Id AND ISNULL(bm.MauSanPham, '') <> ''
+                 GROUP BY ISNULL(bm.MauSanPham, '')) x ORDER BY x.mau
+               FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMauBM
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 c.BanCat FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c WHERE c.IdTem = t.Id) tc
@@ -652,7 +660,8 @@ module.exports = {
              bc.PO, bc.Size, pc.TenPhanXuong, LTRIM(RTRIM(pc.TenCum)),
              bc.SoLuongDaXuat, bc.ThoiGianQuetXuat, bc.NguoiQuetXuat,
              bc.SoLuongDaNhan, bc.ThoiGianQuetNhan,
-             STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '')
+             STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, ''),
+             NULL
       FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_TongHop t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode) mv

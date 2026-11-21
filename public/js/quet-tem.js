@@ -49,6 +49,8 @@
   // Màu SP: tem có thể nhiều màu (MauSP ghi "a; b" hoặc tem tổng hợp lấy từ CUTTING_TemBarcode_Mau)
   const dsMauCua = (t) => {
     const tach = (v) => String(v ?? '').split(';').map((x) => x.trim()).filter(Boolean);
+    const bm = tach(t.dsMauBM); // màu theo bàn may của bó (kèm SL), có từ 2 màu thì ưu tiên
+    if (bm.length > 1) return bm;
     const ds = tach(t.mau);
     return [...new Set(ds.length ? ds : tach(t.dsMau))];
   };
