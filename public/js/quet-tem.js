@@ -103,7 +103,7 @@
         <div class="qr-tem-dau"><span class="tag">${App.esc(t.loaiTem)}</span> <b>${App.esc(t.barcode)}</b></div>
         <div class="qr-o">
           ${o('Lệnh SX', t.lenhSX)}${o('Mã hàng', t.maHang)}${o('Mùa', t.mua)}
-          ${o('Loại NL', t.loaiNL)}${o('Chi tiết', t.chiTiet || (t.loaiTem.startsWith('Tem BTP') ? 'Thân chính' : ''))}${o('Size', t.size)}
+          ${o('Loại NL', t.loaiNL)}${o('Chi tiết', t.chiTiet)}${o('Size', t.size)}
           ${o('Màu vải', dsMauCua(t).length > 1 ? '' : t.mauVai)}${o('Bàn cắt', t.banCat)}
           ${o('Bàn may', t.banMay)}${o('Phiếu hoạch toán', t.phieuHoachToan)}${o('Vị trí', t.viTri)}
           ${o('Phòng ban', t.phongBan)}${o('Ngày tạo', App.datetime(t.ngayTao))}${o('SL tem', App.num(t.slTem))}
