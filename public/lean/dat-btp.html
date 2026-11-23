@@ -125,14 +125,16 @@
       { key: 'slXuat', label: 'SL đã xuất', type: 'num', sum: true },
       { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
     ], rows, { footer: true })).catch((e) => App.error(chiTiet, e));
+    // Màu nhiều giá trị (ghi 'a;b' hoặc gom từ nhiều nguồn): tách, bỏ trùng
+    const dsMau = (...vs) => [...new Set(vs.join(';').split(';').map((x) => x.trim()).filter(Boolean))];
     App.api(`phieu-cap-btp/${so}/phieu-xuat`).then((rows) => App.table(phieuXuat, [
       { key: 'barcode', label: 'Tem BTP' },
       { key: 'thoiGianXuat', label: 'Thời gian xuất', type: 'datetime' },
       { key: 'nguoiXuat', label: 'Người quét xuất' },
       { key: 'po', label: 'PO' },
       { key: 'chungLoai', label: 'Chủng loại' },
-      { key: 'mauSP', label: 'Màu SP (tem)' },
-      { key: 'mauVai', label: 'Màu vải', render: (r) => String(r.mauVai || '').split(';').map((m) => App.esc(m.trim())).filter(Boolean).join('<br>') },
+      { key: 'mauSP', label: 'Màu SP (tem)', value: (r) => dsMau(r.mauSP, r.dsMauSP).join('; '), render: (r) => dsMau(r.mauSP, r.dsMauSP).map(App.esc).join('<br>') },
+      { key: 'mauVai', label: 'Màu vải', render: (r) => dsMau(r.mauVai).map(App.esc).join('<br>') },
       { key: 'mau', label: 'Màu (phiếu cấp)', an: true },
       { key: 'size', label: 'Size' },
       { key: 'soLuong', label: 'SL xuất', type: 'num', sum: true },
