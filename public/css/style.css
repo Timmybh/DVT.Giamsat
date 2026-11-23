@@ -288,3 +288,6 @@ header .nut-menu:hover { background: rgba(255,255,255,.15); }
 /* Bảng gọn: chữ nhỏ hơn (màu / tên in hoa dài) */
 table.bang-gon td { font-size: 12.5px; }
 table.bang-gon th { font-size: 11px; }
+/* Tra tem: ô PO kẻ viền cho dễ thấy */
+.qr-o .o-vien { border: 1.5px solid var(--primary); border-radius: 6px; padding: 3px 8px; background: #f3f7ff; grid-column: span 2; }
+.qr-o .o-vien b { font-size: 15px; }

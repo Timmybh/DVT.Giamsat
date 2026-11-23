@@ -29,7 +29,7 @@
     return r ? r.data : null;
   }
 
-  const o = (nhan, v) => (v == null || v === '' ? '' : `<div><span>${nhan}</span><b>${App.esc(v)}</b></div>`);
+  const o = (nhan, v, cls = '') => (v == null || v === '' ? '' : `<div${cls ? ` class="${cls}"` : ''}><span>${nhan}</span><b>${App.esc(v)}</b></div>`);
   // Thẻ lượt xuất / gia công (dễ xem trên điện thoại thay cho lưới)
   const daNhan = (t) => (t ? '<span class="tag ok">Đã nhận</span>' : '<span class="tag warn">Chưa nhận</span>');
   const bangGC = (gc) => (gc.length ? `<div class="qr-the-ds">${gc.map((g) => `<div class="qr-the">
@@ -42,7 +42,7 @@
   const theXuat = (xuat) => `<div class="qr-the-ds">${xuat.map((r) => `<div class="qr-the">
       <div class="qr-the-dau"><b>${App.esc(r.soPhieuCap || 'Phiếu cấp')}</b>${r.xn || r.maTo ? ` · ${App.esc([r.xn, r.maTo && `Tổ ${r.maTo}`].filter(Boolean).join(' / '))}` : ''} ${daNhan(r.thoiGianNhan)}</div>
       <div class="qr-o qr-o-nho">
-        ${o('PO', r.po)}${o('Size', r.sizeDat)}${o('SL xuất', App.num(r.slXuat))}
+        ${o('PO', r.po, 'o-vien')}${o('Size', r.sizeDat)}${o('SL xuất', App.num(r.slXuat))}
         ${o('Lúc xuất', App.datetime(r.thoiGianXuat))}${o('Người xuất', r.nguoiXuat)}${o('SL nhận', App.num(r.slNhan))}
         ${o('Lúc nhận', App.datetime(r.thoiGianNhan))}${o('Tem xuất', r.temBTPXuat)}${o('Tem cấp', r.temXuat)}
       </div></div>`).join('')}</div>`;
