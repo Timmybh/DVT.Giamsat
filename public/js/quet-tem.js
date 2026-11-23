@@ -56,16 +56,30 @@
   const mauSPCua = (t) => tach([t.mau, ...mauSPTuMap(t.mapMau, mauVaiCua(t))].filter(Boolean).join(';'));
   const mauVaiCua = (t) => { const ds = tach(t.dsMau); return ds.length ? ds : tach(t.mauVai); };
   const oMau = (nhan, ds) => (!ds.length ? '' : `<div class="qr-mau"><span>${nhan}${ds.length > 1 ? ` (${ds.length} màu)` : ''}</span><div>${ds.map((m) => `<b class="chip-mau">${App.esc(m)}</b>`).join('')}</div></div>`);
-  // Tem LOT (tách cây): thông tin như in trên tem
-  const veLot = (lot) => lot.map((c) => `<div class="qr-tem qr-lot">
-      <div class="qr-tem-dau"><span class="tag">Tem LOT</span> <b>${App.esc(c.code)}</b></div>
-      <div class="qr-o">
-        ${o('Mã hàng', c.maHang)}${o('Lệnh SX', c.lenhSX)}${o('Bàn may', c.banMay)}
-        ${o('Size', c.size)}${o('Cây', c.cay)}${o('Số lớp', App.num(c.soLop))}
-        ${o('Lot', c.lot)}${o('Loại', c.part || c.chiTiet)}${o('Loại NL', c.loaiNL)}
-        ${o('Mã cây vải', c.maCay)}${o('Người cắt', c.nguoiCat)}${o('Người trải', c.nguoiTrai)}
-        ${o('Ngày tạo', App.datetime(c.ngayTao))}${o('Phòng ban', c.phongBan)}${o('Tem cha', c.barcode)}
-      </div></div>`).join('');
+  // Tem LOT (tách cây): thẻ gọn như in trên tem (kèm màu, SL, tồn của tem cha), bên dưới là các lượt xuất của tem cha
+  function veLot(lot, rows, giaCong) {
+    const up = (v) => String(v ?? '').trim().toUpperCase();
+    return lot.map((c) => {
+      const ds = rows.filter((r) => up(r.barcode) === up(c.barcode));
+      const t = ds[0] || {};
+      const ton = t.slTem == null ? null : Number(t.slTem || 0) - Number(t.slThucXuat || 0);
+      const xuat = ds.filter((r) => r.soPhieuCap || r.thoiGianXuat);
+      const gc = giaCong.filter((g) => up(g.temBTP) === up(c.barcode));
+      return `<div class="qr-tem qr-lot">
+        <div class="qr-tem-dau"><span class="tag">Tem LOT</span> <b>${App.esc(c.code)}</b> <span class="loc-dem">tem cha ${App.esc(c.barcode)}</span></div>
+        <div class="qr-o">
+          ${o('Mã hàng', c.maHang)}${o('Lệnh SX', c.lenhSX)}${o('Size', c.size)}
+          ${o('Bàn may', c.banMay)}${o('Cây', c.cay)}${o('Số lớp', App.num(c.soLop))}
+          ${o('Lot', c.lot)}${o('Loại', c.part || c.chiTiet)}${o('Loại NL', c.loaiNL || t.loaiNL)}
+          ${o('SL tem', App.num(t.slTem))}${o('Đã xuất', App.num(t.slThucXuat))}${o('Tồn', App.num(ton))}
+        </div>
+        ${t.barcode ? oMau('Màu SP', mauSPCua(t)) + oMau('Màu vải', mauVaiCua(t)) : ''}
+        <div class="qr-tieu">Lượt xuất cho may (${xuat.length})</div>
+        ${xuat.length ? theXuat(xuat) : '<div class="empty">Tem chưa xuất cho may</div>'}
+        ${gc.length ? `<div class="qr-tieu">Gia công (${gc.length})</div>${bangGC(gc)}` : ''}
+      </div>`;
+    }).join('');
+  }
   // Kế hoạch phân bổ (tổ x PO) của lệnh trên tem, mỗi PO 1 thẻ
   function veKeHoach(kh) {
     if (!kh.length) return '';
@@ -128,7 +142,8 @@
     ketQua.innerHTML = '<div class="empty">Đang tra tem…</div>';
     try {
       const { rows, giaCong = [], lot = [], keHoach = [], maTra = ma } = await App.api('tem-tra', { ma });
-      ketQua.innerHTML = rows.length || giaCong.length || lot.length ? veLot(lot) + veKeHoach(keHoach) + veTem(maTra, rows, giaCong)
+      ketQua.innerHTML = rows.length || giaCong.length || lot.length
+        ? (lot.length ? veLot(lot, rows, giaCong) + veKeHoach(keHoach) : veKeHoach(keHoach) + veTem(maTra, rows, giaCong))
         : `<div class="empty">Không tìm thấy tem <b>${App.esc(ma)}</b> trong tem BTP cắt, tem tổng hợp, tem cấp mới và tem gia công.</div>`;
     } catch (e) {
       App.error(ketQua, e);
