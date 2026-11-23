@@ -578,8 +578,8 @@ module.exports = {
              bc.PO AS po, bc.Mau AS mau, bc.Size AS size, bc.ChungLoai AS chungLoai,
              bc.SoLuongDaXuat AS soLuong, bc.ThoiGianQuetNhan AS thoiGianNhan, bc.NguoiQuetNhan AS nguoiNhan,
              bc.TraBTP AS traBTP,
-             -- màu SP: ưu tiên CUTTING_TemBarcode_Mau (tem nhiều màu ghi "a;b"), không có thì MauSP trên tem (tem gia công ...-IN lấy tem BTP gốc)
-             COALESCE(NULLIF(mb.dsMau, ''), NULLIF(t1.MauSP, ''), NULLIF(t2.MauSP, '')) AS mauSP, COALESCE(NULLIF(t1.MauVai, ''), NULLIF(t2.MauVai, '')) AS mauVai
+             -- màu SP = MauSP trên tem; màu vải: CUTTING_TemBarcode_Mau (tem nhiều màu vải ghi "a;b"), không có thì MauVai trên tem (tem gia công ...-IN lấy tem BTP gốc)
+             COALESCE(NULLIF(t1.MauSP, ''), NULLIF(t2.MauSP, '')) AS mauSP, COALESCE(NULLIF(mb.dsMau, ''), NULLIF(t1.MauVai, ''), NULLIF(t2.MauVai, '')) AS mauVai
       FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
       OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t WHERE t.Barcode = bc.TemBarcodeBTP) t1
       OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g

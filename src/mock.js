@@ -285,7 +285,7 @@ module.exports = {
   phieuCapChiTiet: ({ soPhieu }) => phieuCapCT.filter((c) => c.soPhieu === soPhieu),
   phieuXuatTheoPhieuCap: ({ soPhieu }) => quetXuat.filter((x) => x.soPhieu === soPhieu)
     .sort((a, b) => a.thoiGianXuat.localeCompare(b.thoiGianXuat))
-    .map((x, i) => ({ ...x, mauSP: i % 5 === 4 ? '8941360 NOIR; 8996818 BLANC' : `89413${60 + (i % 3)} ${x.mau || 'NOIR'}`, mauVai: x.mau })),
+    .map((x, i) => ({ ...x, mauSP: `89413${60 + (i % 3)}`, mauVai: i % 5 === 4 ? 'PEPPERGREEN;E-BLUELEMONADE;CORDOVAN' : x.mau })),
   lenhSX: ({ q }) => lenhSX.filter((l) => !q || l.lenhSX.includes(q) || l.maHang.includes(q))
     .sort((a, b) => b.ngay.localeCompare(a.ngay)).slice(0, 50),
   // NXT BTP cắt theo lệnh có ngày lệnh trong khoảng (như src/btpLenh.js): tem thân chính vải chính, mọi ngày tạo tem
