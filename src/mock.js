@@ -149,6 +149,7 @@ module.exports = {
     soPhieuCap: `PC-2611-00${i + 7}`, temXuat: `CAP2611000${i + 5}`, lenhXuat: 'TUNTT-0622-2026', po: '4524284980', sizeDat: 'M', xn: 'XN1', maTo: '3',
     slXuat: 15, thoiGianXuat: new Date(Date.now() - (2 - i) * 86400000), nguoiXuat: 'Nguyễn Văn A', slNhan: i ? null : 15, thoiGianNhan: i ? null : new Date(Date.now() - 86400000),
   }))),
+  muaTheoLenh: (p) => Object.values(p).map((lenhSX, i) => ({ lenhSX, mua: ['SS27', 'FW26', 'SS26'][i % 3] })),
   temLot: ({ goc, ma }) => (!/^BTP/i.test(goc) ? [] : [{
     code: ma.toUpperCase(), barcode: goc.toUpperCase(), lenhSX: 'OANHTTK-0442-2026', maHang: '380327', mua: 'SS27', banMay: '5', size: 'M', cay: Number(ma.split('-').pop()),
     maCay: 'NA260922495', soLop: 15, lot: '001', loaiNL: 'Vải chính', chiTiet: '', part: '', po: '', soLuong: 15, nguoiCat: 'Huỳnh Trọn Đoàn', nguoiTrai: 'Vũ Quốc Bảo',

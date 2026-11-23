@@ -214,6 +214,30 @@ const sapKH = (rs) => rs.sort((a, b) => String(a.maTo ?? '').length - String(b.m
   || new Date(a.ngayBatDau) - new Date(b.ngayBatDau) || String(a.po ?? '').localeCompare(String(b.po ?? '')) || String(a.lenhSX ?? '').localeCompare(String(b.lenhSX ?? '')));
 // SL may mẫu (phiếu điều tiết) theo lệnh: ghi vào dòng đầu tiên của mỗi lệnh để tổng không bị nhân khi lệnh chia nhiều tổ / PO /
 // phiếu / size. Ô lệnh có thể ghi nhiều lệnh 'A;B' (phiếu cấp): cộng mẫu các lệnh chưa ghi ở dòng trước
+// Mùa theo lệnh: Map LỆNH (in hoa) -> mùa, đọc theo lô 1000 tham số
+async function docMua(ds) {
+  const kq = new Map();
+  const ds2 = [...new Set(ds.map((l) => String(l ?? '').replace(/;\s*$/, '').trim().toUpperCase()).filter(Boolean))];
+  for (let i = 0; i < ds2.length; i += 1000) {
+    const lo = ds2.slice(i, i + 1000);
+    (await run('muaTheoLenh', Object.fromEntries(lo.map((l, j) => [`l${j}`, l])), { n: lo.length })).forEach((r) => kq.set(String(r.lenhSX).trim().toUpperCase(), r.mua || ''));
+  }
+  return kq;
+}
+async function ganMua(rows) {
+  const m = await docMua(rows.map((r) => r.lenhSX));
+  return rows.map((r) => ({ ...r, mua: m.get(String(r.lenhSX ?? '').replace(/;\s*$/, '').trim().toUpperCase()) || '' }));
+}
+// Mùa của các lệnh (?l=A,B): { A: 'SS27', ... }
+router.get('/mua-lenh', async (req, res) => {
+  try {
+    const ds = String(req.query.l || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 500);
+    res.json(Object.fromEntries(await docMua(ds)));
+  } catch (err) {
+    console.error('[muaLenh]', err.message);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
 async function ganMayMau(rows, lenhCua) {
   const tach = (r) => String(lenhCua(r) ?? '').toUpperCase().split(';').map((x) => x.trim()).filter(Boolean);
   const ds = [...new Set(rows.flatMap(tach))];
@@ -284,7 +308,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       maTo: '', tenTo: '', maHang: l.maHang, po: l.po, lenhSX: l.lenhSX, slLenh: Number(l.slLenh || 0), loaiLenh: 'Lệnh gốc',
       soLuong: null, ngayLenh: l.ngayLenh, chuaPhanBo: true, tinhTrang: l.daDangKy === false ? 'Chưa đăng ký' : 'Chưa phân chuyền',
     }));
-    if (!rows.length) return res.json(await ganThuHoi(await ganMayMau(dongChua, (r) => r.lenhSX)));
+    if (!rows.length) return res.json(await ganMua(await ganThuHoi(await ganMayMau(dongChua, (r) => r.lenhSX))));
     const tu = rows.reduce((m, r) => { const d = new Date(r.ngayVaoChuyen || r.ngayBatDau); return d < m ? d : m; }, new Date());
     // SL SX = may ra HiPro (đạt + sửa + điều chỉnh lũy kế), chỉ đọc các PO của bảng và cả bảng lưu trữ pro_nscl_MM_YYYY
     // (trước đây đọc mọi PO mọi nhà máy, chỉ bảng tháng hiện hành nên PO may từ tháng trước bị thiếu SL)
@@ -312,7 +336,7 @@ router.get('/ke-hoach-phan-bo', async (req, res) => {
       const slSX = theoPO.has(kPO) ? theoPO.get(kPO) : (soPO.get(kHang) === 1 ? theoHang.get(kHang) || 0 : 0);
       return { ...r, slSX, conLai: Math.max(Number(r.soLuong || 0) - slSX, 0) };
     }).concat(dongChua);
-    res.json(await ganThuHoi(await ganMayMau(ra, (r) => (Number(r.typeCt) > 0 && r.lenhGoc ? r.lenhGoc : r.lenhSX))));
+    res.json(await ganMua(await ganThuHoi(await ganMayMau(ra, (r) => (Number(r.typeCt) > 0 && r.lenhGoc ? r.lenhGoc : r.lenhSX)))));
   } catch (err) {
     console.error('[keHoachPhanBo]', err.message);
     res.status(err.status || 500).json({ error: err.message });

@@ -675,6 +675,16 @@ module.exports = {
 
   // Lượt xuất gia công (CUTTING_PhieuGiaCongXuatKho_DaQuet: tem BTP gốc -> tem gia công TemBarCodeMoi, vd ...-IN) của mã quét:
   // mã là tem BTP gốc, tem gia công, hoặc tem cấp mới (lấy các tem BTP trong đó). Tham số: @ma
+  // Mùa (SeasonCode Bravo) theo lệnh SX. Tham số: @l0..
+  muaTheoLenh: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT a.DocNo AS lenhSX, MAX(LTRIM(RTRIM(ISNULL(a.SeasonCode, '')))) AS mua
+      FROM dbo.Bravo_LenhSanXuat_Detail a
+      WHERE a.DocNo IN (${dsThamSo('l', n)})
+      GROUP BY a.DocNo`,
+  }),
+
   // Tem LOT (tem tách cây, vd BTP2610087246-4 = cây 4 của tem BTP2610087246): CUTTING_TemBarcode_TachCay.Code. Tham số: @goc (tem cha), @ma
   temLot: {
     db: 'egmf',
