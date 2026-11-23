@@ -578,16 +578,14 @@ module.exports = {
              bc.PO AS po, bc.Mau AS mau, bc.Size AS size, bc.ChungLoai AS chungLoai,
              bc.SoLuongDaXuat AS soLuong, bc.ThoiGianQuetNhan AS thoiGianNhan, bc.NguoiQuetNhan AS nguoiNhan,
              bc.TraBTP AS traBTP,
-             -- màu SP = MauSP trên tem + màu SP các dòng bàn may của bó (dsMauSP); màu vải: CUTTING_TemBarcode_Mau (tem nhiều màu vải ghi "a;b"), không có thì MauVai trên tem (tem gia công ...-IN lấy tem BTP gốc)
-             COALESCE(NULLIF(t1.MauSP, ''), NULLIF(t2.MauSP, '')) AS mauSP, ISNULL(t1.dsMauSP, t2.dsMauSP) AS dsMauSP, COALESCE(NULLIF(mb.dsMau, ''), NULLIF(t1.MauVai, ''), NULLIF(t2.MauVai, '')) AS mauVai
+             -- màu SP = MauSP trên tem + CUTTING_PhieuHoachToan_Mau (màu vải -> màu SP, lọc theo màu vải của tem ở JS); màu vải: CUTTING_TemBarcode_Mau (tem nhiều màu vải ghi "a;b"), không có thì MauVai trên tem (tem gia công ...-IN lấy tem BTP gốc)
+             COALESCE(NULLIF(t1.MauSP, ''), NULLIF(t2.MauSP, '')) AS mauSP, ISNULL(t1.mapMau, t2.mapMau) AS mapMau, COALESCE(NULLIF(mb.dsMau, ''), NULLIF(t1.MauVai, ''), NULLIF(t2.MauVai, '')) AS mauVai
       FROM dbo.CUTTING_PhieuCapBTP_BarcodeChiTiet bc
-      OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai, STUFF((SELECT DISTINCT N'; ' + bm.MauSanPham FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c2
-                 JOIN dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm ON bm.IdBanMay = c2.IdBanMay
-                 WHERE c2.IdTem = t.Id AND ISNULL(bm.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMauSP
+      OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai, STUFF((SELECT DISTINCT N'; ' + LTRIM(RTRIM(m.MauVai)) + N'=' + LTRIM(RTRIM(m.MauSanPham)) FROM dbo.CUTTING_PhieuHoachToan_Mau m
+                 WHERE m.PhieuHoachToanId = t.PhieuHoachToanId AND ISNULL(m.MauVai, '') <> '' AND ISNULL(m.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS mapMau
                    FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t WHERE t.Barcode = bc.TemBarcodeBTP) t1
-      OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai, STUFF((SELECT DISTINCT N'; ' + bm.MauSanPham FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c2
-                 JOIN dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm ON bm.IdBanMay = c2.IdBanMay
-                 WHERE c2.IdTem = t.Id AND ISNULL(bm.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMauSP
+      OUTER APPLY (SELECT TOP 1 t.MauSP, t.MauVai, STUFF((SELECT DISTINCT N'; ' + LTRIM(RTRIM(m.MauVai)) + N'=' + LTRIM(RTRIM(m.MauSanPham)) FROM dbo.CUTTING_PhieuHoachToan_Mau m
+                 WHERE m.PhieuHoachToanId = t.PhieuHoachToanId AND ISNULL(m.MauVai, '') <> '' AND ISNULL(m.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS mapMau
                    FROM dbo.CUTTING_PhieuGiaCongXuatKho_DaQuet g
                    JOIN dbo.CUTTING_PhieuHoachToan_TemBarCode t ON t.Barcode = g.TemBarCodeBTP
                    WHERE t1.MauSP IS NULL AND g.TemBarCodeMoi = bc.TemBarcodeBTP) t2
@@ -641,10 +639,9 @@ module.exports = {
              bc.SoLuongDaXuat AS slXuat, bc.ThoiGianQuetXuat AS thoiGianXuat, bc.NguoiQuetXuat AS nguoiXuat,
              bc.SoLuongDaNhan AS slNhan, bc.ThoiGianQuetNhan AS thoiGianNhan,
              STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMau,
-             -- màu SP các dòng bàn may của bó
-             STUFF((SELECT DISTINCT N'; ' + bm.MauSanPham FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c2
-                 JOIN dbo.Cutting_PhieuDieuTietGiacSoDo_ChiTiet_BanMay bm ON bm.IdBanMay = c2.IdBanMay
-                 WHERE c2.IdTem = t.Id AND ISNULL(bm.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS dsMauSP
+             -- bảng nối màu vải -> màu SP của phiếu hoạch toán ("vải=SP; ..."), JS lọc theo màu vải của tem
+             STUFF((SELECT DISTINCT N'; ' + LTRIM(RTRIM(m.MauVai)) + N'=' + LTRIM(RTRIM(m.MauSanPham)) FROM dbo.CUTTING_PhieuHoachToan_Mau m
+                 WHERE m.PhieuHoachToanId = t.PhieuHoachToanId AND ISNULL(m.MauVai, '') <> '' AND ISNULL(m.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '') AS mapMau
       FROM dbo.CUTTING_PhieuHoachToan_TemBarCode t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 c.BanCat FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_ChiTiet c WHERE c.IdTem = t.Id) tc
@@ -663,7 +660,8 @@ module.exports = {
              bc.SoLuongDaXuat, bc.ThoiGianQuetXuat, bc.NguoiQuetXuat,
              bc.SoLuongDaNhan, bc.ThoiGianQuetNhan,
              STUFF((SELECT DISTINCT N'; ' + m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode AND ISNULL(m.MauVai, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, ''),
-             NULL
+             STUFF((SELECT DISTINCT N'; ' + LTRIM(RTRIM(m.MauVai)) + N'=' + LTRIM(RTRIM(m.MauSanPham)) FROM dbo.CUTTING_PhieuHoachToan_Mau m
+                 WHERE m.PhieuHoachToanId = t.PhieuHoachToanId AND ISNULL(m.MauVai, '') <> '' AND ISNULL(m.MauSanPham, '') <> '' FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, '')
       FROM dbo.CUTTING_PhieuHoachToan_TemBarcode_TongHop t
       LEFT JOIN dbo.CUTTING_PhieuHoachToan ht ON ht.PhieuHoachToanId = t.PhieuHoachToanId
       OUTER APPLY (SELECT TOP 1 m.MauVai FROM dbo.CUTTING_TemBarcode_Mau m WHERE m.Barcode = t.Barcode) mv

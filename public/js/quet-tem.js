@@ -48,7 +48,12 @@
       </div></div>`).join('')}</div>`;
   // Màu SP = MauSP trên tem; Màu vải: CUTTING_TemBarcode_Mau (tem nhiều màu vải ghi "23B/ GRAY DUST;77B/ NIGHT FOREST"), không có thì MauVai trên tem
   const tach = (v) => [...new Set(String(v ?? '').split(';').map((x) => x.trim()).filter(Boolean))];
-  const mauSPCua = (t) => tach([t.mau, t.dsMauSP].filter(Boolean).join(';')); // MauSP + màu SP các dòng bàn may của bó
+  // Màu SP: MauSP trên tem + bảng nối CUTTING_PhieuHoachToan_Mau ("vải=SP; ...") lọc theo các màu vải của tem
+  const mauSPTuMap = (map, vais) => {
+    const co = new Set(vais.map((v) => v.toUpperCase()));
+    return String(map || '').split(';').map((x) => x.split('=')).filter(([v, sp]) => sp && co.has(String(v).trim().toUpperCase())).map(([, sp]) => sp.trim());
+  };
+  const mauSPCua = (t) => tach([t.mau, ...mauSPTuMap(t.mapMau, mauVaiCua(t))].filter(Boolean).join(';'));
   const mauVaiCua = (t) => { const ds = tach(t.dsMau); return ds.length ? ds : tach(t.mauVai); };
   const oMau = (nhan, ds) => (!ds.length ? '' : `<div class="qr-mau"><span>${nhan}${ds.length > 1 ? ` (${ds.length} màu)` : ''}</span><div>${ds.map((m) => `<b class="chip-mau">${App.esc(m)}</b>`).join('')}</div></div>`);
   // Tem LOT (tách cây): thông tin như in trên tem
