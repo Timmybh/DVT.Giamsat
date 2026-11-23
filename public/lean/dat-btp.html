@@ -108,7 +108,7 @@
         { key: 'slMayMau', label: 'SL may mẫu', type: 'num', sum: true },
         { key: 'conLai', label: 'Còn thiếu', type: 'num', sum: true, value: (r) => Math.max(r.slDat - r.slXuat, 0), render: (r) => App.num(Math.max(r.slDat - r.slXuat, 0)) },
         { key: 'tt', label: 'Đáp ứng', render: status, total: (rs) => status({ slDat: rs.reduce((s, r) => s + Number(r.slDat || 0), 0), slXuat: rs.reduce((s, r) => s + Number(r.slXuat || 0), 0) }) },
-      ], rows, { onClick: loadDetail, footer: true, empty: 'Tổ chưa có phiếu cấp BTP trong khoảng ngày này' });
+      ], rows, { gon: true, onClick: loadDetail, footer: true, empty: 'Tổ chưa có phiếu cấp BTP trong khoảng ngày này' });
     } catch (e) { App.error(phieuCap, e); }
   }
 
@@ -124,7 +124,7 @@
       { key: 'slDat', label: 'SL đặt', type: 'num', sum: true },
       { key: 'slXuat', label: 'SL đã xuất', type: 'num', sum: true },
       { key: 'slNhan', label: 'SL đã nhận', type: 'num', sum: true },
-    ], rows, { footer: true })).catch((e) => App.error(chiTiet, e));
+    ], rows, { gon: true, footer: true })).catch((e) => App.error(chiTiet, e));
     // Màu nhiều giá trị (ghi 'a;b' hoặc gom từ nhiều nguồn): tách, bỏ trùng
     const dsMau = (...vs) => [...new Set(vs.join(';').split(';').map((x) => x.trim()).filter(Boolean))];
     App.api(`phieu-cap-btp/${so}/phieu-xuat`).then((rows) => App.table(phieuXuat, [
@@ -139,7 +139,7 @@
       { key: 'size', label: 'Size' },
       { key: 'soLuong', label: 'SL xuất', type: 'num', sum: true },
       { key: 'thoiGianNhan', label: 'Tổ nhận lúc', type: 'datetime' },
-    ], rows, { footer: true, chonCot: 'dat-btp-tem-xuat', empty: 'Khâu cắt chưa quét xuất tem nào cho phiếu này' })).catch((e) => App.error(phieuXuat, e));
+    ], rows, { gon: true, footer: true, chonCot: 'dat-btp-tem-xuat', empty: 'Khâu cắt chưa quét xuất tem nào cho phiếu này' })).catch((e) => App.error(phieuXuat, e));
   }
 
   tuNgay.onchange = denNgay.onchange = loadPhieuCap;
@@ -211,7 +211,7 @@
         { key: 'tongDat', label: 'Tổng SL đặt (mọi tổ)', type: 'num', total: (rs) => App.num(sumDistinct(rs, 'tongDat')) },
         { key: 'toDaDat', label: 'Tổ đã đặt' },
         { key: 'tongConLai', label: 'Tổng còn lại', type: 'num', render: (r) => (r.tongConLai == null ? '' : `<span style="color:${r.tongConLai < 0 ? 'var(--bad)' : 'inherit'}">${App.num(r.tongConLai)}</span>`), total: (rs) => App.num(sumDistinct(rs, 'tongConLai')) },
-      ], rows, { footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
+      ], rows, { gon: true, footer: true, empty: 'Không có dòng đặt BTP nào khớp điều kiện' });
     } catch (e) { App.error(ctResult, e); }
   }
   ctBtn.onclick = loadChiTietDat;
