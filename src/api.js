@@ -582,6 +582,37 @@ router.get('/btp-cat', handle('btpCatNXT', async (req) => ({
   lenhSX: (req.query.lenhSX || '').trim(), tuNgay: req.query.tuNgay, denNgay: req.query.denNgay, xnSo: await xnSoCua(req),
 })));
 // Tra tem chụp QR ở trang tổ trưởng may (?ma=): tem BTP cắt / tổng hợp / tem cấp mới / tem gia công (...-IN), kèm lượt xuất may và gia công
+// Cảnh báo lượt xuất chưa có kế hoạch: so lượt xuất (XN / tổ trên phiếu cấp, PO, size đặt, màu SP của tem) với kế hoạch phân bổ SBD.
+// XN so theo số trong tên; size / màu so sau khi bỏ khoảng trắng, in hoa; màu khớp khi bằng nhau hoặc chứa nhau (09-CORDOVAN ~ CORDOVAN);
+// kế hoạch chưa nhập SBD (màu / size trống) khớp mọi màu / size. khCanhBao: null = có kế hoạch, ngược lại là lý do.
+async function ganKHXuat(rows) {
+  const xuat = rows.filter((r) => r.soPhieuCap || r.thoiGianXuat);
+  const dsPO = [...new Set(xuat.map((r) => String(r.po ?? '').trim()).filter(Boolean))].slice(0, 500);
+  if (!dsPO.length) return rows;
+  const kh = await run('khXuatTem', Object.fromEntries(dsPO.map((p, i) => [`p${i}`, p])), { n: dsPO.length });
+  const so = (v) => (/\d+/.exec(String(v ?? '')) || [''])[0].replace(/^0+/, '');
+  const ch = (v) => String(v ?? '').toUpperCase().replace(/\s+/g, '');
+  const tach = (v) => String(v ?? '').split(';').map((x) => x.trim()).filter(Boolean);
+  const mauKhop = (a, b) => { const x = ch(a); const y = ch(b); return !x || !y || x === y || x.includes(y) || y.includes(x); };
+  return rows.map((r) => {
+    if (!(r.soPhieuCap || r.thoiGianXuat)) return r;
+    const po = ch(r.po);
+    if (!po) return { ...r, khCanhBao: 'Lượt xuất không ghi PO' };
+    const cungPO = kh.filter((k) => ch(k.po) === po);
+    if (!cungPO.length) return { ...r, khCanhBao: 'PO chưa có kế hoạch phân bổ' };
+    const cungTo = cungPO.filter((k) => so(k.xnTen) === so(r.xn) && ch(k.maTo) === ch(r.maTo));
+    if (!cungTo.length) return { ...r, khCanhBao: `Chưa có kế hoạch cho ${[r.xn, r.maTo && `tổ ${r.maTo}`].filter(Boolean).join(' / ')}`, khTo: [...new Set(cungPO.map((k) => `XN${so(k.xnTen)} / tổ ${k.maTo}`))].join(', ') };
+    const size = ch(r.sizeDat || r.size);
+    const cungSize = cungTo.filter((k) => !ch(k.size) || !size || ch(k.size) === size);
+    if (!cungSize.length) return { ...r, khCanhBao: `Chưa có kế hoạch size ${r.sizeDat || r.size}` };
+    // màu SP của tem: MauSP + bảng nối màu vải -> màu SP (lọc theo màu vải của tem)
+    const vai = new Set((tach(r.dsMau).length ? tach(r.dsMau) : tach(r.mauVai)).map(ch));
+    const mauSP = [...tach(r.mau), ...tach(r.mapMau).map((x) => x.split('=')).filter(([v, sp]) => sp && vai.has(ch(v))).map(([, sp]) => sp)];
+    const cungMau = !mauSP.length ? cungSize : cungSize.filter((k) => mauSP.some((m) => mauKhop(k.mau, m)));
+    if (!cungMau.length) return { ...r, khCanhBao: `Chưa có kế hoạch màu ${mauSP.join(', ')} size ${r.sizeDat || r.size}` };
+    return { ...r, khCanhBao: null };
+  });
+}
 router.get('/tem-tra', async (req, res) => {
   try {
     const ma = String(req.query.ma || '').trim().slice(0, 100);
@@ -597,7 +628,9 @@ router.get('/tem-tra', async (req, res) => {
     try {
       if (lenhs.length) keHoach = await run('khTheoLenhTem', Object.fromEntries(lenhs.map((l, i) => [`l${i}`, l])), { n: lenhs.length });
     } catch (e) { console.error('[tem-tra kh]', e.message); }
-    res.json({ ma, maTra, lot, rows, giaCong, keHoach });
+    let ra = rows;
+    try { ra = await ganKHXuat(rows); } catch (e) { console.error('[tem-tra kh xuat]', e.message); }
+    res.json({ ma, maTra, lot, rows: ra, giaCong, keHoach });
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });

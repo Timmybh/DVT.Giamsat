@@ -146,9 +146,13 @@ module.exports = {
     loaiTem: /^BTH/i.test(ma) ? 'Tem tổng hợp (phối bộ)' : 'Tem BTP cắt', barcode: ma.toUpperCase().replace(/-IN$/, ''), temBTPXuat: `${ma.toUpperCase().replace(/-IN$/, '')}${i ? '-IN' : ''}`, ngayTao: new Date(Date.now() - 3 * 86400000),
     lenhSX: 'TUNTT-0622-2026', maHang: '345214', mua: 'SS27', loaiNL: 'Vải chính', chiTiet: '', mau: /^BTH/i.test(ma) ? null : '8941360 NOIR', mauVai: 'NOIR', mapMau: /^BTP2611006977/i.test(ma) ? '23B/ GRAY DUST=23B; 77B/ NIGHT FOREST=77B; 88C/ RED=88C' : null, dsMau: /^BTP2611006977/i.test(ma) ? '23B/ GRAY DUST;77B/ NIGHT FOREST' : /^BTH/i.test(ma) ? '4178617 - DKT-N07A BLACK; 4178618 - DKT-N07A NAVY; 4178619 - DKT-N07A RED' : '', size: 'M',
     banCat: 'BC-12', banMay: 'Bàn may 3', phieuHoachToan: 'HT-2610-0042', viTri: 'Kệ A2', phongBan: 'Xí nghiệp may 1', slTem: 40, slThucXuat: 30,
-    soPhieuCap: `PC-2611-00${i + 7}`, temXuat: `CAP2611000${i + 5}`, lenhXuat: 'TUNTT-0622-2026', po: '4524284980', sizeDat: 'M', xn: 'XN1', maTo: '3',
+    soPhieuCap: `PC-2611-00${i + 7}`, temXuat: `CAP2611000${i + 5}`, lenhXuat: 'TUNTT-0622-2026', po: '4524284980', sizeDat: i ? 'XL' : 'M', xn: 'XN1', maTo: '3',
     slXuat: 15, thoiGianXuat: new Date(Date.now() - (2 - i) * 86400000), nguoiXuat: 'Nguyễn Văn A', slNhan: i ? null : 15, thoiGianNhan: i ? null : new Date(Date.now() - 86400000),
   }))),
+  khXuatTem: (p) => Object.values(p).flatMap((po) => [
+    { xnTen: 'XÍ NGHIỆP MAY 1', maTo: '3', po, mau: '8941360 NOIR', size: 'M', soLuong: 100 },
+    { xnTen: 'XÍ NGHIỆP MAY 1', maTo: '3', po, mau: 'NOIR', size: 'L', soLuong: 100 },
+  ]),
   muaTheoLenh: (p) => Object.values(p).map((lenhSX, i) => ({ lenhSX, mua: ['SS27', 'FW26', 'SS26'][i % 3] })),
   temLot: ({ goc, ma }) => (!/^BTP/i.test(goc) ? [] : [{
     code: ma.toUpperCase(), barcode: goc.toUpperCase(), lenhSX: 'OANHTTK-0442-2026', maHang: '380327', mua: 'SS27', banMay: '5', size: 'M', cay: Number(ma.split('-').pop()),

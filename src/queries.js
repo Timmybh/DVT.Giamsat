@@ -675,6 +675,24 @@ module.exports = {
 
   // Lượt xuất gia công (CUTTING_PhieuGiaCongXuatKho_DaQuet: tem BTP gốc -> tem gia công TemBarCodeMoi, vd ...-IN) của mã quét:
   // mã là tem BTP gốc, tem gia công, hoặc tem cấp mới (lấy các tem BTP trong đó). Tham số: @ma
+  // Kế hoạch phân bổ (mọi XN) theo XN x tổ x PO x màu x size (SBD) của các PO trên lượt xuất tem; kế hoạch chưa nhập SBD thì màu / size trống
+  // (khớp mọi màu / size). Bỏ kế hoạch huỷ. Tham số: @p0..
+  khXuatTem: ({ n = 0 } = {}) => ({
+    db: 'egmf',
+    text: `
+      SELECT xn.TenXiNghiep AS xnTen, LTRIM(RTRIM(e.TenCum)) AS maTo, LTRIM(RTRIM(po.PONo)) AS po,
+             ISNULL(s.TenMau, '') AS mau, ISNULL(s.TenSize, '') AS size, SUM(ISNULL(s.SoLuong, k.SoLuong)) AS soLuong${sbdMoCot}
+      FROM dbo.OMM_KeHoachThang k
+      LEFT JOIN dbo.OMM_KeHoachThang_SBD s ON s.KHTId = k.KHTId
+      JOIN dbo.OMM_PO_ChiTiet ct ON ct.POCTId = k.CTPOId
+      JOIN dbo.OMM_PO po ON po.POId = ct.POId
+      JOIN dbo.Lib_CumChuyen e ON e.CumId = k.ChuyenId
+      JOIN dbo.Lib_PhanXuong px ON px.PXId = e.PXId
+      JOIN dbo.Lib_XiNghiep xn ON xn.XNId = px.XNId
+      WHERE po.PONo IN (${dsThamSo('p', n)}) AND k.SoLuong > 0 AND ISNULL(k.TinhTrang, '') NOT LIKE 'Huy%'
+      GROUP BY xn.TenXiNghiep, LTRIM(RTRIM(e.TenCum)), LTRIM(RTRIM(po.PONo)), ISNULL(s.TenMau, ''), ISNULL(s.TenSize, '')${sbdMoNhom}`,
+  }),
+
   // Mùa (SeasonCode Bravo) theo lệnh SX. Tham số: @l0..
   muaTheoLenh: ({ n = 0 } = {}) => ({
     db: 'egmf',

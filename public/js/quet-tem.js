@@ -45,7 +45,7 @@
         ${o('PO', r.po, 'o-vien')}${o('Size', r.sizeDat)}${o('SL xuất', App.num(r.slXuat))}
         ${o('Lúc xuất', App.datetime(r.thoiGianXuat))}${o('Người xuất', r.nguoiXuat)}${o('SL nhận', App.num(r.slNhan))}
         ${o('Lúc nhận', App.datetime(r.thoiGianNhan))}${o('Tem xuất', r.temBTPXuat)}${o('Tem cấp', r.temXuat)}
-      </div></div>`).join('')}</div>`;
+      </div>${r.khCanhBao ? `<div class="qr-canh-bao">⚠ ${App.esc(r.khCanhBao)}${r.khTo ? ` <span>(đã có KH: ${App.esc(r.khTo)})</span>` : ''}</div>` : ''}</div>`).join('')}</div>`;
   // Màu SP = MauSP trên tem; Màu vải: CUTTING_TemBarcode_Mau (tem nhiều màu vải ghi "23B/ GRAY DUST;77B/ NIGHT FOREST"), không có thì MauVai trên tem
   const tach = (v) => [...new Set(String(v ?? '').split(';').map((x) => x.trim()).filter(Boolean))];
   // Màu SP: MauSP trên tem + bảng nối CUTTING_PhieuHoachToan_Mau ("vải=SP; ...") lọc theo các màu vải của tem
