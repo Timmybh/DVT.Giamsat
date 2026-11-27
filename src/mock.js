@@ -150,8 +150,8 @@ module.exports = {
     slXuat: 15, thoiGianXuat: new Date(Date.now() - (2 - i) * 86400000), nguoiXuat: 'Nguyễn Văn A', slNhan: i ? null : 15, thoiGianNhan: i ? null : new Date(Date.now() - 86400000),
   }))),
   khXuatTem: (p) => Object.values(p).flatMap((po) => [
-    { xnTen: 'XÍ NGHIỆP MAY 1', maTo: '3', po, mau: '8941360 NOIR', size: 'M', soLuong: 100 },
-    { xnTen: 'XÍ NGHIỆP MAY 1', maTo: '3', po, mau: 'NOIR', size: 'L', soLuong: 100 },
+    { xnTen: 'XÍ NGHIỆP MAY 1', maTo: '3', po, maHang: '345214', mau: '8941360 NOIR', size: 'M', soLuong: 100 },
+    { xnTen: 'XÍ NGHIỆP MAY 1', maTo: '3', po, maHang: '345214', mau: 'NOIR', size: 'L', soLuong: 100 },
   ]),
   muaTheoLenh: (p) => Object.values(p).map((lenhSX, i) => ({ lenhSX, mua: ['SS27', 'FW26', 'SS26'][i % 3] })),
   temLot: ({ goc, ma }) => (!/^BTP/i.test(goc) ? [] : [{

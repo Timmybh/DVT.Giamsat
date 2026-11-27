@@ -600,8 +600,11 @@ async function ganKHXuat(rows) {
     if (!po) return { ...r, khCanhBao: 'Lượt xuất không ghi PO' };
     const cungPO = kh.filter((k) => ch(k.po) === po);
     if (!cungPO.length) return { ...r, khCanhBao: 'PO chưa có kế hoạch phân bổ' };
-    const cungTo = cungPO.filter((k) => so(k.xnTen) === so(r.xn) && ch(k.maTo) === ch(r.maTo));
-    if (!cungTo.length) return { ...r, khCanhBao: `Chưa có kế hoạch cho ${[r.xn, r.maTo && `tổ ${r.maTo}`].filter(Boolean).join(' / ')}`, khTo: [...new Set(cungPO.map((k) => `XN${so(k.xnTen)} / tổ ${k.maTo}`))].join(', ') };
+    const maHang = ch(r.maHang);
+    const cungMH = !maHang ? cungPO : cungPO.filter((k) => ch(k.maHang) === maHang);
+    if (!cungMH.length) return { ...r, khCanhBao: `PO ${r.po} chưa có kế hoạch cho mã hàng ${r.maHang}`, khTo: [...new Set(cungPO.map((k) => k.maHang).filter(Boolean))].join(', ') };
+    const cungTo = cungMH.filter((k) => so(k.xnTen) === so(r.xn) && ch(k.maTo) === ch(r.maTo));
+    if (!cungTo.length) return { ...r, khCanhBao: `Chưa có kế hoạch cho ${[r.xn, r.maTo && `tổ ${r.maTo}`].filter(Boolean).join(' / ')}`, khTo: [...new Set(cungMH.map((k) => `XN${so(k.xnTen)} / tổ ${k.maTo}`))].join(', ') };
     const size = ch(r.sizeDat || r.size);
     const cungSize = cungTo.filter((k) => !ch(k.size) || !size || ch(k.size) === size);
     if (!cungSize.length) return { ...r, khCanhBao: `Chưa có kế hoạch size ${r.sizeDat || r.size}` };
